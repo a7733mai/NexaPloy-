@@ -1,0 +1,186 @@
+# Nexaploy proxy stack  (/opt/nexaploy/proxy/docker-compose.yml)
+# Compose project "nexaploy-proxy". See ARCHITECTURE.md §3.3.
+#
+# Routing is done by the FILE provider: one file per site in ./config/sites
+# (written by the agent from site-route.yml.j2) plus static middlewares in
+# ./config/traefik/dynamic.yml. The Docker provider (via a read-only socket
+# proxy) is only there for the dashboard/diagnostics; benches carry no labels.
+name: nexaploy-proxy
+
+x-logging: &logging
+  driver: local
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.3.0
+    container_name: nexaploy-socket-proxy
+    environment:
+      # Read-only API surface: list containers/networks/services, nothing else.
+      CONTAINERS: "1"
+      NETWORKS: "1"
+      SERVICES: "0"
+      TASKS: "0"
+      INFO: "1"
+      VERSION: "1"
+      PING: "1"
+      EVENTS: "1"
+      POST: "0"
+      BUILD: "0"
+      COMMIT: "0"
+      EXEC: "0"
+      IMAGES: "0"
+      VOLUMES: "0"
+      SECRETS: "0"
+      AUTH: "0"
+      LOG_LEVEL: warning
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    read_only: true
+    tmpfs:
+      - /run
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - socket-proxy
+    restart: unless-stopped
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64M
+
+  traefik:
+    image: ${TRAEFIK_IMAGE:-traefik:v3.3}
+    container_name: nexaploy-traefik
+    user: "3100:3100"
+    command:
+      - --global.checkNewVersion=false
+      - --global.sendAnonymousUsage=false
+      - --log.level=${TRAEFIK_LOG_LEVEL:-INFO}
+      - --log.format=json
+      # Entrypoints (unprivileged container ports; host 80/443 are published)
+      - --entrypoints.web.address=:8080
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.web.http.redirections.entrypoint.permanent=true
+      - --entrypoints.websecure.address=:8443
+      - --entrypoints.websecure.http.tls=true
+      - --entrypoints.ping.address=:8082
+      - --entrypoints.metrics.address=:9100
+      # Providers
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+      - --providers.docker=true
+      - --providers.docker.endpoint=tcp://nexaploy-socket-proxy:2375
+      - --providers.docker.exposedByDefault=false
+      - --providers.docker.network=proxy-network
+      # ACME (HTTP-01)
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:?ACME_EMAIL must be set in .env}
+      - --certificatesresolvers.letsencrypt.acme.storage=/data/certificates/acme.json
+      - --certificatesresolvers.letsencrypt.acme.caServer=${ACME_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      # Observability
+      - --accesslog=true
+      - --accesslog.format=json
+      - --accesslog.filepath=/logs/access.log
+      - --accesslog.bufferingsize=100
+      - --accesslog.fields.headers.defaultmode=drop
+      - --metrics.prometheus=true
+      - --metrics.prometheus.entrypoint=metrics
+      - --metrics.prometheus.addEntryPointsLabels=true
+      - --metrics.prometheus.addRoutersLabels=true
+      - --metrics.prometheus.addServicesLabels=true
+      - --ping=true
+      - --ping.entrypoint=ping
+      - --api.dashboard=true
+      - --api.insecure=false
+    ports:
+      - "${HTTP_PORT:-80}:8080"
+      - "${HTTPS_PORT:-443}:8443"
+    volumes:
+      - ./config/traefik:/etc/traefik/dynamic/traefik:ro
+      - ./config/sites:/etc/traefik/dynamic/sites:ro
+      - ./data:/data
+      - ./logs:/logs
+    environment:
+      TZ: ${TZ:-UTC}
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=16m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - proxy-network
+      - socket-proxy
+    depends_on:
+      - socket-proxy
+    healthcheck:
+      # Static config comes from flags, so the healthcheck must be told
+      # where the ping entrypoint lives.
+      test: ["CMD", "traefik", "healthcheck", "--ping", "--ping.entrypoint=ping", "--entrypoints.ping.address=:8082"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: "${TRAEFIK_CPUS:-1}"
+          memory: ${TRAEFIK_MEM:-512M}
+
+  # Optional: CrowdSec log analyser (COMPOSE_PROFILES=crowdsec). It parses the
+  # Traefik JSON access log; attach a bouncer separately to enforce decisions.
+  crowdsec:
+    image: crowdsecurity/crowdsec:v1.6.4
+    container_name: nexaploy-crowdsec
+    profiles: ["crowdsec"]
+    environment:
+      COLLECTIONS: ${CROWDSEC_COLLECTIONS:-crowdsecurity/traefik crowdsecurity/http-cve}
+      TZ: ${TZ:-UTC}
+    configs:
+      - source: crowdsec-acquis
+        target: /etc/crowdsec/acquis.d/traefik.yaml
+    volumes:
+      - ./logs:/var/log/traefik:ro
+      - crowdsec-db:/var/lib/crowdsec/data
+      - crowdsec-config:/etc/crowdsec
+    security_opt:
+      - no-new-privileges:true
+    # default project network (needs egress to fetch hub collections)
+    restart: unless-stopped
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+configs:
+  crowdsec-acquis:
+    content: |
+      filenames:
+        - /var/log/traefik/access.log
+      labels:
+        type: traefik
+
+volumes:
+  crowdsec-db: {}
+  crowdsec-config: {}
+
+networks:
+  proxy-network:
+    name: proxy-network
+    external: true
+  socket-proxy:
+    name: nexaploy-socket-proxy
+    internal: true

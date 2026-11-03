@@ -1,0 +1,24 @@
+[Unit]
+Description=Nexaploy agent API (local REST, 127.0.0.1:8787)
+Documentation=https://github.com/a7733mai/NexaPloy-
+After=network-online.target docker.service
+Wants=network-online.target docker.service
+
+[Service]
+Type=simple
+# Root: the API reads bench/site state under /opt/nexaploy and queries docker.
+User=root
+Environment=NEXAPLOY_CONFIG=/opt/nexaploy/config/agent.toml
+Environment=PYTHONUNBUFFERED=1
+WorkingDirectory=/opt/nexaploy/agent
+ExecStart=/opt/nexaploy/agent/.venv/bin/nexaploy-agent api
+Restart=always
+RestartSec=3
+UMask=0027
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
