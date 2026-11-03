@@ -124,7 +124,6 @@ services:
     volumes:
       - ./sites:/home/frappe/frappe-bench/sites
       - ./logs:/home/frappe/frappe-bench/logs
-      - assets:/home/frappe/frappe-bench/sites/assets
     networks:
       - bench-net
       - nexaploy-db
@@ -164,7 +163,6 @@ services:
       CLIENT_MAX_BODY_SIZE: ${CLIENT_MAX_BODY_SIZE:-50m}
     volumes:
       - ./sites:/home/frappe/frappe-bench/sites:ro
-      - assets:/home/frappe/frappe-bench/sites/assets:ro
     networks:
       - bench-net
       - proxy-network
@@ -220,7 +218,6 @@ services:
     volumes:
       - ./sites:/home/frappe/frappe-bench/sites
       - ./logs:/home/frappe/frappe-bench/logs
-      - assets:/home/frappe/frappe-bench/sites/assets:ro
     networks:
       - bench-net
       - nexaploy-db
@@ -239,7 +236,6 @@ services:
     volumes:
       - ./sites:/home/frappe/frappe-bench/sites
       - ./logs:/home/frappe/frappe-bench/logs
-      - assets:/home/frappe/frappe-bench/sites/assets:ro
     networks:
       - bench-net
       - nexaploy-db
@@ -258,7 +254,6 @@ services:
     volumes:
       - ./sites:/home/frappe/frappe-bench/sites
       - ./logs:/home/frappe/frappe-bench/logs
-      - assets:/home/frappe/frappe-bench/sites/assets:ro
     networks:
       - bench-net
       - nexaploy-db
@@ -277,7 +272,6 @@ services:
     volumes:
       - ./sites:/home/frappe/frappe-bench/sites
       - ./logs:/home/frappe/frappe-bench/logs
-      - assets:/home/frappe/frappe-bench/sites/assets:ro
     networks:
       - bench-net
       - nexaploy-db
@@ -332,12 +326,10 @@ services:
           cpus: "${REDIS_CPUS:-0.5}"
           memory: ${REDIS_QUEUE_MEM:-512M}
 
-volumes:
-  # Built assets (sites/assets) are baked into the image under the sites dir,
-  # which ./sites hides. This named volume is seeded from the image on first
-  # creation; on image update it must be removed so it is re-seeded
-  # (`docker compose down && docker volume rm {{ bench }}_assets`).
-  assets: {}
+# Built assets: the image entrypoint (nexaploy-entrypoint.sh) symlinks
+# sites/assets -> /home/frappe/frappe-bench/assets (baked into the image) on
+# every start, so a new image always serves its own assets. Do NOT override
+# `entrypoint:` on long-running services.
 
 networks:
   bench-net:

@@ -46,11 +46,10 @@ Bind mounts (relative to the bench dir, created by the agent):
 | `./logs` | `/home/frappe/frappe-bench/logs` | 3113 |
 | `./redis-queue` | `/data` (redis-queue AOF) | 3102 |
 
-Plus a named volume `assets` (`<bench>_assets`) on `sites/assets`: the image
-ships built assets inside the sites dir, which the `./sites` bind mount hides,
-so Docker seeds this volume from the image on first use. **After changing the
-image (bench update) remove it so it is re-seeded:**
-`docker compose down && docker volume rm <bench>_assets && docker compose up -d`.
+Built assets are not a volume: the image entrypoint (`nexaploy-entrypoint.sh`,
+see `image-builder/`) symlinks `sites/assets` to the assets baked into the image
+on every container start, so after a bench update the new image's assets are
+served automatically. Never override `entrypoint:` on long-running services.
 
 The configurator writes `sites/apps.txt` (from the image's `apps/`) and sets
 `db_host`, `db_port`, `redis_cache`, `redis_queue`, `redis_socketio`,

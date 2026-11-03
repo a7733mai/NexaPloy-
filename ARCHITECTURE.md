@@ -171,9 +171,11 @@ image-builder/
 {
   "14": {"python": "3.10.13", "node": "16.20.2", "frappe_branch": "version-14", "debian": "bookworm"},
   "15": {"python": "3.11.6",  "node": "18.20.2", "frappe_branch": "version-15", "debian": "bookworm"},
-  "16": {"python": "3.11.6",  "node": "20.19.2", "frappe_branch": "version-16", "debian": "bookworm"}
+  "16": {"python": "3.14.10", "node": "24.22.2", "frappe_branch": "version-16", "debian": "trixie"}
 }
 ```
+
+(v16 requires Python >=3.14,<3.15 and Node >=24 — verified against frappe `version-16` pyproject/package.json on 2026-11-03.)
 
 `build.sh` contract:
 
@@ -186,6 +188,8 @@ build.sh --major 15 --apps-json /path/apps.json --tag nexaploy/bench:erp-v15-mai
 - Exit 0 on success; prints the final tag on the last stdout line.
 - Pass apps.json as `APPS_JSON_BASE64`; nginx template/entrypoint come from the upstream frappe_docker context (`resources/` paths kept).
 - Resulting image runs as UID 3113 (`frappe`), includes rclone, restic, mariadb-client, wait-for-it, jq, CMD = gunicorn, ships `nginx-entrypoint.sh`.
+- The image ENTRYPOINT `nexaploy-entrypoint.sh` symlinks `sites/assets` → baked `/home/frappe/frappe-bench/assets` and refreshes `sites/apps.txt` on each start (the `./sites` bind mount hides them). Compose files must not override `entrypoint:` on long-running services.
+- apps.json must not list frappe itself (installed via `--frappe-branch`).
 - Apps in apps.json are `{url, branch}` objects; private repos via `https://<token>@github.com/...` are the caller's responsibility.
 
 ## 5. Agent (component C)
