@@ -1,0 +1,176 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:server_id",
+ "creation": "2026-11-03 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "server_id",
+  "hostname",
+  "ownership",
+  "status",
+  "column_break_1",
+  "team",
+  "plan",
+  "is_build_server",
+  "section_break_agent",
+  "agent_version",
+  "last_heartbeat",
+  "column_break_2",
+  "token_hash",
+  "section_break_facts",
+  "facts",
+  "benches_report"
+ ],
+ "fields": [
+  {
+   "description": "Assigned on registration (srv-xxxxxxxx). Used as the document name.",
+   "fieldname": "server_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Server ID",
+   "read_only": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "hostname",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Hostname"
+  },
+  {
+   "default": "BYOS",
+   "fieldname": "ownership",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Ownership",
+   "options": "Hosted\nBYOS",
+   "reqd": 1
+  },
+  {
+   "default": "Pending",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Pending\nActive\nOffline\nArchived",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Customer user that owns this server.",
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Team (Owner)",
+   "options": "User"
+  },
+  {
+   "fieldname": "plan",
+   "fieldtype": "Link",
+   "label": "Plan",
+   "options": "Nexaploy Plan"
+  },
+  {
+   "description": "May be chosen as build server for Release Groups.",
+   "fieldname": "is_build_server",
+   "fieldtype": "Check",
+   "label": "Is Build Server"
+  },
+  {
+   "fieldname": "section_break_agent",
+   "fieldtype": "Section Break",
+   "label": "Agent"
+  },
+  {
+   "fieldname": "agent_version",
+   "fieldtype": "Data",
+   "label": "Agent Version",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_heartbeat",
+   "fieldtype": "Datetime",
+   "label": "Last Heartbeat",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "sha256 of the server token. The plaintext token is never stored.",
+   "fieldname": "token_hash",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Token Hash",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_facts",
+   "fieldtype": "Section Break",
+   "label": "Facts"
+  },
+  {
+   "fieldname": "facts",
+   "fieldtype": "JSON",
+   "label": "Facts",
+   "read_only": 1
+  },
+  {
+   "fieldname": "benches_report",
+   "fieldtype": "JSON",
+   "label": "Benches (reported)",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-03 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Server",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Nexaploy Customer",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "search_fields": "hostname,team",
+ "show_title_field_in_link": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "hostname",
+ "track_changes": 1
+}

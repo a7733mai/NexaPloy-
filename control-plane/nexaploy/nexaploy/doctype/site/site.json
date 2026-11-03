@@ -1,0 +1,189 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:site_name",
+ "creation": "2026-11-03 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "site_name",
+  "bench",
+  "server",
+  "column_break_1",
+  "status",
+  "team",
+  "plan",
+  "admin_password",
+  "section_break_apps",
+  "apps",
+  "section_break_domains",
+  "domains",
+  "section_break_move",
+  "move_target_bench",
+  "move_backup",
+  "column_break_move",
+  "move_steps",
+  "move_step_idx"
+ ],
+ "fields": [
+  {
+   "description": "Lowercase FQDN (ARCHITECTURE.md section 2).",
+   "fieldname": "site_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Site Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "bench",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Bench",
+   "options": "Bench",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "bench.server",
+   "fieldname": "server",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Server",
+   "options": "Server",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Pending",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Pending\nActive\nMoving\nBroken\nSuspended\nArchived",
+   "read_only": 1
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "label": "Team (Owner)",
+   "options": "User"
+  },
+  {
+   "fieldname": "plan",
+   "fieldtype": "Link",
+   "label": "Plan",
+   "options": "Nexaploy Plan"
+  },
+  {
+   "fieldname": "admin_password",
+   "fieldtype": "Password",
+   "label": "Administrator Password",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_apps",
+   "fieldtype": "Section Break",
+   "label": "Apps"
+  },
+  {
+   "fieldname": "apps",
+   "fieldtype": "Table",
+   "label": "Apps",
+   "options": "Site App"
+  },
+  {
+   "fieldname": "section_break_domains",
+   "fieldtype": "Section Break",
+   "label": "Domains"
+  },
+  {
+   "fieldname": "domains",
+   "fieldtype": "Table",
+   "label": "Domains",
+   "options": "Site Domain"
+  },
+  {
+   "collapsible": 1,
+   "description": "State of an in-progress move to another bench (backup -> restore).",
+   "fieldname": "section_break_move",
+   "fieldtype": "Section Break",
+   "label": "Move"
+  },
+  {
+   "fieldname": "move_target_bench",
+   "fieldtype": "Link",
+   "label": "Move Target Bench",
+   "options": "Bench",
+   "read_only": 1
+  },
+  {
+   "fieldname": "move_backup",
+   "fieldtype": "Link",
+   "label": "Move Backup",
+   "options": "Site Backup",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_move",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "move_steps",
+   "fieldtype": "JSON",
+   "label": "Move Steps",
+   "read_only": 1
+  },
+  {
+   "fieldname": "move_step_idx",
+   "fieldtype": "Int",
+   "label": "Move Step Index",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-03 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Site",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Nexaploy Customer",
+   "share": 0,
+   "write": 1
+  }
+ ],
+ "show_title_field_in_link": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "site_name",
+ "track_changes": 1
+}

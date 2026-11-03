@@ -1,0 +1,50 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-03 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "frappe_major",
+  "branch",
+  "commit"
+ ],
+ "fields": [
+  {
+   "fieldname": "frappe_major",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Frappe Major",
+   "options": "14\n15\n16",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Branch",
+   "reqd": 1
+  },
+  {
+   "description": "Optional pinned commit hash.",
+   "fieldname": "commit",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Commit"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-03 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Marketplace App Release",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

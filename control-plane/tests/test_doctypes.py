@@ -1,0 +1,209 @@
+"""Static checks of the Frappe app layout and DocType JSON (no frappe needed)."""
+
+import ast
+import json
+import os
+import re
+import tomllib
+
+import pytest
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+APP = os.path.join(ROOT, "nexaploy")
+DOCTYPE_DIR = os.path.join(APP, "nexaploy", "doctype")
+
+EXPECTED = {
+	"Server", "Server Registration Token", "Marketplace App", "Marketplace App Release",
+	"Release Group", "Release Group App", "Deploy Candidate", "Bench", "Site", "Site Domain",
+	"Site App", "Site Backup", "Agent Job", "Agent Job Step", "Nexaploy Plan",
+}
+CHILD_TABLES = {"Marketplace App Release", "Release Group App", "Site Domain", "Site App", "Agent Job Step"}
+REQUIRED_KEYS = {"doctype", "name", "module", "fields", "permissions", "modified", "istable", "engine"}
+VALID_FIELDTYPES = {
+	"Data", "Select", "Link", "Dynamic Link", "Check", "Int", "Float", "Currency", "Datetime", "Date",
+	"JSON", "Long Text", "Small Text", "Text", "Text Editor", "Code", "Password", "Table",
+	"Section Break", "Column Break", "Tab Break", "Read Only",
+}
+LAYOUT = {"Section Break", "Column Break", "Tab Break"}
+# Frappe's reserved/default columns cannot be redefined as fields.
+RESERVED = {"name", "owner", "creation", "modified", "modified_by", "docstatus", "idx", "parent",
+            "parentfield", "parenttype", "doctype"}
+
+
+def snake(name):
+	return name.lower().replace(" ", "_")
+
+
+def load_all():
+	docs = {}
+	for folder in sorted(os.listdir(DOCTYPE_DIR)):
+		path = os.path.join(DOCTYPE_DIR, folder, folder + ".json")
+		if os.path.isfile(path):
+			with open(path) as fh:
+				docs[folder] = json.load(fh)
+	return docs
+
+
+DOCS = load_all()
+BY_NAME = {d["name"]: d for d in DOCS.values()}
+
+
+def test_all_doctypes_present():
+	assert set(BY_NAME) == EXPECTED
+
+
+@pytest.mark.parametrize("folder", sorted(DOCS))
+def test_doctype_json(folder):
+	d = DOCS[folder]
+	missing = REQUIRED_KEYS - set(d)
+	assert not missing, f"{folder}: missing {missing}"
+	assert d["doctype"] == "DocType"
+	assert d["module"] == "Nexaploy"
+	assert snake(d["name"]) == folder
+	base = os.path.join(DOCTYPE_DIR, folder)
+	assert os.path.isfile(os.path.join(base, "__init__.py"))
+	assert os.path.isfile(os.path.join(base, folder + ".py"))
+
+	names = [f["fieldname"] for f in d["fields"]]
+	assert len(names) == len(set(names)), f"{folder}: duplicate fieldnames"
+	assert d.get("field_order", names) == names
+	for f in d["fields"]:
+		assert re.match(r"^[a-z][a-z0-9_]*$", f["fieldname"]), f["fieldname"]
+		assert f["fieldname"] not in RESERVED, f"{folder}: reserved fieldname {f['fieldname']}"
+		assert f["fieldtype"] in VALID_FIELDTYPES, f"{folder}.{f['fieldname']}: {f['fieldtype']}"
+		if f["fieldtype"] not in LAYOUT:
+			assert f.get("label"), f"{folder}.{f['fieldname']} has no label"
+		if f["fieldtype"] in ("Link", "Table"):
+			assert f.get("options"), f"{folder}.{f['fieldname']} needs options"
+		if f["fieldtype"] == "Dynamic Link":
+			assert f.get("options") in names
+		for flag in ("reqd", "unique", "in_list_view", "read_only", "hidden"):
+			assert f.get(flag, 0) in (0, 1)
+
+	autoname = d.get("autoname", "")
+	if autoname.startswith("field:"):
+		assert autoname[len("field:"):] in names
+
+	if d["istable"]:
+		assert d["permissions"] == []
+	else:
+		roles = {p["role"] for p in d["permissions"]}
+		assert "System Manager" in roles
+
+
+def test_child_tables():
+	for name in CHILD_TABLES:
+		assert BY_NAME[name]["istable"] == 1
+	for name in EXPECTED - CHILD_TABLES:
+		assert BY_NAME[name]["istable"] == 0
+	used = set()
+	for d in BY_NAME.values():
+		for f in d["fields"]:
+			if f["fieldtype"] == "Table":
+				target = f["options"]
+				assert target in BY_NAME, f"{d['name']}.{f['fieldname']} -> unknown {target}"
+				assert BY_NAME[target]["istable"] == 1
+				used.add(target)
+	assert used == CHILD_TABLES
+
+
+def test_links_resolve():
+	frappe_core = {"User", "DocType", "Currency"}
+	for d in BY_NAME.values():
+		for f in d["fields"]:
+			if f["fieldtype"] == "Link":
+				assert f["options"] in BY_NAME or f["options"] in frappe_core, f"{d['name']}.{f['fieldname']}"
+			if f.get("fetch_from"):
+				link, _, target = f["fetch_from"].partition(".")
+				link_field = next(x for x in d["fields"] if x["fieldname"] == link)
+				linked = BY_NAME.get(link_field["options"])
+				assert linked and any(x["fieldname"] == target for x in linked["fields"])
+
+
+def test_spec_fields_present():
+	"""Key fields from ARCHITECTURE.md §8."""
+	spec = {
+		"Server": "server_id hostname ownership team status token_hash last_heartbeat facts plan",
+		"Server Registration Token": "token_hash team expires_on used server",
+		"Marketplace App": "app_name title repo_url publisher category description pricing price_monthly approved releases",
+		"Marketplace App Release": "frappe_major branch commit",
+		"Release Group": "title frappe_major frappe_branch team apps build_server",
+		"Release Group App": "app branch",
+		"Deploy Candidate": "release_group build_id image_tag apps_json status build_log",
+		"Bench": "bench_name server release_group image_tag status",
+		"Site": "site_name bench server team status plan domains apps admin_password",
+		"Site Backup": "site remote_path with_files status size created_at",
+		"Agent Job": "server kind params status reference_doctype reference_name error result steps",
+		"Nexaploy Plan": "title plan_type price_monthly currency max_sites",
+	}
+	for dt, fields in spec.items():
+		names = {f["fieldname"] for f in BY_NAME[dt]["fields"]}
+		missing = set(fields.split()) - names
+		assert not missing, f"{dt}: missing {missing}"
+	server_id = next(f for f in BY_NAME["Server"]["fields"] if f["fieldname"] == "server_id")
+	assert server_id.get("unique") == 1
+	status = next(f for f in BY_NAME["Agent Job"]["fields"] if f["fieldname"] == "status")
+	assert status["options"].split("\n") == ["Pending", "Queued", "Running", "Success", "Failure"]
+
+
+def test_agent_job_kinds_match_helper():
+	tree = ast.parse(open(os.path.join(APP, "agent_job.py")).read())
+	kinds = None
+	for node in tree.body:
+		if isinstance(node, ast.Assign) and getattr(node.targets[0], "id", None) == "JOB_KINDS":
+			kinds = ast.literal_eval(node.value)
+	kind_field = next(f for f in BY_NAME["Agent Job"]["fields"] if f["fieldname"] == "kind")
+	assert tuple(kind_field["options"].split("\n")) == kinds
+
+
+def test_callbacks_cover_kinds():
+	src = open(os.path.join(APP, "agent_callbacks.py")).read()
+	for kind in ("image.build", "bench.create", "site.create", "site.backup", "site.restore",
+	             "site.drop", "site.install_app", "site.add_domain", "site.remove_domain", "site.migrate"):
+		assert f'"{kind}"' in src, kind
+
+
+def test_app_layout():
+	with open(os.path.join(ROOT, "pyproject.toml"), "rb") as fh:
+		py = tomllib.load(fh)
+	assert py["project"]["name"] == "nexaploy"
+	assert py["build-system"]["build-backend"] == "flit_core.buildapi"
+	assert "version" in py["project"]["dynamic"]
+	init = open(os.path.join(APP, "__init__.py")).read()
+	assert re.search(r'^__version__ = "[\d.]+"', init, re.M)
+	assert open(os.path.join(APP, "modules.txt")).read().strip() == "Nexaploy"
+	assert os.path.isfile(os.path.join(APP, "patches.txt"))
+	assert os.path.isdir(os.path.join(APP, "config"))
+	hooks = open(os.path.join(APP, "hooks.py")).read()
+	assert 'app_name = "nexaploy"' in hooks
+	# whitelisted agent endpoints exist with the §5.6 names
+	agent_src = open(os.path.join(APP, "api", "agent.py")).read()
+	for fn in ("register", "heartbeat", "poll", "job_update"):
+		assert re.search(rf"@frappe\.whitelist\(allow_guest=True[^)]*\)\ndef {fn}\(", agent_src), fn
+
+
+def test_hook_targets_exist():
+	"""Every dotted path referenced in hooks.py points at a function defined in the app."""
+	hooks_src = open(os.path.join(APP, "hooks.py")).read()
+	paths = set(re.findall(r'"(nexaploy\.[a-z_.]+)"', hooks_src))
+	assert paths
+	for dotted in paths:
+		module, _, func = dotted.rpartition(".")
+		file = os.path.join(ROOT, *module.split(".")) + ".py"
+		assert os.path.isfile(file), dotted
+		tree = ast.parse(open(file).read())
+		assert any(isinstance(n, ast.FunctionDef) and n.name == func for n in tree.body), dotted
+
+
+def test_controllers_define_class():
+	for folder, d in DOCS.items():
+		src = open(os.path.join(DOCTYPE_DIR, folder, folder + ".py")).read()
+		cls = d["name"].replace(" ", "")
+		assert re.search(rf"^class {cls}\(Document\):", src, re.M), folder
+
+
+def test_fixture_role():
+	with open(os.path.join(APP, "fixtures", "role.json")) as fh:
+		roles = json.load(fh)
+	assert roles[0]["role_name"] == "Nexaploy Customer"

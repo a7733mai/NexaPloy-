@@ -1,0 +1,120 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:bench_name",
+ "creation": "2026-11-03 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "bench_name",
+  "server",
+  "release_group",
+  "column_break_1",
+  "deploy_candidate",
+  "image_tag",
+  "status",
+  "team"
+ ],
+ "fields": [
+  {
+   "description": "^[a-z][a-z0-9-]{2,30}$ - also the compose project name on the server.",
+   "fieldname": "bench_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Bench Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "server",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Server",
+   "options": "Server",
+   "reqd": 1
+  },
+  {
+   "fieldname": "release_group",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Release Group",
+   "options": "Release Group",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Defaults to the latest successful candidate of the release group.",
+   "fieldname": "deploy_candidate",
+   "fieldtype": "Link",
+   "label": "Deploy Candidate",
+   "options": "Deploy Candidate"
+  },
+  {
+   "fieldname": "image_tag",
+   "fieldtype": "Data",
+   "label": "Image Tag",
+   "read_only": 1
+  },
+  {
+   "default": "Pending",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Pending\nActive\nBroken\nArchived",
+   "read_only": 1
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "label": "Team (Owner)",
+   "options": "User"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-03 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Bench",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Nexaploy Customer",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "show_title_field_in_link": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "bench_name",
+ "track_changes": 1
+}
