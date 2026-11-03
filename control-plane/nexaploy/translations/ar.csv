@@ -510,3 +510,254 @@ Plan Order,ترتيب الخطة
 Notify,إشعار
 Throttle,تحديد السرعة
 Suspend,إيقاف
+Lifecycle,دورة الحياة
+Renaming,جارٍ إعادة التسمية
+Rejected,مرفوض
+Cancelled,ملغى
+"A copy of this site on the same bench to test updates and changes safely. Emails are muted, the scheduler is paused and email accounts are disabled on the copy.",نسخة من هذا الموقع على نفس الـ bench لاختبار التحديثات والتغييرات بأمان. تُكتم الرسائل ويُوقف المجدول وتُعطَّل حسابات البريد في النسخة.
+Accept transfer,قبول النقل
+"After a move to another server, every domain of the site must point to the new server.",بعد النقل إلى خادم آخر يجب أن يشير كل نطاق للموقع إلى الخادم الجديد.
+Cancel this transfer?,إلغاء هذا النقل؟
+Choose a target bench…,اختر الـ bench الهدف…
+Create a staging copy of {0}? Emails and the scheduler are disabled on the copy.,إنشاء نسخة تجريبية من {0}؟ تُعطَّل الرسائل والمجدول في النسخة.
+Create staging site,إنشاء موقع تجريبي
+Decline,رفض
+Decline this transfer?,رفض هذا النقل؟
+Give the site a new name. The database and files stay the same; the old name is kept as a domain so existing links keep working.,امنح الموقع اسمًا جديدًا. تبقى قاعدة البيانات والملفات كما هي، ويُحتفظ بالاسم القديم كنطاق لتبقى الروابط الحالية تعمل.
+Hand the site over to another team. They accept with the emailed link; from then on they own it and are billed for it.,سلّم الموقع إلى فريق آخر. يقبلونه عبر الرابط المرسل بالبريد، ومن ثم يملكونه وتُحتسب عليهم فواتيره.
+Manage,إدارة
+Move site,نقل الموقع
+Move started,بدأ النقل
+"Move the site to another bench on this or another of your servers. The site is backed up, restored on the target bench (migrated) and then removed from the current one.",انقل الموقع إلى bench آخر على هذا الخادم أو على خادم آخر من خوادمك. يُنسخ الموقع احتياطيًا ثم يُستعاد على الـ bench الهدف (مع الترحيل) ثم يُحذف من الحالي.
+"Move {0} to bench {1}? The site is backed up, restored on the target and removed from the current bench.",نقل {0} إلى الـ bench {1}؟ يُنسخ الموقع احتياطيًا ويُستعاد على الهدف ثم يُحذف من الـ bench الحالي.
+Moving to another server needs backup storage configured by the platform administrator.,النقل إلى خادم آخر يتطلب تخزين نسخ احتياطية يضبطه مسؤول المنصة.
+New name,الاسم الجديد
+No other bench is available. Deploy a bench group on a server first.,لا يوجد bench آخر متاح. انشر مجموعة bench على خادم أولًا.
+"Offer {0} to {1}? Once accepted, the other team owns and pays for the site.",عرض {0} على {1}؟ بعد القبول يملك الفريق الآخر الموقع ويدفع مقابله.
+"Once accepted, your team owns the site and is billed for it from today. Its backups move with it.",بعد القبول يملك فريقك الموقع وتُحتسب فواتيره من اليوم. تنتقل نسخه الاحتياطية معه.
+Only owners and admins of the receiving team can accept this transfer.,يمكن فقط لمالكي ومسؤولي الفريق المستلم قبول هذا النقل.
+Open,فتح
+Outgoing emails are muted and the scheduler is paused. Staging sites are not billed.,الرسائل الصادرة مكتومة والمجدول متوقف. المواقع التجريبية لا تُحتسب عليها فواتير.
+Pending transfer to,نقل معلّق إلى
+Refresh from production,تحديث من الإنتاج
+Refresh the staging site? Its data is replaced by a fresh copy of production.,تحديث الموقع التجريبي؟ تُستبدل بياناته بنسخة جديدة من الإنتاج.
+Rename,إعادة تسمية
+Rename failed,فشلت إعادة التسمية
+Rename site,إعادة تسمية الموقع
+Rename {0} to {1}? The site is in maintenance mode for a moment; the old name keeps working as a domain.,إعادة تسمية {0} إلى {1}؟ يدخل الموقع وضع الصيانة لحظات، ويبقى الاسم القديم يعمل كنطاق.
+Renaming to {0}…,جارٍ إعادة التسمية إلى {0}…
+Request transfer,طلب النقل
+Site transfer,نقل الموقع
+Staging site,الموقع التجريبي
+Staging site is being refreshed,جارٍ تحديث الموقع التجريبي
+Staging site {0} is being created,جارٍ إنشاء الموقع التجريبي {0}
+Take over {0}? Your team will be billed for it from today.,استلام {0}؟ ستُحتسب فواتيره على فريقك من اليوم.
+The email could not be sent. Share this link with the new owner:,تعذّر إرسال البريد. شارك هذا الرابط مع المالك الجديد:
+The site is being renamed. It is briefly in maintenance mode; this page moves to the new name when done.,جارٍ إعادة تسمية الموقع. سيكون في وضع الصيانة لفترة قصيرة، وتنتقل هذه الصفحة إلى الاسم الجديد عند الانتهاء.
+The site now belongs to your team. Opening it…,أصبح الموقع ملكًا لفريقك. جارٍ فتحه…
+This is a staging copy of,هذه نسخة تجريبية من
+This transfer is no longer valid.,هذا النقل لم يعد صالحًا.
+This transfer link is invalid,رابط النقل هذا غير صالح
+"This transfer was sent to another email address, or you are not an owner or admin of a team that can receive it:",أُرسل هذا النقل إلى بريد آخر، أو لست مالكًا أو مسؤولًا في فريق يمكنه استلامه:
+Transfer declined,تم رفض النقل
+Transfer requested,تم طلب النقل
+Transfer to another team,النقل إلى فريق آخر
+Upgrade from v{0} to v{1} (runs migrate; cannot be undone),ترقية من v{0} إلى v{1} (يشغّل الترحيل؛ لا يمكن التراجع)
+same server,نفس الخادم
+shared,مشترك
+upgrade,ترقية
+to team,إلى الفريق
+wants to transfer the site,يريد نقل الموقع
+{0} now belongs to your team,{0} أصبح ملكًا لفريقك
+Staging sites stay on the bench of their production site; drop and recreate it instead,تبقى المواقع التجريبية على bench موقع الإنتاج؛ احذفها وأعد إنشاءها بدلًا من ذلك
+Moving a site to another server needs backup storage (Nexaploy Settings > Backup bucket): the target server restores the backup from the bucket.,نقل موقع إلى خادم آخر يتطلب تخزين النسخ الاحتياطية (إعدادات Nexaploy > حاوية النسخ): يستعيد الخادم الهدف النسخة من الحاوية.
+Target bench belongs to another team,الـ bench الهدف يتبع فريقًا آخر
+{0} already has a staging site: {1},{0} لديه موقع تجريبي بالفعل: {1}
+{0} is a staging site,{0} موقع تجريبي
+Staging sites cannot be renamed,لا يمكن إعادة تسمية المواقع التجريبية
+Staging sites move together with their production site,تنتقل المواقع التجريبية مع موقع الإنتاج الخاص بها
+This transfer has expired; ask for a new one,انتهت صلاحية هذا النقل؛ اطلب نقلًا جديدًا
+The site no longer belongs to the team that offered it,لم يعد الموقع ملكًا للفريق الذي عرضه
+"This site runs on a server or bench owned by your team. Move it to a shared hosted bench first (Lifecycle > Move), then transfer it; the target team can move it to its own server afterwards.",يعمل هذا الموقع على خادم أو bench يملكه فريقك. انقله أولًا إلى bench مستضاف مشترك (دورة الحياة > نقل)، ثم انقل ملكيته؛ ويمكن للفريق المستلم نقله إلى خادمه لاحقًا.
+Site transfer: {0},نقل موقع: {0}
+Enter the email of the new owner or the name of the target team,أدخل بريد المالك الجديد أو اسم الفريق الهدف
+Names starting with 'staging-' are reserved for staging sites,الأسماء التي تبدأ بـ 'staging-' محجوزة للمواقع التجريبية
+The new name is the current name,الاسم الجديد هو الاسم الحالي
+Site name is too long for a staging copy,اسم الموقع طويل جدًا لنسخة تجريبية
+(no output),(لا يوجد مُخرَج)
+95th percentile,المئين 95
+Analytics,التحليلات
+Average,المتوسط
+Background jobs,المهام الخلفية
+Background jobs by method,المهام الخلفية حسب الدالة
+Background workers,العمّال الخلفيون
+Code contains a NUL byte,الشيفرة تحتوي على بايت NUL
+Code is empty,الشيفرة فارغة
+Code is too long,الشيفرة طويلة جدًا
+"Code runs inside your site with full access to its data, as Administrator. Changes are rolled back unless you choose to commit them. Every run is recorded in the team activity log.",تعمل الشيفرة داخل موقعك بصلاحيات المسؤول ووصول كامل إلى بياناته. يتم التراجع عن التغييرات ما لم تختر اعتمادها. يُسجَّل كل تشغيل في سجل نشاط الفريق.
+Collecting data from the server…,جارٍ جمع البيانات من الخادم…
+Commit database changes,اعتماد تغييرات قاعدة البيانات
+Committed,تم الاعتماد
+Console,وحدة التحكم
+Count,العدد
+Download CSV,تنزيل CSV
+Error Log,سجل الأخطاء
+Execute,تنفيذ
+Execute this code on {0} and COMMIT its database changes?,تنفيذ هذه الشيفرة على {0} واعتماد تغييراتها في قاعدة البيانات؟
+Frappe log,سجل Frappe
+INTO OUTFILE / DUMPFILE is not allowed,INTO OUTFILE / DUMPFILE غير مسموح
+Insights,الرؤى
+Invalid time filter,مرشح الوقت غير صالح
+Last 14 days,آخر 14 يومًا
+Last 24 hours,آخر 24 ساعة
+Last 31 days,آخر 31 يومًا
+Last 7 days,آخر 7 أيام
+Last seen,آخر ظهور
+Lines,الأسطر
+Locking reads are not allowed in read-only mode,القراءات المقفلة غير مسموحة في وضع القراءة فقط
+Log,السجل
+Logs,السجلات
+Max,الأقصى
+Max rows,الحد الأقصى للصفوف
+Median response,وسيط زمن الاستجابة
+Method,الدالة
+No background jobs in this period.,لا توجد مهام خلفية في هذه الفترة.
+No data for this period.,لا توجد بيانات لهذه الفترة.
+No errors logged.,لا توجد أخطاء مسجّلة.
+No log lines found.,لم يتم العثور على أسطر في السجل.
+No requests in this period.,لا توجد طلبات في هذه الفترة.
+No site selected.,لم يتم اختيار موقع.
+No slow queries recorded for this site.,لا توجد استعلامات بطيئة مسجّلة لهذا الموقع.
+Only the first rows are shown. Add a LIMIT or download fewer rows.,تُعرض الصفوف الأولى فقط. أضف LIMIT أو اطلب صفوفًا أقل.
+Path,المسار
+Query,الاستعلام
+Query contains a NUL byte,الاستعلام يحتوي على بايت NUL
+Query is empty,الاستعلام فارغ
+Query is too long,الاستعلام طويل جدًا
+Read-only mode allows only SELECT after WITH,وضع القراءة فقط يسمح فقط بـ SELECT بعد WITH
+"Read-only mode allows only SELECT, SHOW, DESCRIBE, EXPLAIN and WITH statements",وضع القراءة فقط يسمح فقط بعبارات SELECT وSHOW وDESCRIBE وEXPLAIN وWITH
+Reading logs…,جارٍ قراءة السجلات…
+Reading the slow query log…,جارٍ قراءة سجل الاستعلامات البطيئة…
+"Request monitoring is not enabled for this site, so analytics may be empty.",مراقبة الطلبات غير مفعّلة لهذا الموقع، لذا قد تكون التحليلات فارغة.
+Requests,الطلبات
+Requests per hour,الطلبات في الساعة
+Rows examined,الصفوف المفحوصة
+Run query,تشغيل الاستعلام
+Run this query in WRITE mode on {0}? Changes cannot be undone.,تشغيل هذا الاستعلام في وضع الكتابة على {0}؟ لا يمكن التراجع عن التغييرات.
+Running…,جارٍ التشغيل…
+Runs,مرات التشغيل
+SQL,SQL
+SQL playground,ساحة SQL
+Scheduler,المجدول
+Site {0} has no server,الموقع {0} ليس له خادم
+Slow queries,الاستعلامات البطيئة
+Status codes,رموز الحالة
+The job failed,فشلت المهمة
+The slow query log is not enabled on this server.,سجل الاستعلامات البطيئة غير مفعّل على هذا الخادم.
+This site shares its bench with other sites; only lines that mention this site are shown.,يتشارك هذا الموقع البيئة مع مواقع أخرى؛ تُعرض فقط الأسطر التي تذكر هذا الموقع.
+Too many requests are in progress for this site. Wait for them to finish.,هناك طلبات كثيرة قيد التنفيذ لهذا الموقع. انتظر حتى تنتهي.
+Too many statements,عدد العبارات كبير جدًا
+Top paths by requests,أكثر المسارات طلبًا
+Top paths by total time,أكثر المسارات استهلاكًا للوقت
+Truncated,مقتطع
+Unknown log,سجل غير معروف
+Web,الويب
+Write mode: statements change data immediately and cannot be undone. Take a backup first.,وضع الكتابة: تغيّر العبارات البيانات فورًا ولا يمكن التراجع عنها. خذ نسخة احتياطية أولًا.
+lines,أسطر
+ms,مللي ثانية
+read-only,قراءة فقط
+showing the last of {0} result sets,عرض آخر مجموعة من {0} مجموعات نتائج
+total,الإجمالي
+write mode,وضع الكتابة
+{0} row(s),{0} صف
+{0} statement(s),{0} عبارة
+The console is only available for sites on a bench dedicated to your team.,وحدة التحكم متاحة فقط للمواقع على بيئة مخصّصة لفريقك.
+API access,الوصول عبر واجهة البرمجة
+API key,مفتاح API
+API key revoked,تم إلغاء مفتاح API
+Account,الحساب
+Action,الإجراء
+Activity,النشاط
+Activity log,سجل النشاط
+Add credits,إضافة رصيد
+Adjustment,تسوية
+All actions,كل الإجراءات
+All members,كل الأعضاء
+Amount due,المبلغ المستحق
+"An API key acts as you, with your role in each team. Keep the secret safe: it is shown only once.",يعمل مفتاح API باسمك وبدورك في كل فريق. احتفظ بالسر في مكان آمن: يُعرض مرة واحدة فقط.
+Applied to invoice {0},مُطبّق على الفاتورة {0}
+Arabic shows the dashboard right-to-left.,العربية تعرض لوحة التحكم من اليمين إلى اليسار.
+Balance,الرصيد
+Billing is not enabled,الفوترة غير مفعّلة
+Change password,تغيير كلمة المرور
+Clear,مسح
+Copy the secret now. You will not be able to see it again.,انسخ السر الآن. لن تتمكن من رؤيته مرة أخرى.
+Could not start the payment: {0},تعذّر بدء الدفع: {0}
+Credit Top-up,شحن رصيد
+Credit balance,رصيد الحساب
+Credit history,سجل الرصيد
+Credits applied,الرصيد المُطبّق
+Credits pay new invoices automatically before any card is charged.,يُستخدم الرصيد لدفع الفواتير الجديدة تلقائيًا قبل الخصم من أي بطاقة.
+Date,التاريخ
+Description,الوصف
+Details,التفاصيل
+Enter a valid amount,أدخل مبلغًا صحيحًا
+Example request,مثال على طلب
+Filter,تصفية
+First name,الاسم الأول
+First name is required,الاسم الأول مطلوب
+From,من
+Generate API key,إنشاء مفتاح API
+IP address,عنوان IP
+Invoice payment,دفع فاتورة
+Invoice {0} is {1},الفاتورة {0} حالتها {1}
+Invoice {0} not found,الفاتورة {0} غير موجودة
+Language,اللغة
+Last name,اسم العائلة
+Login required,يلزم تسجيل الدخول
+Maximum,الحد الأقصى
+Members must enter a one-time code from an authenticator app when they sign in. New members get the requirement when they accept their invitation.,يجب على الأعضاء إدخال رمز لمرة واحدة من تطبيق المصادقة عند تسجيل الدخول. يُطبّق المتطلب على الأعضاء الجدد عند قبول دعوتهم.
+Minimum,الحد الأدنى
+Next,التالي
+No activity yet.,لا يوجد نشاط بعد.
+No credit transactions yet.,لا توجد حركات رصيد بعد.
+None of your teams requires two-factor authentication. A team Owner or Admin can require it on the Team page.,لا يشترط أي من فرقك المصادقة الثنائية. يمكن لمالك الفريق أو مديره فرضها من صفحة الفريق.
+"Only Owners, Admins and Billing members can add credits.",يمكن للمالكين والمديرين وأعضاء الفوترة فقط إضافة رصيد.
+Only team Owners and Admins can view the activity log.,يمكن لمالكي الفريق ومديريه فقط عرض سجل النشاط.
+Page,الصفحة
+Payment gateway {0} is not available,بوابة الدفع {0} غير متاحة
+Prepaid credits,رصيد مدفوع مسبقًا
+Previous,السابق
+Promotional credit,رصيد ترويجي
+Refund,استرداد
+Require two-factor authentication for all members,فرض المصادقة الثنائية على جميع الأعضاء
+Require two-factor authentication for every member of this team?,فرض المصادقة الثنائية على كل أعضاء هذا الفريق؟
+Required by,مطلوبة من
+Revoke the API key? Scripts using it stop working.,إلغاء مفتاح API؟ ستتوقف السكربتات التي تستخدمه عن العمل.
+Rotate,تدوير
+Rotate the API key? Scripts using the current key stop working.,تدوير مفتاح API؟ ستتوقف السكربتات التي تستخدم المفتاح الحالي عن العمل.
+Security,الأمان
+Signup credits,رصيد التسجيل
+Stop requiring two-factor authentication for this team?,إيقاف فرض المصادقة الثنائية لهذا الفريق؟
+Thank you! Your payment is being processed. It can take a minute until the payment provider confirms it.,شكرًا لك! تتم معالجة الدفع. قد يستغرق تأكيد مزوّد الدفع دقيقة.
+To,إلى
+Top up,شحن
+Top-up,شحن رصيد
+Top-up {0},شحن رصيد {0}
+Total,الإجمالي
+Two-factor authentication,المصادقة الثنائية
+Two-factor authentication will be asked for at your next sign-in once the platform administrator enables it.,ستُطلب المصادقة الثنائية عند تسجيل دخولك التالي بعد أن يفعّلها مسؤول المنصة.
+Two-factor sign-in is not enabled on this platform yet. Ask the platform administrator to enable it in System Settings.,تسجيل الدخول الثنائي غير مفعّل على هذه المنصة بعد. اطلب من مسؤول المنصة تفعيله في إعدادات النظام.
+Unsupported language {0},اللغة {0} غير مدعومة
+When,الوقت
+You have no API key.,ليس لديك مفتاح API.
+You sign in with your password and a one-time code.,تسجّل الدخول بكلمة المرور ورمز لمرة واحدة.
+Insufficient credit balance,الرصيد غير كافٍ
+Credits,الرصيد
+Nexaploy Invoice,فاتورة Nexaploy
+Team Invitation,دعوة فريق
+OTP App,تطبيق رموز التحقق
+Credit transactions cannot be changed; add an Adjustment instead,لا يمكن تعديل حركات الرصيد؛ أضف تسوية بدلًا من ذلك
+Credit transactions cannot be deleted; add an Adjustment instead,لا يمكن حذف حركات الرصيد؛ أضف تسوية بدلًا من ذلك
+Team Activity is read-only,نشاط الفريق للقراءة فقط
+Team Activity cannot be deleted,لا يمكن حذف نشاط الفريق

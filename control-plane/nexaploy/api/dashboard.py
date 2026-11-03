@@ -215,6 +215,26 @@ def _team_jobs(c, limit=20, server=None, site=None):
 	return result
 
 
+SENSITIVE_JOB_KINDS = ("site.logs", "site.analytics", "site.slow_queries", "site.sql", "site.console")
+
+
+def _check_sensitive_job(job, doc, c):
+	"""SQL / console / log jobs carry queries, code and data: require the same team
+	action that was needed to run them (e.g. Billing members can't read SQL results)."""
+	if c.admin or job.kind not in SENSITIVE_JOB_KINDS:
+		return
+	from nexaploy.observability_utils import required_action
+
+	params = frappe.parse_json(doc.params) if doc.params else {}
+	action = required_action(job.kind, bool((params or {}).get("read_only", True)))
+	team = None
+	if job.reference_doctype == "Site" and job.reference_name:
+		team = frappe.db.get_value("Site", job.reference_name, "team")
+	if not team and job.server:
+		team = frappe.db.get_value("Server", job.server, "team")
+	check_team_access(team, action)
+
+
 def _job_allowed(job, c):
 	if c.admin:
 		return True
@@ -604,6 +624,7 @@ def get_job(name):
 	if not _job_allowed(job, c):
 		raise frappe.PermissionError(_("Not allowed"))
 	doc = frappe.get_doc("Agent Job", name)
+	_check_sensitive_job(job, doc, c)
 	job["params"] = doc.get_redacted_params()
 	job["result"] = redact_params(frappe.parse_json(doc.result) if doc.result else None)
 	job["active"] = is_job_active(job.status)

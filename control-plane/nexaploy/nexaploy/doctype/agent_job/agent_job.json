@@ -41,7 +41,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Kind",
-   "options": "image.build\nbench.create\nbench.start\nbench.stop\nbench.restart\nbench.update\nbench.remove\nsite.create\nsite.install_app\nsite.uninstall_app\nsite.add_domain\nsite.remove_domain\nsite.backup\nsite.restore\nsite.migrate\nsite.set_config\nsite.drop\nserver.configure_backups\nserver.health\nbackup.prune_remote\nsite.usage\nsite.get_config\nsite.update_config",
+   "options": "image.build\nbench.create\nbench.start\nbench.stop\nbench.restart\nbench.update\nbench.remove\nsite.create\nsite.install_app\nsite.uninstall_app\nsite.add_domain\nsite.remove_domain\nsite.backup\nsite.restore\nsite.migrate\nsite.set_config\nsite.drop\nserver.configure_backups\nserver.health\nbackup.prune_remote\nsite.usage\nsite.get_config\nsite.update_config\nsite.clone\nsite.rename\nsite.logs\nsite.analytics\nsite.slow_queries\nsite.sql\nsite.console",
    "reqd": 1
   },
   {

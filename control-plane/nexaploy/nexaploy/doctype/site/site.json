@@ -42,7 +42,13 @@
   "move_backup",
   "column_break_move",
   "move_steps",
-  "move_step_idx"
+  "move_step_idx",
+  "section_break_lifecycle",
+  "is_staging",
+  "staging_of",
+  "column_break_lifecycle",
+  "staging_site",
+  "move_options"
  ],
  "fields": [
   {
@@ -83,7 +89,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
-   "options": "Pending\nActive\nMoving\nBroken\nSuspended\nArchived",
+   "options": "Pending\nActive\nMoving\nRenaming\nBroken\nSuspended\nArchived",
    "read_only": 1
   },
   {
@@ -292,12 +298,54 @@
    "fieldtype": "Int",
    "label": "Move Step Index",
    "read_only": 1
+  },
+  {
+   "fieldname": "section_break_lifecycle",
+   "fieldtype": "Section Break",
+   "label": "Lifecycle",
+   "collapsible": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "is_staging",
+   "fieldtype": "Check",
+   "label": "Is Staging",
+   "read_only": 1,
+   "in_standard_filter": 1,
+   "description": "Staging copy of another site (site.clone): emails muted, scheduler paused, not billed."
+  },
+  {
+   "fieldname": "staging_of",
+   "fieldtype": "Link",
+   "label": "Staging Of",
+   "options": "Site",
+   "read_only": 1,
+   "depends_on": "is_staging"
+  },
+  {
+   "fieldname": "column_break_lifecycle",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "staging_site",
+   "fieldtype": "Link",
+   "label": "Staging Site",
+   "options": "Site",
+   "read_only": 1
+  },
+  {
+   "fieldname": "move_options",
+   "fieldtype": "JSON",
+   "label": "Move Options",
+   "read_only": 1,
+   "hidden": 1,
+   "description": "In-flight move state: backup_id, allow_upgrade, source bench/server, cross_server."
   }
  ],
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-20 12:00:00.000000",
+ "modified": "2026-11-25 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Site",

@@ -145,11 +145,11 @@ Params are the agent REST body (§5.2) plus the path parameters of that endpoint
 | `bench.create` | `{name, image, apps_json[, registry]}` | Bench insert |
 | `bench.start/stop/restart/remove` | `{bench[, force]}` | Bench methods |
 | `bench.update` | `{bench, image[, registry]}` | `Bench.update_image`, auto updates |
-| `site.create` | `{bench, name, admin_password, apps:[app_name]}` | Site insert, move |
+| `site.create` | `{bench, name, admin_password, apps:[app_name]}` | Site insert |
 | `site.install_app` / `site.uninstall_app` | `{site, app}` | Site methods |
 | `site.add_domain` / `site.remove_domain` | `{site, domain}` | Site methods |
 | `site.backup` | `{site, with_files, upload: true}` | Site Backup insert |
-| `site.restore` | `{site, remote_path}` | move |
+| `site.restore` | `{site, remote_path}` (restore) or `{site, bench, backup_id\|remote_path, with_files}` (move target) | restore, move |
 | `site.migrate` | `{site}` | `Site.migrate` |
 | `site.drop` | `{site, skip_backup}` | `Site.drop`, move |
 | `server.configure_backups` | `{remote, type, provider, endpoint, region, bucket, access_key_id, secret_access_key, prefix}` | Server becomes Active (register / first heartbeat), Settings backup change, `Server.configure_backups` |
@@ -212,19 +212,24 @@ with `--server-id <id> --token <server_token>`.
 4. Create a Bench on a server (uses the latest successful candidate) → `bench.create`.
 5. Create a Site on an Active bench with apps from the release group → `site.create`.
 
-### Major upgrade (`Site.move_to_bench(target_bench)`)
+### Moving a site (`Site.move_to_bench(target_bench, allow_upgrade=False)`)
 
-Never in place (§1). The plan is stored on the Site (`move_steps`, `move_step_idx`,
-`move_backup`, `move_target_bench`; status **Moving**) and each successful step's callback
-enqueues the next one:
+Never in place (§1); also how a site changes server or Frappe major (see *Site lifecycle* below for
+the portal API). The plan (`lifecycle_utils.plan_move`) is stored on the Site (`move_steps`,
+`move_step_idx`, `move_backup`, `move_target_bench`, hidden `move_options`; status **Moving**) and each
+successful step's callback enqueues the next one:
 
-- different server: `site.backup` → `site.create` (target) → `site.restore {remote_path}` (target, migrates) → `site.drop {skip_backup}` (source)
-- same server: `site.backup` → `site.drop` (source) → `site.create` → `site.restore`
+- different server: `site.backup` (uploaded) → `site.restore {bench, remote_path}` (target: creates the site,
+  restores files + encryption key, migrates, writes the route) → `site.drop {skip_backup}` (source)
+- same server: `site.backup` → `site.drop` (source) → `site.restore {bench, backup_id}` (local backup)
   (the agent resolves a site's bench by scanning `benches/*/sites/<s>`, so a name can only live in one bench per server)
 
-A failed backup aborts the move (site stays Active where it was). A later failure marks the
-site **Broken**; the move backup is linked in `move_backup` for manual recovery. Restoring on
-another server requires the target agent's rclone remote to reach the same bucket/prefix.
+A failure before the source is dropped aborts the move (site stays **Active** where it was, a comment
+explains why); a later failure marks the site **Broken** with the move backup linked in `move_backup`.
+After success `bench`/`server` are updated and the custom domains are re-added on the target
+(`site.add_domain`). Moves planned before this change (with a `site.create` step) still complete.
+Cross-server moves need backup storage (Nexaploy Settings `backup_bucket`); a higher Frappe major needs
+`allow_upgrade`, a lower one is refused.
 
 ## Operations
 
@@ -442,3 +447,190 @@ A build that waits more than ~1 h in the agent queue after `poll` fails on clone
 (apps, deploys with live build log, *Update available* badge, deploy, benches on servers). JS:
 `public/js/benches.js` (components `nxBenches`, `nxBench`). Arabic strings:
 `translations/ar.github.part`.
+
+## Activity log, prepaid credits, 2FA and API keys (Phase 4 security)
+
+### Activity log (ARCHITECTURE.md §10)
+
+`nexaploy.activity.log_activity(team, action, reference_doctype=None, reference_name=None,
+details=None)` appends a **Team Activity** row (`team`, `user` = session user, `action`,
+`reference_doctype`/`reference_name`, `details` JSON, `ip_address` = `frappe.local.request_ip`,
+`creation`). It **never raises** (failures go to the Error Log) and runs in the caller's
+transaction, so a rolled-back request leaves no row. `details` goes through
+`team_utils.scrub_details`: keys containing password/secret/token/credential/authorization/
+cookie/hmac/signature/api_key/access_key/private_key/session (and `sid`, `otp`, `pwd`, `auth`…)
+are dropped, values that look like credentials (`token k:s`, `Bearer …`, `__secret__:` refs,
+`sk_live_…`, PEM keys) are dropped, strings are cut at 2000 chars, collections at 100 items.
+The bare key `key` is kept (site config keys). Actions are dotted lowercase verbs.
+
+Logged today: `team.create|update|invite|invite_revoke|join|change_role|remove_member|leave|two_factor`,
+`site.create`, `site.<action>` (backup, install_app, uninstall_app, add_domain, remove_domain,
+migrate, drop, restore — from `api.dashboard.site_action`), `server.registration_token`,
+`invoice.pay` (checkout started), `invoice.paid` (gateway webhook), `credits.topup` (checkout
+started, and again with `status: paid` when credited), `credits.apply`, `credits.promo`,
+`api_key.create|rotate|revoke` (logged to every team of the user).
+
+Team Activity is read-only for customers and cannot be edited or deleted (controller guards;
+System Manager has read/report/export only). Customers read it with the `admin` action
+(Owner/Admin): `/dashboard/activity` (filter by action or `prefix.`, member, date range; 50 per
+page) via `nexaploy.api.teams.get_activity`.
+
+### Prepaid credits
+
+**Team Credit Transaction** is an append-only ledger: `team`, `type`
+(TopUp/InvoicePayment/Refund/Promo/Adjustment), signed `amount` (+ adds, − spends), `currency`,
+`reference_doctype`/`reference_name`, `balance_after`, `description`. Rows cannot be changed or
+deleted — correct mistakes with an `Adjustment` (System Managers may insert one in the desk;
+the controller computes `balance_after` under the team lock). Balances are per (team,
+currency) and never go below zero; `Team.credit_balance` caches the balance in the team
+currency (`Team.currency`, else Billing Settings currency) and is recomputed on every ledger
+insert and Team save. Pure math: `nexaploy/billing/credits_utils.py`; database side:
+`nexaploy/billing/credits.py` (`get_balance`, `add_credits(team, amount, type, ref)`,
+`apply_credits_to_invoice(invoice)`, `apply_credits_to_open_invoices`, `grant_signup_credits`,
+`create_topup_invoice`, `credit_topup`).
+
+- **Invoices** gain `invoice_type` (Subscription / Credit Top-up), `credits_applied` and
+  `amount_due` (= total − credits). A new monthly invoice is paid from credits first: fully →
+  Paid (a `Credits` Nexaploy Payment is recorded), partially → only `amount_due` is charged by
+  the gateway (`pay_invoice` re-applies credits before starting a checkout; the underpayment
+  check compares with `amount_due`).
+- **Top-up**: `nexaploy.api.billing.topup(amount, gateway)` (billing action; Billing Settings
+  `min_topup`/`max_topup`, default 5–10000) creates a *Credit Top-up* invoice in the team currency
+  (no tax) and returns the hosted checkout URL. The normal Stripe/Paymob webhook marks it Paid;
+  `mark_paid` then adds a `TopUp` ledger row (idempotent per invoice) and spends the new credits
+  on open invoices, oldest due first. Top-up invoices are never marked Overdue nor suspend a
+  team; unpaid ones are voided after 3 days by the daily dunning job (a late success still
+  credits them).
+- **Signup credits**: Billing Settings `signup_credits` (0 = off) are granted as a `Promo` row
+  when a team is created (`teams.create_team`, so also personal teams) — once per team and,
+  to stop farming by creating teams, once per owner user.
+- **Portal**: `/dashboard/billing` shows the balance, a top-up form (Owner/Admin/Billing) and the
+  ledger (`nexaploy.api.billing.get_credits`), plus credits applied / amount due per invoice.
+
+### Two-factor authentication
+
+Owners/Admins toggle **Require two-factor authentication** on `/dashboard/team`
+(`nexaploy.api.teams.set_two_factor(required)`). `Team.on_update` (and `after_delete`) runs
+`teams.sync_two_factor_roles` for current and former members: members of at least one enabled
+team with `two_factor_required` get the Role **Nexaploy 2FA** (`two_factor_auth = 1`,
+no desk access, created on first use); others lose it. This also covers invitations accepted
+later, members removed/leaving, role changes and teams being disabled. When the role is first
+given, `System Settings.enable_two_factor_auth` is switched on (method *OTP App* if none is
+set) — this is site-wide but Frappe only prompts users whose roles have `two_factor_auth`.
+`/dashboard/account` shows the user's own status (enforced, method, which teams require it).
+
+Limitations:
+
+- Enforcement is Frappe's login 2FA: the second factor is asked at the **next** login; existing
+  sessions are not terminated.
+- **API keys bypass 2FA** (Frappe token auth has no second factor). Teams that require 2FA
+  should review who holds keys in the activity log (`api_key.*`).
+- Frappe has no per-user "2FA enrolled" flag for OTP apps until the first OTP login; we report
+  whether 2FA is *enforced*, not whether the user has already set up the authenticator.
+- Turning on `enable_two_factor_auth` is done with `frappe.db.set_single_value` (no System
+  Manager check) the first time a team requires 2FA. Platforms that do not want this can
+  pre-configure System Settings; turning it off again re-disables enforcement everywhere.
+- `Administrator` is always exempt (Frappe never asks it for a second factor).
+
+### API keys
+
+`/dashboard/account` → *API access* generates, rotates (new key **and** secret) or revokes the
+user's Frappe key pair (`User.api_key` / `User.api_secret`, `frappe.generate_hash`), via
+`nexaploy.api.account.generate_api_key(rotate)` / `revoke_api_key`. The secret is returned once.
+A key acts as the user with their role in each team; choose the team per request:
+
+```bash
+curl -s https://cp.example.com/api/method/nexaploy.api.dashboard.list_sites \
+  -H "Authorization: token <api_key>:<api_secret>" \
+  -H "X-Nexaploy-Team: <team>"
+```
+
+The account page also edits first/last name and the portal language (`User.language`, en/ar —
+Arabic renders RTL) and links to `/update-password`.
+
+## Site lifecycle
+
+Staging sites, moves between servers, transfers between teams and renames
+(`nexaploy/api/site_lifecycle.py`, pure logic in `nexaploy/lifecycle_utils.py`, tests in
+`tests/test_lifecycle.py`; portal tab *Lifecycle* on `/dashboard/site` and `/dashboard/transfer?token=`,
+components `nxSiteLifecycle` / `nxTransfer` in `public/js/site_tools.js`, Arabic strings in
+`translations/ar.lifecycle.part`). Every mutation is written to the Team Activity log
+(`nexaploy.activity.log_activity`, imported lazily).
+
+| Method | Access | What |
+|---|---|---|
+| `get_lifecycle(site)` | read | staging info, move targets (team benches/servers + shared hosted, with major compatibility), pending transfers, transfer block reason |
+| `create_staging(site)` | write | Site `staging-<site>` (`is_staging`, `staging_of`, no plan, backups Off) on the same bench; `after_insert` enqueues `site.clone` instead of `site.create`. Re-creating after a drop reuses the archived staging document |
+| `refresh_staging(site)` | write | `site.clone` again (staging data replaced). Drop a staging site with the normal drop action |
+| `move_site(site, target_bench, allow_upgrade=0)` | write | `Site.move_to_bench`; returns the plan and, for another server, `dns_hint` (every host must point to the new server) |
+| `request_transfer(site, email_or_team)` | admin | **Site Transfer** (token sha256, 7 days), emails `/dashboard/transfer?token=` to the team's members or the address |
+| `get_transfer(token)` / `accept_transfer(token, team=None)` / `reject_transfer(token)` | admin of the target team (+ addressee for email transfers) | accept moves `Site.team` (and its staging site, Site Backup and Site Usage rows) to the target team; billing follows through the Site `on_update` hook |
+| `cancel_transfer(name)` | admin of the source team | |
+| `rename_site(site, new_subdomain_or_name, keep_old_domain=1)` | admin | status **Renaming**, `site.rename`; on success the callback `frappe.rename_doc("Site", old, new)` and adds the old name as an Active Site Domain |
+
+Rules: staging sites are not moved, transferred or renamed themselves (they follow their production
+site on transfer); a site can only change teams while it is on a **shared hosted bench** (bench and
+server without a team) — sites on a team's own (BYOS) server must be moved first. Job params:
+
+| kind | params | created by |
+|---|---|---|
+| `site.clone` | `{bench, site, target_site, scrub: true}` | `create_staging`, `refresh_staging` |
+| `site.rename` | `{bench, site, new_name, keep_old_domain}` | `rename_site` |
+
+Callbacks: `site.clone` → staging Site Active (apps Installed) / Broken; `site.rename` → document renamed,
+Active / (failure in the `check` step) Active / otherwise Broken.
+
+**Billing (owned by billing):** staging sites must not be billed — `billing.subscriptions.sync_site` has to
+treat `doc.is_staging` like an archived site (cancel plan + app subscriptions), otherwise the default site
+plan applies to them.
+
+Not yet verified on a bench: `bench --site <new> restore` creating a site that does not exist yet (relied
+on by moves; the agent's `site.restore` with `bench` documents it), `frappe.rename_doc` of Site from an agent
+callback, custom site_config keys are not carried over by a move (only the encryption key and domains).
+
+## Site observability (Phase 4: analytics, logs, slow queries, SQL, console)
+
+Portal page **`/dashboard/insights?site=<site>`** (`www/dashboard/insights.{html,py}`, component
+`nxInsights` in `public/js/insights.js`, included in the page `head` like `site_tools.js`). Tabs:
+*Analytics* (requests / p50 / p95 / jobs, per-hour inline-SVG bar chart, top paths by count and total
+time, status codes, background jobs by method), *Logs* (web / workers / scheduler / frappe log /
+Error Log, line count, refresh), *Slow queries* (grouped by normalised query), *SQL* (textarea,
+read-only toggle shown to admins only, results table, client-side CSV download) and *Console*
+(admins only, warning banner, optional commit). Link to it from the site page with
+`/dashboard/insights?site=<site>` (optionally `&tab=logs|slow|sql|console`).
+
+Whitelisted API `nexaploy.api.observability` — every call queues one agent job referencing the Site and
+returns `{job, status}`; the page polls `get_result(job)` (`{kind, status, done, error, data}`) every 1.5 s:
+
+| Method | Team action | Agent job / params |
+|---|---|---|
+| `get_logs(site, log=web, lines=200, since=None, refresh=0)` | read | `site.logs {site, log, lines, since?}` |
+| `get_analytics(site, days=7, refresh=0)` | read | `site.analytics {site, date_from, date_to}` (1–31 UTC days) |
+| `get_slow_queries(site, limit=50, min_seconds=0, refresh=0)` | read | `site.slow_queries {site, limit, min_seconds}` |
+| `run_sql(site, query, read_only=1, max_rows=500, timeout=30)` | write (read-only) / admin (write mode) | `site.sql {site, query, read_only, max_rows, timeout}` |
+| `run_console(site, code, commit=0, timeout=60)` | admin | `site.console {site, code, commit, timeout, allow_shared_bench}` |
+| `get_result(job)` | same action as the job needed | — |
+| `get_permissions(site)` | read | `{read, sql, sql_write, console}` for the page |
+
+- Read-only kinds (logs / analytics / slow queries) reuse an identical job younger than 60 s unless
+  `refresh=1`; at most 5 unfinished observability jobs per site.
+- SQL is validated before queueing (`observability_utils.validate_query`, a mirror of the agent's validator:
+  read-only allows only SELECT/SHOW/DESCRIBE/EXPLAIN/WITH; client commands, backslashes and `/*! */` are
+  always refused). The agent re-validates and runs it as the **site's own DB user**.
+- The console is refused when the site's bench hosts sites of another team (the bench container can
+  read every `site_config.json` of the bench); the agent independently refuses shared benches unless the
+  CP sends `allow_shared_bench`.
+- Every call is recorded with `nexaploy.activity.log_activity(team, "site.logs" | "site.analytics" |
+  "site.slow_queries" | "site.sql" | "site.console", "Site", site, details)`; SQL / code text is truncated to
+  2000 characters (`observability_utils.activity_details`).
+- Results live in `Agent Job.result` (JSON); the agent caps them (logs 2 MB, SQL ≤ 5000 rows / 2000 chars
+  per cell, console output 1 MB). User-level errors (SQL error, exception in console code) come back as
+  `data.error` of a *successful* job; infrastructure errors fail the job.
+
+Pure helpers: `nexaploy/observability_utils.py` (tests: `tests/test_observability.py`). Translations:
+`translations/ar.observability.part`.
+
+**Note for `nexaploy.api.dashboard.get_job`/`list_jobs`:** they show `result`/`params` of any job of the
+team to every member with `read`, including `site.sql` / `site.console` results (and the query / code).
+Restrict them for those kinds (e.g. `observability_utils.required_action(kind, params.read_only)`) if
+Billing members must not see query results.

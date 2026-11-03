@@ -259,6 +259,44 @@ def create_app(ctx: AgentContext | None = None, settings: Settings | None = None
         params["skip_backup"] = bool(params.get("skip_backup") or skip_backup)
         return accepted("site.drop", params)
 
+    # ---- lifecycle (§10): staging clone, rename ------------------------------------------
+    @app.post("/v1/sites/{site}/clone", dependencies=auth, status_code=202)
+    def clone_site(site: str, body: dict[str, Any] = Body(...)):
+        params = body_with(body, site=site)
+        params.setdefault("bench", require_site(site))
+        return accepted("site.clone", params)
+
+    @app.post("/v1/sites/{site}/rename", dependencies=auth, status_code=202)
+    def rename_site(site: str, body: dict[str, Any] = Body(...)):
+        params = body_with(body, site=site)
+        params.setdefault("bench", require_site(site))
+        return accepted("site.rename", params)
+
+    # ---- observability (§10): logs, analytics, slow queries, SQL, console ----------------
+    @app.get("/v1/sites/{site}/logs", dependencies=auth, status_code=202)
+    def site_logs(site: str, log: str = Query("web"), lines: int = Query(200),
+                  since: str | None = Query(None)):
+        params: dict[str, Any] = {"site": site, "log": log, "lines": lines}
+        if since:
+            params["since"] = since
+        return accepted("site.logs", params)
+
+    @app.get("/v1/sites/{site}/analytics", dependencies=auth, status_code=202)
+    def site_analytics(site: str, date_from: str | None = Query(None), date_to: str | None = Query(None)):
+        return accepted("site.analytics", {"site": site, "date_from": date_from, "date_to": date_to})
+
+    @app.get("/v1/sites/{site}/slow-queries", dependencies=auth, status_code=202)
+    def site_slow_queries(site: str, limit: int = Query(50), min_seconds: float = Query(0.0)):
+        return accepted("site.slow_queries", {"site": site, "limit": limit, "min_seconds": min_seconds})
+
+    @app.post("/v1/sites/{site}/sql", dependencies=auth, status_code=202)
+    def site_sql(site: str, body: dict[str, Any] = Body(...)):
+        return accepted("site.sql", body_with(body, site=site))
+
+    @app.post("/v1/sites/{site}/console", dependencies=auth, status_code=202)
+    def site_console(site: str, body: dict[str, Any] = Body(...)):
+        return accepted("site.console", body_with(body, site=site))
+
     return app
 
 

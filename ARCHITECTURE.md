@@ -476,5 +476,14 @@ Phase 4 job kinds (agent ↔ CP), owners in brackets:
 | `site.sql` | `{site, query, read_only: true, max_rows, timeout}` | observability |
 | `site.console` | `{site, code, commit: false, timeout}` | observability |
 | `site.clone` | `{bench, site, target_site, scrub: true}` (staging) | lifecycle |
-| `site.rename` | `{bench, site, new_name}` | lifecycle |
-| `site.export` / `site.import` | cross-server move via backup/restore (reuse site.backup/site.restore) | lifecycle |
+| `site.rename` | `{bench, site, new_name, keep_old_domain: true}` | lifecycle |
+| (move) | no new kinds: `site.backup` → `site.restore {site, bench, backup_id\|remote_path}` (restores as a new site on `bench`) → `site.drop {skip_backup}`; cross-server uses `remote_path` (bucket required) | lifecycle |
+
+Lifecycle (owner: lifecycle, `nexaploy/api/site_lifecycle.py`, pure logic `nexaploy/lifecycle_utils.py`):
+Site adds `is_staging`, `staging_of` / `staging_site` (Link Site), hidden `move_options` (JSON) and status
+`Renaming`; DocType **Site Transfer** (`site`, `from_team`, `to_team`, `to_email`, `status`
+Pending/Accepted/Rejected/Cancelled, `token_hash`, `expires_on`). Staging sites are named
+`staging-<first label>.<rest>`, live on the production bench, are marked in their site_config with
+`nexaploy_staging_of` and must not be billed. A site changes teams only while it lives on a shared hosted
+bench. Activity actions: `site.staging_create`, `site.staging_refresh`, `site.move`, `site.transfer_request`,
+`site.transfer`, `site.transfer_cancel`, `site.transfer_reject`, `site.rename`.

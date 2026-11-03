@@ -350,3 +350,22 @@ def on_server_health(job):
 	from nexaploy.ops import record_heartbeat_metrics
 
 	record_heartbeat_metrics(job.server, facts)
+
+
+# --------------------------------------------------------------------------- lifecycle (staging, rename)
+
+
+@handles("site.clone")
+def on_site_clone(job):
+	"""site.clone references the staging Site: Active (apps Installed) or Broken."""
+	if job.status not in TERMINAL_JOB_STATUSES:
+		return
+	_ref(job).clone_finished(job)
+
+
+@handles("site.rename")
+def on_site_rename(job):
+	"""site.rename: rename the Site document (old name kept as a domain) or report failure."""
+	if job.status not in TERMINAL_JOB_STATUSES:
+		return
+	_ref(job).rename_finished(job)

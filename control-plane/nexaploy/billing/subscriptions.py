@@ -51,7 +51,7 @@ def sync_server(doc):
 
 
 def sync_site(doc):
-	if doc.status == "Archived" or not doc.team:
+	if doc.status == "Archived" or not doc.team or doc.get("is_staging"):  # staging sites are free
 		cancel_subscriptions("Site", doc.name)
 		cancel_site_app_subscriptions(doc.name)
 		return

@@ -131,6 +131,18 @@ URL/token come from `agent.toml` (or `--url/--token`, `NEXAPLOY_URL/NEXAPLOY_TOK
 | `server.health` | — | collect (result = host facts incl. containers / bench health) |
 | `backup.prune_remote` | `site, bench, keep_days=14, keep_min=3, prefix?` | list (`rclone lsf --dirs-only`, select dated dirs older than keep_days, newest keep_min kept), prune (`rclone purge` each) |
 
+### Site lifecycle (`jobs/lifecycle_jobs.py`, `runtime/lifecycle.py`)
+
+| Kind | Params | Steps |
+|---|---|---|
+| `site.clone` (`POST /v1/sites/{s}/clone`) | `bench, site, target_site, scrub=true` | check, backup, stage (local backup of `site`, never uploaded), new_site (skipped when `target_site` exists; marks it `nexaploy_staging_of: <site>` in its site_config), restore (`bench --site <target> restore … --force`), restore_config (source `encryption_key`), scrub (`mute_emails=1`, `pause_scheduler=1`, `maintenance_mode=0`, no `host_name`/`domains`; ``UPDATE `tabEmail Account` SET enable_outgoing=0, enable_incoming=0`` via `docker exec -e MYSQL_PWD nexaploy-db mariadb`), migrate, write_route |
+| `site.rename` (`POST /v1/sites/{s}/rename`) | `bench, site, new_name, keep_old_domain=true` | check, maintenance_on, move (`sites/<old>` → `sites/<new>` on the host bind mount; skipped when already moved), update_config (`host_name` rewritten, new name removed from / old name added to `domains`), write_route (old route removed), clear_cache, maintenance_off (back to the previous value) |
+
+`site.clone` refuses to overwrite an existing site unless it carries the staging marker of the same
+source (re-running it refreshes a staging copy). Database name and files stay the same on rename.
+Moves between servers need no extra kind: `site.backup` → `site.restore {bench, remote_path}` on the
+target (restore creates the site) → `site.drop` on the source.
+
 Params are the REST body plus path parameters, identical for jobs sent by the control plane.
 Every step is check-then-act, so a job interrupted by a crash is re-queued at startup and resumes:
 successful steps are skipped. The first failing step fails the job and the rest are `skipped`.
@@ -217,3 +229,44 @@ python3 -m venv .venv && .venv/bin/pip install -e '.[test]'
 
 Tests never touch Docker: every command goes through the `Runner` interface and tests use
 `FakeRunner` (records calls, returns scripted results, can emulate side effects).
+
+## Observability jobs (ARCHITECTURE.md §10)
+
+`nexaploy_agent/jobs/observability_jobs.py`, runtime in `runtime/logs.py`, `runtime/sql.py`,
+`runtime/console.py`. Results are returned in the job result (capped so `job_update` stays small); bulk
+command output is not duplicated into step output.
+
+| Kind / route | Params | Result |
+|---|---|---|
+| `site.logs` — `GET /v1/sites/{s}/logs?log=&lines=&since=` | `site, log: web\|worker\|scheduler\|frappe\|error, lines (≤5000), since? (30m, 2h, 2026-11-03T10:00Z)` | `{sources: [{source, kind: file\|container, lines, truncated, filtered}], shared_bench, truncated}`; `error`: `{rows: [{creation, method, error}]}` |
+| `site.analytics` — `GET /v1/sites/{s}/analytics?date_from=&date_to=` | `site, date_from?, date_to? (YYYY-MM-DD, ≤31 days, default last 7), top=20` | `{requests: {count, total_ms, avg_ms, p50_ms, p95_ms}, jobs, paths_by_count, paths_by_duration, jobs_by_method, status_codes, hourly, daily, monitor_enabled}` |
+| `site.slow_queries` — `GET /v1/sites/{s}/slow-queries?limit=&min_seconds=` | `site, limit=50, min_seconds=0` | `{enabled, log_size, entries, queries: [{query, count, avg_time, max_time, total_time, rows_examined_avg/max, rows_sent_avg, example, last_seen}]}` |
+| `site.sql` — `POST /v1/sites/{s}/sql` | `site, query, read_only=true, max_rows=500 (≤5000), timeout=30 (≤300)` | `{columns, rows, truncated, row_count, result_sets: [...], statements, read_only, error}` |
+| `site.console` — `POST /v1/sites/{s}/console` | `site, code, commit=false, timeout=60 (≤600), allow_shared_bench=false` | `{ok, output, truncated, committed, error, duration}` |
+
+The GET routes enqueue a job like every other route (`202 {job_id}`); jobs still run serially on the worker.
+
+- **Logs**: bench files `logs/{web,worker,scheduler}[.error].log`, `logs/frappe.log`, site files
+  `sites/<s>/logs/{frappe,database,scheduler}.log`, plus `docker compose logs --no-color --timestamps --tail N
+  [--since S] <service>` (web → backend, worker → queue-short/default/long, scheduler → scheduler). When the
+  bench hosts several sites, bench-level and container lines are **filtered to lines mentioning the site**.
+  2 MB total. `log=error` reads the newest `tabError Log` rows (≤200, error ≤4000 chars) with a read-only query.
+- **Analytics** aggregates `logs/monitor.json.log*` (the Frappe monitor, see usage) for the site and range.
+- **Slow queries** parse the tail (64 MB) of `<root>/db/data/slow.log` (enabled by
+  `--slow-query-log=1 --slow-query-log-file=/var/lib/mysql/slow.log --long-query-time=${DB_LONG_QUERY_TIME:-1}`
+  in the DB stack — restart `nexaploy-db` after upgrading), keep entries whose `Schema:` (or `use db`) is the
+  site's `db_name`, normalise literals to `?` and group. The log is never rotated by the agent.
+- **SQL** runs `docker exec -i -e MYSQL_PWD nexaploy-db mariadb --sandbox --xml --user <site db user> --host
+  127.0.0.1 --protocol TCP --database <db_name>` with the script on stdin: `SET SESSION max_statement_time`,
+  `sql_select_limit = max_rows+1`, and in read-only mode `SET SESSION TRANSACTION READ ONLY; START TRANSACTION;
+  …; ROLLBACK;`. The site's password (site_config `db_password`) is only in the environment. Read-only accepts
+  SELECT/SHOW/DESCRIBE/DESC/EXPLAIN/WITH; every mode rejects mariadb client commands (`system`, `source`, `use`,
+  `delimiter`, …), backslashes outside literals and `/*! */` comments. `--xml` (instead of `--batch --raw`)
+  keeps several result sets, NULLs and values with tabs/newlines apart. `--sandbox` needs MariaDB ≥ 10.6.18.
+  An SQL error is returned as `result.error` (job success).
+- **Console** writes the code to `sites/.nexaploy-console/<job>.py` (dir 700, file 600, uid 3113; removed after)
+  and runs `docker compose … exec -T -w /home/frappe/frappe-bench/sites backend env/bin/python -c <bootstrap>`:
+  `frappe.init(site, sites_path=".")`, `frappe.connect()`, `exec(code)` with stdout/stderr captured (1 MB),
+  `frappe.db.commit()` if `commit` else `rollback()`, `frappe.destroy()`; `signal.alarm(timeout)` inside the
+  container. Refused when the bench is down or (without `allow_shared_bench`) hosts other sites.
+- `site.sql` in write mode and `site.console` are not re-run when a crash interrupted them (the resumed step fails).

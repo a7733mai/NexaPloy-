@@ -278,6 +278,10 @@ def test_db(db):
     assert "--character-set-server=utf8mb4" in cmd
     assert "--skip-innodb-read-only-compressed" in cmd
     assert "--innodb-buffer-pool-size=${DB_BUFFER_POOL:-1G}" in cmd
+    # slow query log (agent job site.slow_queries reads data/slow.log)
+    assert "--slow-query-log=1" in cmd
+    assert "--slow-query-log-file=/var/lib/mysql/slow.log" in cmd
+    assert "--long-query-time=${DB_LONG_QUERY_TIME:-1}" in cmd
     assert m["volumes"] == ["./data:/var/lib/mysql"]
     assert m["networks"] == ["nexaploy-db"]
     assert db["networks"]["nexaploy-db"] == {"name": "nexaploy-db", "external": True}

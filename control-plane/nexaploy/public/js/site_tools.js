@@ -1,4 +1,5 @@
-/* Nexaploy portal: site tools (usage & plan upgrade, backup downloads, site config editor).
+/* Nexaploy portal: site tools (usage & plan upgrade, backup downloads, site config editor)
+ * and site lifecycle (staging, move, transfer, rename; transfer accept page).
  *
  * Served as /assets/nexaploy/js/site_tools.js. Must run BEFORE Alpine starts: include it as a
  * plain (non-deferred) <script> - www/dashboard/site.html does so in its `head` block - or add
@@ -256,7 +257,200 @@
 		};
 	}
 
+	/* ==================================================================== lifecycle
+	 * Alpine.data("nxSiteLifecycle"): Lifecycle tab of /dashboard/site (staging, move,
+	 * transfer, rename) - nexaploy.api.site_lifecycle. Nested in nxSite, so `site`, `tab` and
+	 * `load()` of the parent scope are visible.
+	 * Alpine.data("nxTransfer"): /dashboard/transfer?token= (accept / reject a site transfer).
+	 */
+	var LC = "nexaploy.api.site_lifecycle.";
+	function lcCall(method, args) { return nx().call(LC + method, args); }
+
+	function lifecycleFactory() {
+		return {
+			lc: null,
+			lcLoading: false,
+			lcError: null,
+			lcBusy: {},
+			moveTarget: "",
+			allowUpgrade: false,
+			moveResult: null,
+			transferTo: "",
+			transferResult: null,
+			renameTo: "",
+			renameResult: null,
+
+			lcName: function () { return nx() ? nx().query("name") : new URLSearchParams(location.search).get("name"); },
+			loadLifecycle: function () {
+				var self = this;
+				this.lcLoading = true;
+				return lcCall("get_lifecycle", { site: this.lcName() }).then(
+					function (r) { self.lc = r; self.lcError = null; },
+					function (e) { self.lcError = e.message; }
+				).finally(function () { self.lcLoading = false; });
+			},
+			_lcRun: function (key, method, args, confirmText, after) {
+				var self = this;
+				if (confirmText && !window.confirm(confirmText)) return;
+				this.lcBusy[key] = true;
+				return lcCall(method, args).then(
+					function (r) {
+						if (after) after(r);
+						if (r && r.job) {
+							var poll = nx().pollJob(r.job, function () {});
+							poll.done.then(function () { self.loadLifecycle(); if (typeof self.load === "function") self.load(true); });
+						}
+						self.loadLifecycle();
+						if (typeof self.load === "function") self.load(true);
+						return r;
+					},
+					function (e) { toast(e.message, "error"); }
+				).finally(function () { self.lcBusy[key] = false; });
+			},
+
+			/* staging */
+			createStaging: function () {
+				return this._lcRun("staging", "create_staging", { site: this.lcName() },
+					t("Create a staging copy of {0}? Emails and the scheduler are disabled on the copy.", [this.lcName()]),
+					function (r) { toast(t("Staging site {0} is being created", [r.name]), "success"); });
+			},
+			refreshStaging: function () {
+				return this._lcRun("staging", "refresh_staging", { site: this.lcName() },
+					t("Refresh the staging site? Its data is replaced by a fresh copy of production."),
+					function () { toast(t("Staging site is being refreshed"), "success"); });
+			},
+
+			/* move */
+			targets: function () { return (this.lc && this.lc.move_targets) || []; },
+			selectedTarget: function () {
+				var name = this.moveTarget;
+				return this.targets().filter(function (b) { return b.name === name; })[0] || null;
+			},
+			targetLabel: function (b) {
+				var parts = [b.bench_name || b.name, "v" + (b.frappe_major || "?"), b.server_hostname || b.server];
+				if (b.same_server) parts.push(t("same server"));
+				if (b.shared) parts.push(t("shared"));
+				if (b.upgrade) parts.push(t("upgrade"));
+				return parts.join(" · ");
+			},
+			canMove: function () {
+				var b = this.selectedTarget();
+				if (!b || !b.compatible) return false;
+				if (b.upgrade && !this.allowUpgrade) return false;
+				if (!b.same_server && this.lc && !this.lc.backup_storage) return false;
+				return true;
+			},
+			moveSite: function () {
+				var self = this;
+				var b = this.selectedTarget();
+				if (!b) return;
+				return this._lcRun("move", "move_site", { site: this.lcName(), target_bench: b.name, allow_upgrade: this.allowUpgrade ? 1 : 0 },
+					t("Move {0} to bench {1}? The site is backed up, restored on the target and removed from the current bench.", [this.lcName(), b.bench_name || b.name]),
+					function (r) { self.moveResult = r; toast(t("Move started"), "success"); });
+			},
+
+			/* transfer */
+			requestTransfer: function () {
+				var self = this;
+				var to = this.transferTo.trim();
+				if (!to) return;
+				return this._lcRun("transfer", "request_transfer", { site: this.lcName(), email_or_team: to },
+					t("Offer {0} to {1}? Once accepted, the other team owns and pays for the site.", [this.lcName(), to]),
+					function (r) { self.transferResult = r; self.transferTo = ""; toast(t("Transfer requested"), "success"); });
+			},
+			cancelTransfer: function (name) {
+				return this._lcRun("transfer", "cancel_transfer", { name: name }, t("Cancel this transfer?"));
+			},
+
+			/* rename */
+			renamePreview: function () {
+				return this.lc ? nx().siteNamePreview(this.renameTo, this.lc.root_domain) : "";
+			},
+			renameSite: function () {
+				var self = this;
+				var value = this.renameTo.trim();
+				if (!value) return;
+				var old = this.lcName();
+				this.lcBusy.rename = true;
+				if (!window.confirm(t("Rename {0} to {1}? The site is in maintenance mode for a moment; the old name keeps working as a domain.", [old, this.renamePreview() || value]))) {
+					this.lcBusy.rename = false;
+					return;
+				}
+				lcCall("rename_site", { site: old, new_subdomain_or_name: value, keep_old_domain: 1 }).then(
+					function (r) {
+						self.renameResult = r;
+						toast(t("Renaming to {0}…", [r.new_name]), "success");
+						if (typeof self.load === "function") self.load(true);
+						nx().pollJob(r.job, function () {}).done.then(function (job) {
+							if (job && job.status === "Success") {
+								window.location.href = "/dashboard/site?name=" + encodeURIComponent(r.new_name);
+							} else if (job) {
+								toast(job.error || t("Rename failed"), "error");
+								self.loadLifecycle();
+							}
+						});
+					},
+					function (e) { toast(e.message, "error"); }
+				).finally(function () { self.lcBusy.rename = false; });
+			},
+		};
+	}
+
+	function transferFactory() {
+		return {
+			token: null,
+			tr: null,
+			loading: false,
+			error: null,
+			busy: false,
+			team: "",
+			done: null,
+			init: function () {
+				this.token = new URLSearchParams(location.search).get("token");
+				if (!this.token) { this.error = t("This transfer link is invalid"); return; }
+				this.reload();
+			},
+			reload: function () {
+				var self = this;
+				this.loading = true;
+				lcCall("get_transfer", { token: this.token }).then(
+					function (r) {
+						self.tr = r;
+						self.error = null;
+						if (r.teams && r.teams.length && !self.team) self.team = r.teams[0].name;
+					},
+					function (e) { self.error = e.message; }
+				).finally(function () { self.loading = false; });
+			},
+			accept: function () {
+				var self = this;
+				if (!window.confirm(t("Take over {0}? Your team will be billed for it from today.", [this.tr.site]))) return;
+				this.busy = true;
+				lcCall("accept_transfer", { token: this.token, team: this.team || null }).then(
+					function (r) {
+						self.done = r;
+						if (nx() && nx().rememberTeam) nx().rememberTeam(r.team);
+						toast(t("{0} now belongs to your team", [r.site]), "success");
+						setTimeout(function () { window.location.href = "/dashboard/site?name=" + encodeURIComponent(r.site); }, 1200);
+					},
+					function (e) { toast(e.message, "error"); }
+				).finally(function () { self.busy = false; });
+			},
+			reject: function () {
+				var self = this;
+				if (!window.confirm(t("Decline this transfer?"))) return;
+				this.busy = true;
+				lcCall("reject_transfer", { token: this.token }).then(
+					function () { self.reload(); toast(t("Transfer declined"), "info"); },
+					function (e) { toast(e.message, "error"); }
+				).finally(function () { self.busy = false; });
+			},
+		};
+	}
+
 	document.addEventListener("alpine:init", function () {
 		window.Alpine.data("nxSiteTools", factory);
+		window.Alpine.data("nxSiteLifecycle", lifecycleFactory);
+		window.Alpine.data("nxTransfer", transferFactory);
 	});
 })();

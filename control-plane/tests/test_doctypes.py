@@ -28,6 +28,8 @@ EXPECTED = {
 	"GitHub Settings", "GitHub Installation", "Custom App",
 	# plan usage / backup downloads
 	"Site Usage", "Site Backup File",
+	# site lifecycle (§10)
+	"Site Transfer",
 }
 CHILD_TABLES = {
 	"Marketplace App Release", "Release Group App", "Site Domain", "Site App", "Agent Job Step",
@@ -263,3 +265,13 @@ def test_team_doctypes_spec():
 		customer = perms["Nexaploy Customer"]
 		assert customer.get("read") == 1
 		assert not any(customer.get(k) for k in ("write", "create", "delete"))
+
+
+# activity log (§10) and prepaid credits: register the new DocTypes with the checks above
+EXPECTED.update({"Team Activity", "Team Credit Transaction"})
+
+
+def test_activity_and_credit_doctypes_link_team():
+	for dt in ("Team Activity", "Team Credit Transaction"):
+		team = next(f for f in BY_NAME[dt]["fields"] if f["fieldname"] == "team")
+		assert team["fieldtype"] == "Link" and team["options"] == "Team" and team.get("reqd") == 1

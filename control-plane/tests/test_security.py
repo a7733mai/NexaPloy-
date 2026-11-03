@@ -396,7 +396,7 @@ def test_pages_and_sidebar():
 
 
 def test_security_translations_part():
-	path = os.path.join(APP, "translations", "ar.security.part")
+	path = os.path.join(APP, "translations", "ar.csv")
 	with open(path, encoding="utf-8", newline="") as fh:
 		rows = [r for r in csv.reader(fh) if r]
 	sources = {r[0] for r in rows}

@@ -141,3 +141,10 @@ Renders both templates with `StrictUndefined`, parses every compose file and
 asserts services, container names, networks, mounts, UIDs, hardening, absence
 of Traefik labels and route structure. If `docker compose` is available the
 files are also validated with `docker compose config` (otherwise skipped).
+
+### Slow query log (shared DB)
+
+`db/docker-compose.yml` starts MariaDB with `--slow-query-log=1 --slow-query-log-file=/var/lib/mysql/slow.log
+--long-query-time=${DB_LONG_QUERY_TIME:-1}` (seconds, `.env`). The file lands in `/opt/nexaploy/db/data/slow.log`
+and the agent's `site.slow_queries` job shows each site only the entries of its own schema. Rotate it with
+logrotate (`copytruncate`) on busy servers.

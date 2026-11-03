@@ -32,6 +32,7 @@
 					<span :class="nx.statusClass(site.status)" x-text="__(site.status)"></span>
 					<a class="btn sm" :href="site.url" target="_blank" rel="noopener" x-show="site.status === 'Active'">{{ _("Open site") }}</a>
 					<a class="btn sm" :href="site.url + '/app'" target="_blank" rel="noopener" x-show="site.status === 'Active'">{{ _("Open desk") }}</a>
+					<a class="btn sm" :href="'/dashboard/insights?site=' + encodeURIComponent(site.name)">{{ _("Insights") }}</a>
 				</div>
 				<div class="card-body">
 					<dl class="kv">
@@ -53,6 +54,7 @@
 					</dl>
 					<template x-if="site.status === 'Pending'"><div class="alert info" style="margin-block-start: 14px">{{ _("The site is being created. This page refreshes automatically.") }}</div></template>
 					<template x-if="site.status === 'Moving'"><div class="alert info" style="margin-block-start: 14px">{{ _("The site is being moved to another bench. Actions are disabled until the move finishes.") }}</div></template>
+					<template x-if="site.status === 'Renaming'"><div class="alert info" style="margin-block-start: 14px">{{ _("The site is being renamed. It is briefly in maintenance mode; this page moves to the new name when done.") }}</div></template>
 					<template x-if="site.status === 'Broken'"><div class="alert danger" style="margin-block-start: 14px">{{ _("The last operation failed. Check the jobs log, restore a backup or contact support.") }}</div></template>
 				</div>
 			</section>
@@ -63,6 +65,7 @@
 				<button type="button" :class="{ active: tab === 'backups' }" @click="tab = 'backups'">{{ _("Backups") }}</button>
 				<button type="button" :class="{ active: tab === 'usage' }" @click="tab = 'usage'">{{ _("Usage") }}</button>
 				<button type="button" x-show="site.can_write !== false" :class="{ active: tab === 'config' }" @click="tab = 'config'; if (!cfg.loaded && !cfg.loading) loadConfig(false)">{{ _("Config") }}</button>
+				<button type="button" :class="{ active: tab === 'lifecycle' }" @click="tab = 'lifecycle'; $dispatch('nx-lifecycle-open')">{{ _("Lifecycle") }}</button>
 				<button type="button" :class="{ active: tab === 'jobs' }" @click="tab = 'jobs'">{{ _("Jobs") }} <span class="spinner" x-show="active" style="width: 12px; height: 12px"></span></button>
 				<button type="button" :class="{ active: tab === 'settings' }" @click="tab = 'settings'">{{ _("Settings") }}</button>
 			</div>
@@ -303,6 +306,127 @@
 					</form>
 				</div>
 			</section>
+
+			<!-- Lifecycle: staging, move, transfer, rename (public/js/site_tools.js nxSiteLifecycle) -->
+			<div class="stack" x-show="tab === 'lifecycle'" x-data="nxSiteLifecycle" @nx-lifecycle-open.window="if (!lc && !lcLoading) loadLifecycle()">
+				<template x-if="lcLoading && !lc"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+				<template x-if="lcError && !lc"><div class="alert danger" x-text="lcError"></div></template>
+				<template x-if="lc">
+					<div class="stack">
+						<!-- Staging -->
+						<section class="card">
+							<div class="card-head">
+								<h2>{{ _("Staging site") }}</h2>
+								<span class="spacer"></span>
+								<template x-if="lc.staging"><span :class="nx.statusClass(lc.staging.status)" x-text="__(lc.staging.status)"></span></template>
+							</div>
+							<div class="card-body stack">
+								<template x-if="lc.is_staging">
+									<div class="stack">
+										<div class="alert info">{{ _("This is a staging copy of") }} <a class="ltr" :href="'/dashboard/site?name=' + encodeURIComponent(lc.staging_of)" x-text="lc.staging_of"></a>. {{ _("Outgoing emails are muted and the scheduler is paused. Staging sites are not billed.") }}</div>
+										<div class="row" x-show="lc.can_write">
+											<button class="btn" type="button" :disabled="lcBusy.staging || !['Active', 'Broken'].includes(lc.status)" @click="refreshStaging()"><span class="spinner" x-show="lcBusy.staging"></span> {{ _("Refresh from production") }}</button>
+										</div>
+									</div>
+								</template>
+								<template x-if="!lc.is_staging">
+									<div class="stack">
+										<span class="muted">{{ _("A copy of this site on the same bench to test updates and changes safely. Emails are muted, the scheduler is paused and email accounts are disabled on the copy.") }}</span>
+										<template x-if="lc.staging">
+											<div class="row">
+												<a class="ltr" :href="'/dashboard/site?name=' + encodeURIComponent(lc.staging.name)" x-text="lc.staging.name"></a>
+												<span class="spacer"></span>
+												<a class="btn sm" :href="lc.staging.url" target="_blank" rel="noopener" x-show="lc.staging.status === 'Active'">{{ _("Open") }}</a>
+												<button class="btn sm" type="button" x-show="lc.can_write" :disabled="lcBusy.staging || site.status !== 'Active' || !['Active', 'Broken'].includes(lc.staging.status)" @click="refreshStaging()"><span class="spinner" x-show="lcBusy.staging"></span> {{ _("Refresh") }}</button>
+												<a class="btn sm" :href="'/dashboard/site?name=' + encodeURIComponent(lc.staging.name)">{{ _("Manage") }}</a>
+											</div>
+										</template>
+										<template x-if="!lc.staging && lc.can_write">
+											<div class="row">
+												<span class="small muted ltr" x-text="lc.staging_name"></span>
+												<span class="spacer"></span>
+												<button class="btn primary" type="button" :disabled="lcBusy.staging || site.status !== 'Active' || !lc.staging_name" @click="createStaging()"><span class="spinner" x-show="lcBusy.staging"></span> {{ _("Create staging site") }}</button>
+											</div>
+										</template>
+									</div>
+								</template>
+							</div>
+						</section>
+
+						<!-- Move -->
+						<section class="card" x-show="lc.can_write && !lc.is_staging">
+							<div class="card-head"><h2>{{ _("Move site") }}</h2></div>
+							<div class="card-body stack">
+								<span class="muted">{{ _("Move the site to another bench on this or another of your servers. The site is backed up, restored on the target bench (migrated) and then removed from the current one.") }}</span>
+								<template x-if="!targets().length"><div class="small muted">{{ _("No other bench is available. Deploy a bench group on a server first.") }}</div></template>
+								<div class="row" x-show="targets().length">
+									<select class="input" style="max-width: 460px" x-model="moveTarget">
+										<option value="">{{ _("Choose a target bench…") }}</option>
+										<template x-for="b in targets()" :key="b.name">
+											<option :value="b.name" :disabled="!b.compatible && !b.upgrade" x-text="targetLabel(b)"></option>
+										</template>
+									</select>
+									<button class="btn primary" type="button" :disabled="lcBusy.move || site.status !== 'Active' || !canMove()" @click="moveSite()"><span class="spinner" x-show="lcBusy.move"></span> {{ _("Move") }}</button>
+								</div>
+								<template x-if="selectedTarget() && selectedTarget().upgrade">
+									<label class="check small"><input type="checkbox" x-model="allowUpgrade"> <span x-text="__('Upgrade from v{0} to v{1} (runs migrate; cannot be undone)', [lc.frappe_major, selectedTarget().frappe_major])"></span></label>
+								</template>
+								<template x-if="selectedTarget() && !selectedTarget().compatible && !selectedTarget().upgrade"><div class="alert warning" x-text="selectedTarget().reason"></div></template>
+								<template x-if="selectedTarget() && !selectedTarget().same_server && !lc.backup_storage"><div class="alert warning">{{ _("Moving to another server needs backup storage configured by the platform administrator.") }}</div></template>
+								<template x-if="selectedTarget() && !selectedTarget().same_server"><div class="small muted">{{ _("After a move to another server, every domain of the site must point to the new server.") }}</div></template>
+								<template x-if="moveResult && moveResult.dns_hint"><div class="alert info" x-text="moveResult.dns_hint.message"></div></template>
+							</div>
+						</section>
+
+						<!-- Transfer -->
+						<section class="card" x-show="lc.can_admin && !lc.is_staging">
+							<div class="card-head"><h2>{{ _("Transfer to another team") }}</h2></div>
+							<div class="card-body stack">
+								<span class="muted">{{ _("Hand the site over to another team. They accept with the emailed link; from then on they own it and are billed for it.") }}</span>
+								<template x-if="lc.transfer_block_reason"><div class="alert warning" x-text="__(lc.transfer_block_reason)"></div></template>
+								<form class="row" x-show="!lc.transfer_block_reason" @submit.prevent="requestTransfer()">
+									<input class="input ltr" style="max-width: 360px" type="text" x-model="transferTo" placeholder="owner@example.com / team-name" spellcheck="false">
+									<button class="btn primary" type="submit" :disabled="lcBusy.transfer || !transferTo.trim() || site.status !== 'Active'"><span class="spinner" x-show="lcBusy.transfer"></span> {{ _("Request transfer") }}</button>
+								</form>
+								<template x-if="transferResult">
+									<div class="stack">
+										<div class="alert warning" x-show="!transferResult.email_sent">{{ _("The email could not be sent. Share this link with the new owner:") }}</div>
+										<div class="codebox mono"><span x-text="transferResult.transfer_url"></span><button class="btn sm" type="button" @click="nx.copy(transferResult.transfer_url)">{{ _("Copy") }}</button></div>
+									</div>
+								</template>
+							</div>
+							<div class="card-body flush" x-show="lc.transfers.length">
+								<table class="nx-table">
+									<thead><tr><th>{{ _("Pending transfer to") }}</th><th>{{ _("Expires") }}</th><th></th></tr></thead>
+									<tbody>
+										<template x-for="tr in lc.transfers" :key="tr.name">
+											<tr>
+												<td class="ltr" x-text="tr.to_team || tr.to_email"></td>
+												<td class="nowrap" x-text="nx.fmtDate(tr.expires_on)"></td>
+												<td class="actions"><button class="btn sm ghost" type="button" :disabled="lcBusy.transfer" @click="cancelTransfer(tr.name)">{{ _("Cancel") }}</button></td>
+											</tr>
+										</template>
+									</tbody>
+								</table>
+							</div>
+						</section>
+
+						<!-- Rename -->
+						<section class="card" x-show="lc.can_admin && !lc.is_staging">
+							<div class="card-head"><h2>{{ _("Rename site") }}</h2></div>
+							<div class="card-body stack">
+								<span class="muted">{{ _("Give the site a new name. The database and files stay the same; the old name is kept as a domain so existing links keep working.") }}</span>
+								<form class="row" @submit.prevent="renameSite()">
+									<input class="input ltr" style="max-width: 360px" type="text" x-model="renameTo" :placeholder="lc.custom_names ? 'erp.example.com' : 'new-name'" spellcheck="false">
+									<button class="btn primary" type="submit" :disabled="lcBusy.rename || !renameTo.trim() || site.status !== 'Active'"><span class="spinner" x-show="lcBusy.rename"></span> {{ _("Rename") }}</button>
+								</form>
+								<template x-if="renameTo.trim()"><div class="small muted"><span>{{ _("New name") }}:</span> <span class="ltr" x-text="renamePreview()"></span></div></template>
+								<template x-if="renameResult && renameResult.dns_hint"><div class="alert info" x-text="renameResult.dns_hint.message"></div></template>
+							</div>
+						</section>
+					</div>
+				</template>
+			</div>
 
 			<!-- Jobs -->
 			<section class="card" x-show="tab === 'jobs'">

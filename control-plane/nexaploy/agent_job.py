@@ -34,6 +34,15 @@ JOB_KINDS = (
 	"site.usage",
 	"site.get_config",
 	"site.update_config",
+	# lifecycle (staging, rename)
+	"site.clone",
+	"site.rename",
+	# observability (logs, analytics, slow queries, SQL, console)
+	"site.logs",
+	"site.analytics",
+	"site.slow_queries",
+	"site.sql",
+	"site.console",
 )
 
 

@@ -27,6 +27,11 @@ services:
       - --innodb-buffer-pool-size=${DB_BUFFER_POOL:-1G}
       - --max-allowed-packet=256M
       - --skip-name-resolve
+      # slow query log for the portal's "Slow queries" view (agent job site.slow_queries reads
+      # ./data/slow.log on the host and filters it by the site's schema)
+      - --slow-query-log=1
+      - --slow-query-log-file=/var/lib/mysql/slow.log
+      - --long-query-time=${DB_LONG_QUERY_TIME:-1}
     environment:
       TZ: ${TZ:-UTC}
       MARIADB_AUTO_UPGRADE: "1"
