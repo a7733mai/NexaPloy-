@@ -17,8 +17,14 @@ EXPECTED = {
 	"Server", "Server Registration Token", "Marketplace App", "Marketplace App Release",
 	"Release Group", "Release Group App", "Deploy Candidate", "Bench", "Site", "Site Domain",
 	"Site App", "Site Backup", "Agent Job", "Agent Job Step", "Nexaploy Plan",
+	# billing
+	"Billing Settings", "Nexaploy Subscription", "Nexaploy Invoice", "Nexaploy Invoice Item",
+	"Nexaploy Payment",
 }
-CHILD_TABLES = {"Marketplace App Release", "Release Group App", "Site Domain", "Site App", "Agent Job Step"}
+CHILD_TABLES = {
+	"Marketplace App Release", "Release Group App", "Site Domain", "Site App", "Agent Job Step",
+	"Nexaploy Invoice Item",
+}
 REQUIRED_KEYS = {"doctype", "name", "module", "fields", "permissions", "modified", "istable", "engine"}
 VALID_FIELDTYPES = {
 	"Data", "Select", "Link", "Dynamic Link", "Check", "Int", "Float", "Currency", "Datetime", "Date",

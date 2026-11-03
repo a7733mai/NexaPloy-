@@ -32,14 +32,31 @@ DEFAULT_PLANS = [
 ]
 
 
+BILLING_DEFAULTS = {
+	"enabled": 1,
+	"currency": "USD",
+	"invoice_day": 1,
+	"grace_days": 7,
+	"suspend_after_days": 14,
+	"tax_percent": 0,
+	"default_byos_plan": "BYOS Server",
+	"default_site_plan": "Site Basic",
+	"paymob_currency": "EGP",
+	"paymob_exchange_rate": 1,
+	"paymob_base_url": "https://accept.paymob.com",
+}
+
+
 def after_install():
 	create_customer_role()
 	create_default_plans()
+	create_billing_settings()
 
 
 def after_migrate():
 	create_customer_role()
 	create_default_plans()
+	create_billing_settings()
 
 
 def create_customer_role():
@@ -60,3 +77,16 @@ def create_default_plans():
 			# never fail the install over it.
 			doc.currency = None
 		doc.insert(ignore_permissions=True)
+
+
+def create_billing_settings():
+	"""Fill Billing Settings once (a Single never saved has no values, not even defaults).
+	Skipped once a currency is stored, so admin changes survive migrations."""
+	if frappe.db.get_single_value("Billing Settings", "currency"):
+		return
+	doc = frappe.get_single("Billing Settings")
+	doc.update(BILLING_DEFAULTS)
+	# Currencies may not exist before the setup wizard ran; never fail the install over it.
+	doc.flags.ignore_links = True
+	doc.flags.ignore_mandatory = True
+	doc.save(ignore_permissions=True)
