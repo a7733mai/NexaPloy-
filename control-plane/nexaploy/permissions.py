@@ -101,3 +101,53 @@ def has_team_permission(doc, ptype=None, user=None):
 def has_team_doc_permission(doc, ptype=None, user=None):
 	"""has_permission for Team itself (team = doc.name)."""
 	return has_team_permission(doc, ptype, user)
+
+
+# --------------------------------------------------------------------------- activity & credits
+
+# Team Activity is readable by team Owners/Admins (the `admin` action), the credit ledger
+# by Owners/Admins/Billing (`billing`). Both are read-only for customers: rows are written
+# by nexaploy.activity.log_activity / nexaploy.billing.credits.add_credits only.
+READ_ONLY_ACTION = {"Team Activity": "admin", "Team Credit Transaction": "billing"}
+_READ_PTYPES = ("read", "select", "print", "export", "report")
+
+
+def _teams_with_roles_sql(user, roles):
+	role_list = ", ".join(frappe.db.escape(r) for r in sorted(roles))
+	return (
+		"(select `tabTeam Member`.`parent` from `tabTeam Member` "
+		"inner join `tabTeam` on `tabTeam`.`name` = `tabTeam Member`.`parent` "
+		"where `tabTeam Member`.`parenttype` = 'Team' "
+		f"and `tabTeam Member`.`user` = {frappe.db.escape(user)} "
+		f"and `tabTeam Member`.`role` in ({role_list}) "
+		"and `tabTeam`.`enabled` = 1)"
+	)
+
+
+def _read_only_query(doctype, user=None):
+	from nexaploy.team_utils import ROLE_MATRIX
+
+	user = user or frappe.session.user
+	if not _is_restricted(user):
+		return ""
+	roles = ROLE_MATRIX[READ_ONLY_ACTION[doctype]]
+	return f"`tab{doctype}`.`team` in {_teams_with_roles_sql(user, roles)}"
+
+
+def team_activity_query(user=None):
+	return _read_only_query("Team Activity", user)
+
+
+def team_credit_query(user=None):
+	return _read_only_query("Team Credit Transaction", user)
+
+
+def has_read_only_team_permission(doc, ptype=None, user=None):
+	"""Customers may only read (Team Activity: admin action; ledger: billing action)."""
+	user = user or frappe.session.user
+	if not _is_restricted(user):
+		return True
+	if (ptype or "read") not in _READ_PTYPES:
+		return False
+	team = doc.get("team")
+	return bool(team) and role_allows(get_team_role(team, user), READ_ONLY_ACTION.get(doc.doctype, "admin"))

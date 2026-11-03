@@ -34,7 +34,12 @@
   "column_break_5",
   "paymob_currency",
   "paymob_exchange_rate",
-  "paymob_base_url"
+  "paymob_base_url",
+  "section_break_credits",
+  "signup_credits",
+  "column_break_6",
+  "min_topup",
+  "max_topup"
  ],
  "fields": [
   {
@@ -209,13 +214,44 @@
    "fieldname": "paymob_base_url",
    "fieldtype": "Data",
    "label": "API Base URL"
+  },
+  {
+   "fieldname": "section_break_credits",
+   "fieldtype": "Section Break",
+   "label": "Prepaid Credits"
+  },
+  {
+   "default": "0",
+   "description": "Promo credits granted once to every new team (and at most once per owner). 0 = off.",
+   "fieldname": "signup_credits",
+   "fieldtype": "Currency",
+   "label": "Signup Credits",
+   "options": "currency"
+  },
+  {
+   "fieldname": "column_break_6",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "5",
+   "fieldname": "min_topup",
+   "fieldtype": "Currency",
+   "label": "Minimum Top-up",
+   "options": "currency"
+  },
+  {
+   "default": "10000",
+   "fieldname": "max_topup",
+   "fieldtype": "Currency",
+   "label": "Maximum Top-up",
+   "options": "currency"
   }
  ],
  "index_web_pages_for_search": 0,
  "issingle": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-11-03 12:00:00.000000",
+ "modified": "2026-11-03 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Billing Settings",

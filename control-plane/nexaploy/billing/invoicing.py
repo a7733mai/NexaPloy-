@@ -7,13 +7,17 @@ Scheduler (daily):
     suspend_after_days -> the team's Active sites go Suspended + maintenance_mode=1.
 Payments (nexaploy.api.billing webhooks) go through apply_payment, which marks the invoice
 Paid and unsuspends the team once nothing is past the suspension threshold.
+
+Prepaid credits (nexaploy.billing.credits): a new subscription invoice is paid from the
+team's credits first (fully -> Paid, partially -> amount_due is what the gateway charges).
+"Credit Top-up" invoices are never dunned; paying one adds credits.
 """
 
 import frappe
 from frappe.utils import get_url, getdate, now_datetime, today
 
 from nexaploy.agent_job import create_agent_job
-from nexaploy.billing import pricing
+from nexaploy.billing import credits_utils, pricing
 from nexaploy.billing.subscriptions import reconcile_subscriptions
 
 INVOICE = "Nexaploy Invoice"
@@ -83,16 +87,18 @@ def generate_invoices_for_team(team, period_start, period_end, issue_date=None):
 
 	created = []
 	for currency, rows in sorted(by_currency.items()):
-		if frappe.db.exists(
+		existing = frappe.get_all(
 			INVOICE,
-			{
+			filters={
 				"team": team,
 				"period_start": period_start,
 				"period_end": period_end,
 				"currency": currency,
 				"status": ["!=", "Void"],
 			},
-		):
+			fields=["name", "invoice_type"],
+		)
+		if any(e.invoice_type != credits_utils.TOPUP_INVOICE_TYPE for e in existing):
 			continue
 		items = pricing.build_invoice_items(rows, (period_start, period_end))
 		if not items:
@@ -101,6 +107,7 @@ def generate_invoices_for_team(team, period_start, period_end, issue_date=None):
 			{
 				"doctype": INVOICE,
 				"team": team,
+				"invoice_type": credits_utils.SUBSCRIPTION_INVOICE_TYPE,
 				"status": "Unpaid",
 				"currency": currency,
 				"period_start": period_start,
@@ -113,8 +120,22 @@ def generate_invoices_for_team(team, period_start, period_end, issue_date=None):
 		invoice.insert(ignore_permissions=True)
 		if invoice.total <= 0:
 			invoice.db_set("status", "Paid")
+		else:
+			_apply_credits(invoice)
 		created.append(invoice.name)
 	return created
+
+
+def _apply_credits(invoice):
+	"""Pay a new invoice from prepaid credits (never fails invoicing)."""
+	from nexaploy.billing.credits import apply_credits_to_invoice
+
+	try:
+		frappe.db.savepoint("nexaploy_credits")
+		apply_credits_to_invoice(invoice)
+	except Exception:
+		frappe.db.rollback(save_point="nexaploy_credits")
+		frappe.log_error(title=f"Nexaploy: applying credits to {invoice.name} failed")
 
 
 def _teams_with_subscriptions(period_start, period_end):
@@ -136,8 +157,18 @@ def mark_overdue_and_suspend(date=None):
 	if not s.enabled:
 		return
 	date = getdate(date or today())
-	for name in frappe.get_all(INVOICE, filters={"status": "Unpaid", "due_date": ["<", date]}, pluck="name"):
-		frappe.db.set_value(INVOICE, name, "status", "Overdue")
+	for inv in frappe.get_all(
+		INVOICE, filters={"status": "Unpaid", "due_date": ["<", date]}, fields=["name", "invoice_type"]
+	):
+		if inv.invoice_type == credits_utils.TOPUP_INVOICE_TYPE:
+			continue  # an abandoned top-up checkout is not a debt
+		frappe.db.set_value(INVOICE, inv.name, "status", "Overdue")
+	try:
+		from nexaploy.billing.credits import void_stale_topups
+
+		void_stale_topups()
+	except Exception:
+		frappe.log_error(title="Nexaploy: voiding stale top-ups failed")
 
 	teams = set()
 	for inv in frappe.get_all(INVOICE, filters={"status": "Overdue"}, fields=["team", "due_date"]):
@@ -236,28 +267,48 @@ def apply_payment(event):
 	)
 	payment.insert(ignore_permissions=True)
 
-	if status == "Success" and invoice.status in ("Unpaid", "Overdue", "Draft"):
+	is_topup = invoice.invoice_type == credits_utils.TOPUP_INVOICE_TYPE
+	payable = invoice.status in ("Unpaid", "Overdue", "Draft") or (is_topup and invoice.status == "Void")
+	if status == "Success" and payable:
 		if _underpaid(event, invoice):
 			frappe.log_error(
 				title=f"Nexaploy: underpayment on {invoice.name}",
-				message=f"{event.amount} {event.currency} < {invoice.total} {invoice.currency}",
+				message=f"{event.amount} {event.currency} < {_due(invoice)} {invoice.currency}",
 			)
 		else:
 			mark_paid(invoice, event.gateway, event.checkout_reference or reference)
+			if not is_topup:
+				_log_payment(invoice, event.gateway)
 	return payment.name
 
 
 def mark_paid(invoice, gateway=None, reference=None):
 	if isinstance(invoice, str):
 		invoice = frappe.get_doc(INVOICE, invoice)
-	values = {"status": "Paid", "paid_on": now_datetime()}
+	values = {"status": "Paid", "paid_on": now_datetime(), "amount_due": 0}
 	if gateway:
 		values["gateway"] = gateway
 	if reference:
 		values["gateway_reference"] = reference
 	invoice.db_set(values)
+	if invoice.invoice_type == credits_utils.TOPUP_INVOICE_TYPE:
+		from nexaploy.billing.credits import credit_topup
+
+		credit_topup(invoice)
 	if not team_must_stay_suspended(invoice.team):
 		unsuspend_team(invoice.team)
+
+
+def _log_payment(invoice, gateway):
+	from nexaploy.activity import log_activity
+
+	log_activity(
+		invoice.team,
+		"invoice.paid",
+		INVOICE,
+		invoice.name,
+		{"gateway": gateway, "amount": invoice.total, "currency": invoice.currency},
+	)
 
 
 def _underpaid(event, invoice):
@@ -265,4 +316,9 @@ def _underpaid(event, invoice):
 		return False
 	if (event.currency or "").upper() != (invoice.currency or "").upper():
 		return False  # converted (e.g. Paymob EGP for a USD invoice): trust the gateway amount
-	return pricing.money(event.amount) < pricing.money(invoice.total)
+	return pricing.money(event.amount) < _due(invoice)
+
+
+def _due(invoice):
+	"""What the gateway had to collect: total minus credits already applied."""
+	return credits_utils.amount_due(invoice.total, invoice.credits_applied or 0)

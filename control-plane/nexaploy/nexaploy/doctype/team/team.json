@@ -14,6 +14,7 @@
   "currency",
   "enabled",
   "two_factor_required",
+  "credit_balance",
   "members_section",
   "members"
  ],
@@ -72,6 +73,16 @@
    "label": "Two Factor Required"
   },
   {
+   "default": "0",
+   "description": "Prepaid credits in the team currency (sum of Team Credit Transaction). Recomputed by the ledger; do not edit.",
+   "fieldname": "credit_balance",
+   "fieldtype": "Currency",
+   "label": "Credit Balance",
+   "options": "currency",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
    "fieldname": "members_section",
    "fieldtype": "Section Break",
    "label": "Members"
@@ -86,7 +97,7 @@
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-03 12:00:00.000000",
+ "modified": "2026-11-03 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Team",

@@ -11,6 +11,11 @@ Administrator) pass every check.
     check_team_access(team, action="read", user=None) -> role (raises frappe.PermissionError)
     get_team_role(team, user=None) -> str | None
     team_notification_emails(team, kind="ops"|"billing") -> [email]
+
+Two-factor: a Team with `two_factor_required` makes all its members hold the Frappe role
+"Nexaploy 2FA" (Role.two_factor_auth = 1), which Frappe's login enforces once System
+Settings.enable_two_factor_auth is on. sync_two_factor_roles() keeps the role in step
+(Team.on_update / after_delete call it for current and former members).
 """
 
 import frappe
@@ -20,13 +25,16 @@ from nexaploy.team_utils import (
 	OWNER,
 	TEAM_COOKIE,
 	TEAM_HEADER,
+	TWO_FACTOR_ROLE,
 	normalize_title,
 	notification_emails,
 	personal_team_title,
 	pick_team,
 	role_allows,
 	team_slug,
+	two_factor_role_changes,
 	unique_slug,
+	users_requiring_two_factor,
 )
 
 PLATFORM_ROLES = ("System Manager",)
@@ -208,6 +216,11 @@ def create_team(title, owner=None, billing_email=None, currency=None):
 	)
 	doc.insert(ignore_permissions=True)
 	clear_cache()
+	from nexaploy.activity import log_activity
+	from nexaploy.billing.credits import grant_signup_credits
+
+	log_activity(doc.name, "team.create", "Team", doc.name, {"title": title})
+	grant_signup_credits(doc.name)  # Billing Settings.signup_credits, never raises
 	return doc
 
 
@@ -290,3 +303,145 @@ def team_notification_emails(team, kind="ops"):
 	billing_email = frappe.db.get_value("Team", team, "billing_email") if kind == "billing" else None
 	members = [m for m in get_members(team) if m["enabled"]]
 	return notification_emails(members, kind, billing_email)
+
+
+# --------------------------------------------------------------------------- two-factor authentication
+
+
+def ensure_two_factor_role():
+	"""Role "Nexaploy 2FA" with two_factor_auth=1 and no desk access (idempotent)."""
+	if frappe.db.exists("Role", TWO_FACTOR_ROLE):
+		if not frappe.db.get_value("Role", TWO_FACTOR_ROLE, "two_factor_auth"):
+			frappe.db.set_value("Role", TWO_FACTOR_ROLE, "two_factor_auth", 1)
+		return TWO_FACTOR_ROLE
+	frappe.get_doc(
+		{
+			"doctype": "Role",
+			"role_name": TWO_FACTOR_ROLE,
+			"desk_access": 0,
+			"two_factor_auth": 1,
+			"is_custom": 1,
+		}
+	).insert(ignore_permissions=True)
+	return TWO_FACTOR_ROLE
+
+
+def ensure_system_two_factor():
+	"""Turn on System Settings.enable_two_factor_auth (OTP App by default). Without it Frappe
+	ignores Role.two_factor_auth. Returns True when the setting was changed.
+
+	Site-wide but harmless for everyone else: Frappe only asks for a second factor when one
+	of the user's roles has two_factor_auth (or the "All" role has it)."""
+	changed = False
+	if not frappe.db.get_single_value("System Settings", "enable_two_factor_auth"):
+		frappe.db.set_single_value("System Settings", "enable_two_factor_auth", 1)
+		changed = True
+	if not frappe.db.get_single_value("System Settings", "two_factor_method"):
+		frappe.db.set_single_value("System Settings", "two_factor_method", "OTP App")
+		changed = True
+	return changed
+
+
+def _two_factor_memberships(users):
+	if not users:
+		return []
+	return frappe.db.sql(
+		"""
+		select tm.user, t.two_factor_required, t.enabled
+		from `tabTeam Member` tm
+		join `tabTeam` t on t.name = tm.parent
+		where tm.parenttype = 'Team' and tm.parentfield = 'members' and tm.user in %(users)s
+		""",
+		{"users": tuple(users)},
+		as_dict=True,
+	)
+
+
+def _role_holders(users):
+	if not users:
+		return []
+	return frappe.get_all(
+		"Has Role",
+		filters={"parenttype": "User", "role": TWO_FACTOR_ROLE, "parent": ["in", list(users)]},
+		pluck="parent",
+	)
+
+
+def sync_two_factor_roles(users):
+	"""Give the 2FA role to `users` that belong to an enabled team requiring 2FA and take it
+	from those that no longer do. Returns {added, removed, system_enabled}."""
+	users = sorted({u for u in users or [] if u})
+	result = {"added": [], "removed": [], "system_enabled": False}
+	if not users:
+		return result
+	required = users_requiring_two_factor(_two_factor_memberships(users))
+	add, remove = two_factor_role_changes(users, required, _role_holders(users))
+	if add:
+		ensure_two_factor_role()
+		result["system_enabled"] = ensure_system_two_factor()
+	for user in add:
+		if not frappe.db.exists("User", user):
+			continue
+		row = frappe.get_doc(
+			{
+				"doctype": "Has Role",
+				"parent": user,
+				"parenttype": "User",
+				"parentfield": "roles",
+				"role": TWO_FACTOR_ROLE,
+			}
+		)
+		row.db_insert()
+		result["added"].append(user)
+	for user in remove:
+		frappe.db.delete("Has Role", {"parent": user, "parenttype": "User", "role": TWO_FACTOR_ROLE})
+		result["removed"].append(user)
+	for user in result["added"] + result["removed"]:
+		frappe.clear_cache(user=user)
+	return result
+
+
+def sync_team_two_factor(doc):
+	"""Team.on_update: re-sync current and former members of `doc`."""
+	users = {m.user for m in doc.get("members") or []}
+	before = doc.get_doc_before_save() if hasattr(doc, "get_doc_before_save") else None
+	if before is not None:
+		users |= {m.user for m in before.get("members") or []}
+	if not users:
+		return None
+	try:
+		return sync_two_factor_roles(users)
+	except Exception:
+		frappe.log_error(title=f"Nexaploy: 2FA role sync for team {doc.name} failed")
+		return None
+
+
+def two_factor_status(user=None):
+	"""{system_enabled, has_role, enforced, method, required_by: [{name, title}]} for `user`."""
+	user = _user(user)
+	system_enabled = bool(frappe.db.get_single_value("System Settings", "enable_two_factor_auth"))
+	has_role = TWO_FACTOR_ROLE in frappe.get_roles(user)
+	enforced = False
+	try:
+		from frappe.twofactor import two_factor_is_enabled
+
+		enforced = bool(two_factor_is_enabled(user=user))
+	except Exception:
+		enforced = system_enabled and has_role
+	required_by = frappe.db.sql(
+		"""
+		select t.name, t.title from `tabTeam Member` tm join `tabTeam` t on t.name = tm.parent
+		where tm.parenttype = 'Team' and tm.parentfield = 'members' and tm.user = %s
+			and t.enabled = 1 and t.two_factor_required = 1
+		order by t.title
+		""",
+		(user,),
+		as_dict=True,
+	)
+	return {
+		"system_enabled": system_enabled,
+		"has_role": has_role,
+		"enforced": enforced,
+		"method": frappe.db.get_single_value("System Settings", "two_factor_method") or None,
+		"required_by": [dict(r) for r in required_by],
+	}

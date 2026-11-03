@@ -4,12 +4,17 @@ Membership checks go through nexaploy.teams. Invitations store only sha256(token
 plaintext token is in the emailed accept link /dashboard/team?invite=<token> (7 days).
 Rules: only Owners grant, revoke or remove the Owner role, and a team always keeps at
 least one Owner.
+
+Every mutation is recorded in Team Activity (nexaploy.activity.log_activity, §10);
+get_activity lists it for Owners/Admins. set_two_factor toggles Team.two_factor_required
+(Team.on_update syncs the "Nexaploy 2FA" role of the members, see nexaploy.teams).
 """
 
 import frappe
 from frappe import _
-from frappe.utils import get_url, now_datetime
+from frappe.utils import add_days, get_url, getdate, now_datetime
 
+from nexaploy.activity import log_activity
 from nexaploy.portal_utils import has_portal_access
 from nexaploy.team_utils import (
 	OWNER,
@@ -35,6 +40,7 @@ from nexaploy.teams import (
 	get_user_teams,
 	is_platform_admin,
 	set_team_cookie,
+	two_factor_status,
 )
 
 CUSTOMER_ROLE = "Nexaploy Customer"
@@ -154,7 +160,10 @@ def update_team(title=None, billing_email=None):
 		doc.title = _value_error(normalize_title, title)
 	if billing_email is not None:
 		doc.billing_email = _value_error(normalize_email, billing_email) if billing_email else None
+	changed = {k: doc.get(k) for k in ("title", "billing_email") if doc.has_value_changed(k)}
 	doc.save(ignore_permissions=True)
+	if changed:
+		log_activity(team, "team.update", "Team", team, changed)
 	return {"name": doc.name, "title": doc.title, "billing_email": doc.billing_email}
 
 
@@ -225,6 +234,7 @@ def invite_member(email, role="Developer"):
 	url = invitation_url(get_url(), token)
 	title = frappe.db.get_value("Team", team, "title") or team
 	sent = _send_invitation(email, title, frappe.utils.get_fullname(user) or user, role, url)
+	log_activity(team, "team.invite", INVITATION, doc.name, {"email": email, "role": role, "email_sent": sent})
 	return {
 		"name": doc.name,
 		"email": email,
@@ -293,6 +303,7 @@ def accept_invitation(token):
 
 	inv.db_set({"status": "Accepted", "accepted_by": user, "accepted_on": now_datetime()})
 	clear_cache()
+	log_activity(team.name, "team.join", INVITATION, inv.name, {"user": user, "role": existing.role if existing else inv.role})
 	set_team_cookie(team.name)
 	return {"team": team.name, "title": team.title, "role": existing.role if existing else inv.role}
 
@@ -309,6 +320,7 @@ def revoke_invitation(name):
 	if inv.status != "Pending":
 		frappe.throw(_("This invitation is {0}").format(_(inv.status)))
 	inv.db_set("status", "Revoked")
+	log_activity(team, "team.invite_revoke", INVITATION, name, {"email": inv.email})
 	return {"name": name, "status": "Revoked"}
 
 
@@ -342,6 +354,7 @@ def remove_member(user):
 	team = get_current_team(actor)
 	check_team_access(team, "admin", actor)
 	_change_member(team, user, None, actor)
+	log_activity(team, "team.remove_member", "Team", team, {"user": user})
 	return {"team": team, "removed": user}
 
 
@@ -353,7 +366,9 @@ def change_role(user, role):
 	team = get_current_team(actor)
 	check_team_access(team, "admin", actor)
 	role = _value_error(normalize_role, role)
+	before = get_team_role(team, user)
 	_change_member(team, user, role, actor)
+	log_activity(team, "team.change_role", "Team", team, {"user": user, "from": before, "to": role})
 	return {"team": team, "user": user, "role": role}
 
 
@@ -377,5 +392,96 @@ def leave_team(team=None):
 		m.idx = i
 	doc.save(ignore_permissions=True)
 	clear_cache()
+	log_activity(team, "team.leave", "Team", team, {"user": user})
 	set_team_cookie(None)
 	return {"left": team, "current": get_current_team(user)}
+
+
+# --------------------------------------------------------------------------- two-factor authentication
+
+
+@frappe.whitelist(methods=["POST"])
+def set_two_factor(required):
+	"""Require (or stop requiring) two-factor login for every member of the current team
+	(admin). Members get/lose the "Nexaploy 2FA" role; returns {two_factor_required,
+	added, removed, system_enabled, system_2fa}."""
+	user = _portal_user()
+	team = get_current_team(user)
+	check_team_access(team, "admin", user)
+	required = 1 if str(required).strip().lower() in ("1", "true", "yes", "on") else 0
+	doc = _team_doc(team)
+	result = {"added": [], "removed": [], "system_enabled": False}
+	if int(doc.two_factor_required or 0) != required:
+		doc.two_factor_required = required
+		doc.save(ignore_permissions=True)  # Team.on_update -> sync_team_two_factor
+		result = doc.flags.two_factor_sync or result
+		log_activity(team, "team.two_factor", "Team", team, {"required": bool(required)})
+	status = two_factor_status(user)
+	return {
+		"two_factor_required": bool(required),
+		"added": result.get("added", []),
+		"removed": result.get("removed", []),
+		"system_enabled": result.get("system_enabled", False),
+		"system_2fa": status["system_enabled"],
+	}
+
+
+# --------------------------------------------------------------------------- activity log
+
+
+ACTIVITY_FIELDS = (
+	"name", "creation", "user", "action", "reference_doctype", "reference_name", "details", "ip_address",
+)
+
+
+@frappe.whitelist()
+def get_activity(action=None, user=None, date_from=None, date_to=None, page=1, page_length=50):
+	"""Team Activity of the current team, newest first (admin). Filters: `action` (exact, or
+	a prefix ending with "." / "*" like "site."), `user`, `date_from`/`date_to` (inclusive
+	dates). Returns {rows, page, page_length, has_more, actions, users}."""
+	actor = _portal_user()
+	team = get_current_team(actor)
+	check_team_access(team, "admin", actor)
+	page = max(int(page or 1), 1)
+	page_length = min(max(int(page_length or 50), 1), 200)
+	filters = [["team", "=", team]]
+	if action:
+		action = str(action).strip()
+		if action.endswith((".", "*")):
+			filters.append(["action", "like", action.rstrip("*").replace("%", "") + "%"])
+		else:
+			filters.append(["action", "=", action])
+	if user:
+		filters.append(["user", "=", user])
+	if date_from:
+		filters.append(["creation", ">=", getdate(date_from)])
+	if date_to:
+		filters.append(["creation", "<", add_days(getdate(date_to), 1)])
+	rows = frappe.get_all(
+		"Team Activity",
+		filters=filters,
+		fields=list(ACTIVITY_FIELDS),
+		order_by="creation desc",
+		start=(page - 1) * page_length,
+		limit_page_length=page_length + 1,
+	)
+	has_more = len(rows) > page_length
+	rows = rows[:page_length]
+	names = {r.user for r in rows if r.user}
+	fullnames = {}
+	if names:
+		fullnames = {
+			u.name: u.full_name for u in frappe.get_all("User", filters={"name": ["in", list(names)]}, fields=["name", "full_name"])
+		}
+	for r in rows:
+		r["details"] = frappe.parse_json(r.details) if r.details else None
+		r["full_name"] = fullnames.get(r.user) or r.user
+	actions = frappe.get_all("Team Activity", filters={"team": team}, pluck="action", distinct=True, order_by="action asc")
+	return {
+		"rows": rows,
+		"page": page,
+		"page_length": page_length,
+		"has_more": has_more,
+		"actions": sorted(set(actions)),
+		"users": [{"user": m["user"], "full_name": m["full_name"]} for m in get_members(team)],
+	}

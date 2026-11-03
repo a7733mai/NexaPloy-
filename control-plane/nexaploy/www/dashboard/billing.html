@@ -1,43 +1,111 @@
 {% extends "templates/dashboard_base.html" %}
 
 {% block content %}
-<div class="stack" x-data="nxBilling" x-cloak>
-	<section class="card">
-		<div class="card-head">
-			<h2>{{ _("Invoices") }}</h2>
-			<label class="row small" x-show="gateways.length > 1">
-				<span class="muted">{{ _("Pay with") }}</span>
-				<select class="input" style="width: auto" x-model="gateway">
-					<template x-for="g in gateways" :key="g"><option :value="g" x-text="__(g)"></option></template>
-				</select>
-			</label>
-			<button class="btn sm" type="button" @click="load()" :disabled="loading">{{ _("Refresh") }}</button>
-		</div>
-		<div class="card-body flush table-wrap">
-			<template x-if="loading"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
-			<template x-if="!loading && unavailable"><div class="empty">{{ _("Billing is not available yet.") }}</div></template>
-			<template x-if="!loading && error"><div class="alert danger" x-text="error"></div></template>
-			<template x-if="!loading && !unavailable && !error && !invoices.length"><div class="empty">{{ _("No invoices yet.") }}</div></template>
-			<table class="nx-table" x-show="!loading && invoices.length">
-				<thead><tr><th>{{ _("Invoice") }}</th><th>{{ _("Period") }}</th><th>{{ _("Due date") }}</th><th>{{ _("Amount") }}</th><th>{{ _("Status") }}</th><th></th></tr></thead>
-				<tbody>
-					<template x-for="inv in invoices" :key="inv.name">
-						<tr>
-							<td class="mono" x-text="inv.name"></td>
-							<td class="small nowrap" x-text="period(inv)"></td>
-							<td class="small nowrap" x-text="inv.due_date || ''"></td>
-							<td class="nowrap" x-text="amount(inv)"></td>
-							<td><span :class="nx.statusClass(inv.status)" x-text="__(inv.status)"></span></td>
-							<td class="actions">
-								<button class="btn sm primary" type="button" x-show="unpaid(inv) && nx.can('billing')" :disabled="paying === inv.name" @click="pay(inv)">
-									<span class="spinner" x-show="paying === inv.name"></span> {{ _("Pay") }}
-								</button>
-							</td>
-						</tr>
+<div class="stack">
+	<!-- Prepaid credits (nexaploy.api.billing.get_credits / topup) -->
+	<div class="stack" x-data="nxCredits" x-cloak>
+		<template x-if="error"><div class="alert danger" x-text="error"></div></template>
+		<template x-if="paidNotice"><div class="alert success">{{ _("Thank you! Your payment is being processed. It can take a minute until the payment provider confirms it.") }}</div></template>
+		<div class="grid cols-2" x-show="data">
+			<div class="card stat">
+				<div class="label">{{ _("Credit balance") }}</div>
+				<div class="value" x-text="data ? nx.money(data.balance, data.currency) : ''"></div>
+				<div class="sub">{{ _("Credits pay new invoices automatically before any card is charged.") }}</div>
+				<template x-for="(amount, cur) in otherBalances()" :key="cur">
+					<div class="sub" x-text="nx.money(amount, cur)"></div>
+				</template>
+			</div>
+			<section class="card">
+				<div class="card-head"><h2>{{ _("Add credits") }}</h2></div>
+				<div class="card-body stack">
+					<template x-if="data && !data.can_topup"><p class="small muted" style="margin: 0">{{ _("Only Owners, Admins and Billing members can add credits.") }}</p></template>
+					<template x-if="data && data.can_topup && !data.gateways.length"><p class="small muted" style="margin: 0">{{ _("No payment method is available. Please contact support.") }}</p></template>
+					<template x-if="data && data.can_topup && data.gateways.length">
+						<form class="row" @submit.prevent="topup()">
+							<input class="input ltr" style="max-width: 140px" type="number" step="0.01" :min="data.min_topup" :max="data.max_topup" x-model="amount" required aria-label="{{ _('Amount') }}">
+							<span class="muted" x-text="data.currency"></span>
+							<select class="input" style="width: auto" x-model="gateway" x-show="data.gateways.length > 1" aria-label="{{ _('Pay with') }}">
+								<template x-for="g in data.gateways" :key="g"><option :value="g" x-text="__(g)"></option></template>
+							</select>
+							<button class="btn primary" type="submit" :disabled="busy"><span class="spinner" x-show="busy"></span> {{ _("Top up") }}</button>
+						</form>
 					</template>
-				</tbody>
-			</table>
+					<p class="small muted" style="margin: 0" x-show="data && data.can_topup">
+						<span>{{ _("Minimum") }}</span> <span x-text="data ? nx.money(data.min_topup, data.currency) : ''"></span> ·
+						<span>{{ _("Maximum") }}</span> <span x-text="data ? nx.money(data.max_topup, data.currency) : ''"></span>
+					</p>
+				</div>
+			</section>
 		</div>
-	</section>
+
+		<section class="card" x-show="data">
+			<div class="card-head">
+				<h2>{{ _("Credit history") }}</h2>
+				<button class="btn sm" type="button" @click="load()" :disabled="loading">{{ _("Refresh") }}</button>
+			</div>
+			<div class="card-body flush table-wrap">
+				<template x-if="data && !data.ledger.length"><div class="empty">{{ _("No credit transactions yet.") }}</div></template>
+				<table class="nx-table" x-show="data && data.ledger.length">
+					<thead><tr><th>{{ _("Date") }}</th><th>{{ _("Type") }}</th><th>{{ _("Description") }}</th><th>{{ _("Amount") }}</th><th>{{ _("Balance") }}</th></tr></thead>
+					<tbody>
+						<template x-for="t in (data ? data.ledger : [])" :key="t.name">
+							<tr>
+								<td class="small nowrap" x-text="nx.fmtDate(t.creation)"></td>
+								<td><span class="badge plain" x-text="typeLabel(t.type)"></span></td>
+								<td class="small" x-text="describe(t)"></td>
+								<td class="nowrap" :class="t.amount < 0 ? 'muted' : ''" x-text="signed(t)"></td>
+								<td class="nowrap" x-text="nx.money(t.balance_after, t.currency)"></td>
+							</tr>
+						</template>
+					</tbody>
+				</table>
+			</div>
+		</section>
+	</div>
+
+	<div class="stack" x-data="nxBilling" x-cloak>
+		<section class="card">
+			<div class="card-head">
+				<h2>{{ _("Invoices") }}</h2>
+				<label class="row small" x-show="gateways.length > 1">
+					<span class="muted">{{ _("Pay with") }}</span>
+					<select class="input" style="width: auto" x-model="gateway">
+						<template x-for="g in gateways" :key="g"><option :value="g" x-text="__(g)"></option></template>
+					</select>
+				</label>
+				<button class="btn sm" type="button" @click="load()" :disabled="loading">{{ _("Refresh") }}</button>
+			</div>
+			<div class="card-body flush table-wrap">
+				<template x-if="loading"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+				<template x-if="!loading && unavailable"><div class="empty">{{ _("Billing is not available yet.") }}</div></template>
+				<template x-if="!loading && error"><div class="alert danger" x-text="error"></div></template>
+				<template x-if="!loading && !unavailable && !error && !invoices.length"><div class="empty">{{ _("No invoices yet.") }}</div></template>
+				<table class="nx-table" x-show="!loading && invoices.length">
+					<thead><tr><th>{{ _("Invoice") }}</th><th>{{ _("Period") }}</th><th>{{ _("Due date") }}</th><th>{{ _("Total") }}</th><th>{{ _("Credits applied") }}</th><th>{{ _("Amount due") }}</th><th>{{ _("Status") }}</th><th></th></tr></thead>
+					<tbody>
+						<template x-for="inv in invoices" :key="inv.name">
+							<tr>
+								<td>
+									<div class="mono" x-text="inv.name"></div>
+									<div class="small muted" x-show="inv.invoice_type === 'Credit Top-up'">{{ _("Credit Top-up") }}</div>
+								</td>
+								<td class="small nowrap" x-text="period(inv)"></td>
+								<td class="small nowrap" x-text="inv.due_date || ''"></td>
+								<td class="nowrap" x-text="nx.money(inv.total, inv.currency)"></td>
+								<td class="nowrap small" x-text="Number(inv.credits_applied || 0) ? nx.money(inv.credits_applied, inv.currency) : '—'"></td>
+								<td class="nowrap" x-text="unpaid(inv) ? nx.money(inv.amount_due !== null && inv.amount_due !== undefined ? inv.amount_due : inv.total, inv.currency) : '—'"></td>
+								<td><span :class="nx.statusClass(inv.status)" x-text="__(inv.status)"></span></td>
+								<td class="actions">
+									<button class="btn sm primary" type="button" x-show="unpaid(inv) && nx.can('billing')" :disabled="paying === inv.name" @click="pay(inv)">
+										<span class="spinner" x-show="paying === inv.name"></span> {{ _("Pay") }}
+									</button>
+								</td>
+							</tr>
+						</template>
+					</tbody>
+				</table>
+			</div>
+		</section>
+	</div>
 </div>
 {% endblock %}

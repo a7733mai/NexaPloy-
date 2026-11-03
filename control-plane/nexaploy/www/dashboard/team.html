@@ -141,5 +141,23 @@
 			</template>
 		</div>
 	</template>
+
+	<!-- Security: require two-factor login for every member (Owners/Admins) -->
+	<template x-if="team && team.permissions.admin">
+		<section class="card" x-data="nxTeamSecurity">
+			<div class="card-head">
+				<h2>{{ _("Security") }}</h2>
+				<a class="btn sm" href="/dashboard/activity">{{ _("Activity log") }}</a>
+			</div>
+			<div class="card-body stack">
+				<label class="check">
+					<input type="checkbox" :checked="required" :disabled="busy" @change="toggle($event.target.checked)">
+					<span>{{ _("Require two-factor authentication for all members") }}</span>
+				</label>
+				<p class="small muted" style="margin: 0">{{ _("Members must enter a one-time code from an authenticator app when they sign in. New members get the requirement when they accept their invitation.") }}</p>
+				<div class="alert warning" x-show="required && systemOff">{{ _("Two-factor sign-in is not enabled on this platform yet. Ask the platform administrator to enable it in System Settings.") }}</div>
+			</div>
+		</section>
+	</template>
 </div>
 {% endblock %}

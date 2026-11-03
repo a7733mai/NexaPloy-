@@ -14,6 +14,7 @@
 	<script defer src="/assets/nexaploy/js/dashboard.js"></script>
 	<script defer src="/assets/nexaploy/js/benches.js"></script>
 	<script defer src="/assets/nexaploy/js/site_tools.js"></script>
+	<script defer src="/assets/nexaploy/js/security.js"></script>
 	<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 	{% block head %}{% endblock %}
 </head>
@@ -57,6 +58,16 @@
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>
 				<span>{{ _("Billing") }}</span>
 			</a>
+			{% if is_admin or team_role in ('Owner', 'Admin') %}
+			<a href="/dashboard/activity" class="{{ 'active' if page == 'activity' else '' }}">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
+				<span>{{ _("Activity") }}</span>
+			</a>
+			{% endif %}
+			<a href="/dashboard/account" class="{{ 'active' if page == 'account' else '' }}">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+				<span>{{ _("Account") }}</span>
+			</a>
 			{% if is_admin %}
 			<a href="/app">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>
@@ -68,7 +79,7 @@
 			<div class="nx-user" title="{{ user }}">{{ user_fullname or user }}</div>
 			<div class="small muted ellipsis">{{ user }}</div>
 			<div class="row small" style="margin-block-start: 8px">
-				<a href="/update-profile">{{ _("Profile") }}</a>
+				<a href="/dashboard/account">{{ _("Profile") }}</a>
 				<span class="muted">·</span>
 				<a href="/api/method/web_logout">{{ _("Log out") }}</a>
 			</div>

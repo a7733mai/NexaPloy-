@@ -251,3 +251,94 @@ def notification_emails(
 		seen.add(email.lower())
 		result.append(email)
 	return result
+
+
+# --------------------------------------------------------------------------- activity log (§10)
+
+ACTIVITY_ACTION_RE = re.compile(r"^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$")
+# keys whose values never reach Team Activity.details (matched case-insensitively on the
+# key with '-' -> '_'): anything password/secret/token/credential-like
+SECRET_KEY_PARTS = (
+	"password", "passwd", "secret", "token", "credential", "authorization", "cookie",
+	"hmac", "signature", "private_key", "api_key", "apikey", "access_key", "session",
+)
+SECRET_KEY_EXACT = frozenset({"pwd", "sid", "otp", "pin", "auth", "csrf", "key_secret"})
+SECRET_VALUE_RE = re.compile(
+	r"^(?:token\s+\S+:\S+|bearer\s+\S+|basic\s+\S+|__secret__:.*|sk_(?:live|test)_\S+|-----BEGIN [A-Z ]*PRIVATE KEY-----.*)$",
+	re.IGNORECASE | re.DOTALL,
+)
+ACTIVITY_MAX_STRING = 2000
+ACTIVITY_MAX_ITEMS = 100
+ACTIVITY_MAX_DEPTH = 6
+
+
+def is_valid_activity_action(action: Any) -> bool:
+	"""Dotted lowercase verb: 'site.create', 'credits.topup', 'api_key.create'."""
+	return bool(action) and len(str(action)) <= 140 and bool(ACTIVITY_ACTION_RE.match(str(action)))
+
+
+def is_secret_key(key: Any) -> bool:
+	k = str(key or "").strip().lower().replace("-", "_")
+	if not k:
+		return False
+	return k in SECRET_KEY_EXACT or any(part in k for part in SECRET_KEY_PARTS)
+
+
+def looks_like_secret(value: Any) -> bool:
+	"""String values that are credentials whatever their key ("token k:s", "Bearer x", ...)."""
+	return isinstance(value, str) and bool(SECRET_VALUE_RE.match(value.strip()))
+
+
+def scrub_details(details: Any, _depth: int = 0) -> Any:
+	"""Copy of `details` safe to store in Team Activity: secret-looking keys and values are
+	dropped, long strings truncated, collections capped. Non-JSON values become str()."""
+	if _depth > ACTIVITY_MAX_DEPTH:
+		return "…"
+	if isinstance(details, Mapping):
+		out = {}
+		for key, value in list(details.items())[:ACTIVITY_MAX_ITEMS]:
+			if is_secret_key(key) or looks_like_secret(value):
+				continue
+			out[str(key)] = scrub_details(value, _depth + 1)
+		return out
+	if isinstance(details, (list, tuple, set, frozenset)):
+		items = list(details)[:ACTIVITY_MAX_ITEMS]
+		return [scrub_details(v, _depth + 1) for v in items if not looks_like_secret(v)]
+	if details is None or isinstance(details, (bool, int, float)):
+		return details
+	text = details if isinstance(details, str) else str(details)
+	if len(text) > ACTIVITY_MAX_STRING:
+		text = text[:ACTIVITY_MAX_STRING] + "…"
+	return text
+
+
+# --------------------------------------------------------------------------- two-factor role sync
+
+TWO_FACTOR_ROLE = "Nexaploy 2FA"
+TWO_FACTOR_EXEMPT_USERS = frozenset({"Administrator", "Guest"})
+
+
+def users_requiring_two_factor(memberships: Iterable[Mapping[str, Any]]) -> set[str]:
+	"""Users that must hold the 2FA role: members of at least one *enabled* team with
+	`two_factor_required`. memberships: [{user, two_factor_required, enabled}]."""
+	result = set()
+	for m in memberships:
+		user = m.get("user")
+		if not user or user in TWO_FACTOR_EXEMPT_USERS:
+			continue
+		if m.get("enabled", 1) and m.get("two_factor_required"):
+			result.add(user)
+	return result
+
+
+def two_factor_role_changes(
+	users: Iterable[str], required: Iterable[str], holders: Iterable[str]
+) -> tuple[list[str], list[str]]:
+	"""(users to give the 2FA role, users to take it from), restricted to `users` (the ones
+	whose memberships were looked at). `required` = users_requiring_two_factor(...),
+	`holders` = users that currently hold the role."""
+	users = {u for u in users if u and u not in TWO_FACTOR_EXEMPT_USERS}
+	required, holders = set(required), set(holders)
+	add = sorted(u for u in users if u in required and u not in holders)
+	remove = sorted(u for u in users if u not in required and u in holders)
+	return add, remove

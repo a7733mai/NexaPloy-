@@ -23,7 +23,7 @@ after_migrate = "nexaploy.install.after_migrate"
 # --------
 # The role is also exported as a fixture so `bench export-fixtures` keeps it in git.
 fixtures = [
-	{"dt": "Role", "filters": [["role_name", "in", ["Nexaploy Customer"]]]},
+	{"dt": "Role", "filters": [["role_name", "in", ["Nexaploy Customer", "Nexaploy 2FA"]]]},
 ]
 
 # Authentication
@@ -51,6 +51,8 @@ permission_query_conditions = {
 	"Site Usage": "nexaploy.permissions.team_query",
 	"Custom App": "nexaploy.permissions.team_query",
 	"GitHub Installation": "nexaploy.permissions.team_query",
+	"Team Activity": "nexaploy.permissions.team_activity_query",
+	"Team Credit Transaction": "nexaploy.permissions.team_credit_query",
 	"Team": "nexaploy.permissions.team_doc_query",
 	"Team Invitation": "nexaploy.permissions.team_invitation_query",
 	"Deploy Candidate": "nexaploy.permissions.deploy_candidate_query",
@@ -70,6 +72,8 @@ has_permission = {
 	"Site Usage": "nexaploy.permissions.has_team_permission",
 	"Custom App": "nexaploy.permissions.has_team_permission",
 	"GitHub Installation": "nexaploy.permissions.has_team_permission",
+	"Team Activity": "nexaploy.permissions.has_read_only_team_permission",
+	"Team Credit Transaction": "nexaploy.permissions.has_read_only_team_permission",
 	"Team": "nexaploy.permissions.has_team_doc_permission",
 	"Team Invitation": "nexaploy.permissions.has_team_permission",
 }

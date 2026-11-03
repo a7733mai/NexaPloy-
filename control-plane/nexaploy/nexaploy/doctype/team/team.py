@@ -47,8 +47,25 @@ class Team(Document):
 		if self.owner_user and self.owner_user not in seen and self.members:
 			# owner_user follows the first Owner when the original owner left
 			self.owner_user = next(m.user for m in self.members if m.role == OWNER)
+		if not self.is_new():
+			# credit_balance is a cache of the ledger: never let a stale loaded copy overwrite it
+			from nexaploy.billing.credits import get_balance
+
+			try:
+				self.credit_balance = float(get_balance(self.name))
+			except Exception:
+				pass  # ledger table not migrated yet (patches)
 
 	def on_update(self):
-		from nexaploy.teams import clear_cache
+		from nexaploy.teams import clear_cache, sync_team_two_factor
 
 		clear_cache()
+		# members joining/leaving, two_factor_required or enabled toggled: keep the
+		# "Nexaploy 2FA" role in step for current and former members
+		self.flags.two_factor_sync = sync_team_two_factor(self)
+
+	def after_delete(self):
+		from nexaploy.teams import clear_cache, sync_two_factor_roles
+
+		clear_cache()
+		sync_two_factor_roles([m.user for m in self.members])

@@ -5,6 +5,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from nexaploy.billing.credits_utils import amount_due
 from nexaploy.billing.pricing import compute_totals, money
 
 
@@ -19,6 +20,8 @@ class NexaployInvoice(Document):
 		self.subtotal = float(totals["subtotal"])
 		self.tax = float(totals["tax"])
 		self.total = float(totals["total"])
+		self.credits_applied = float(money(self.credits_applied or 0))
+		self.amount_due = 0.0 if self.status == "Paid" else float(amount_due(self.total, self.credits_applied))
 
 	@frappe.whitelist()
 	def mark_paid_manually(self, reference=None):
@@ -33,7 +36,7 @@ class NexaployInvoice(Document):
 				"team": self.team,
 				"gateway": "Manual",
 				"status": "Success",
-				"amount": self.total,
+				"amount": self.amount_due if self.amount_due is not None else self.total,
 				"currency": self.currency,
 				"reference": reference,
 			}

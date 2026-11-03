@@ -16,6 +16,7 @@ import frappe
 from frappe import _
 from frappe.utils import now_datetime
 
+from nexaploy.activity import log_activity
 from nexaploy.portal_utils import (
 	DEFAULT_ROOT_DOMAIN,
 	ROOT_DOMAIN_CONFIG_KEY,
@@ -522,6 +523,7 @@ def create_site(bench, subdomain_or_name, apps=None, plan=None):
 		}
 	)
 	doc.insert(ignore_permissions=True)
+	log_activity(team, "site.create", "Site", doc.name, {"bench": b.name, "apps": app_list, "plan": plan})
 	return {
 		"name": doc.name,
 		"url": f"https://{doc.site_name}",
@@ -563,7 +565,7 @@ def site_action(name, action, args=None, **kwargs):
 	migrate, drop, restore. Arguments come in `args` (dict/JSON) or as keyword arguments.
 	Returns {action, result, job}."""
 	c = _ctx()
-	_check_team("Site", name, c, "write")
+	site_team, _role = _check_team("Site", name, c, "write")
 	merged = dict(frappe.parse_json(args) or {}) if args else {}
 	merged.update({k: v for k, v in kwargs.items() if k not in ("cmd", "name", "action", "args")})
 	try:
@@ -586,6 +588,7 @@ def site_action(name, action, args=None, **kwargs):
 		job = _job_for("Site Backup", result, "site.backup")
 	elif isinstance(result, str) and frappe.db.exists("Agent Job", result):
 		job = result
+	log_activity(site_team or c.team, f"site.{action}", "Site", name, dict(clean, job=job))
 	return {"action": action, "result": result, "job": job}
 
 
@@ -714,6 +717,7 @@ def create_registration_token():
 	)
 
 	result = generate_registration_token(team=c.team)
+	log_activity(c.team, "server.registration_token", "Server Registration Token", result.get("name"))
 	result["byos_plan"] = _byos_plan()
 	return result
 
