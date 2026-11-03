@@ -126,8 +126,9 @@ def checkout_form(invoice: Mapping[str, Any], success_url: str, cancel_url: str)
 		"line_items[0][price_data][unit_amount]": str(to_minor_units(invoice["total"], currency)),
 		"line_items[0][price_data][product_data][name]": f"Nexaploy invoice {invoice['name']}",
 	}
-	if invoice.get("team") and "@" in str(invoice["team"]):
-		form["customer_email"] = invoice["team"]
+	email = invoice.get("email") or invoice.get("team")
+	if email and "@" in str(email):
+		form["customer_email"] = email
 	return form
 
 

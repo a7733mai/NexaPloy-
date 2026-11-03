@@ -51,7 +51,7 @@
 			<section class="card">
 				<div class="card-head">
 					<h2>{{ _("Benches") }}</h2>
-					<a class="btn sm primary" :href="'/dashboard/sites?new=1&server=' + encodeURIComponent(server.name)" x-show="server.benches.length">{{ _("New Site") }}</a>
+					<a class="btn sm primary" :href="'/dashboard/sites?new=1&server=' + encodeURIComponent(server.name)" x-show="server.benches.length && nx.can('write', server.role)">{{ _("New Site") }}</a>
 				</div>
 				<div class="card-body flush table-wrap">
 					<template x-if="!server.benches.length"><div class="empty">{{ _("No benches on this server yet.") }}</div></template>

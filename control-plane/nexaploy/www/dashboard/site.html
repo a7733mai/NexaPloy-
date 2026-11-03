@@ -2,13 +2,29 @@
 
 {% block page_title %}<a href="/dashboard/sites" class="muted">{{ _("Sites") }}</a> <span class="muted">/</span> <span class="ltr" id="nx-site-title"></span>{% endblock %}
 
+{% block head %}
+{# site tools (usage, backup downloads, config editor): plain script so it registers before Alpine starts #}
+<script src="/assets/nexaploy/js/site_tools.js"></script>
+<style>
+	.nx-meter { height: 8px; border-radius: 99px; background: var(--nx-border); overflow: hidden; }
+	.nx-meter > span { display: block; height: 100%; background: var(--nx-primary); border-radius: inherit; }
+	.nx-meter.warn > span { background: var(--nx-warning); }
+	.nx-meter.over > span { background: var(--nx-danger); }
+	.nx-bars { display: flex; align-items: flex-end; gap: 3px; height: 72px; }
+	.nx-bars > span { flex: 1 1 0; min-width: 3px; background: var(--nx-primary-soft); border-block-start: 2px solid var(--nx-primary); }
+	.nx-config td { vertical-align: middle; }
+	.nx-config input.input { width: 100%; min-width: 160px; }
+	.nx-config tr.removed td { opacity: .5; text-decoration: line-through; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="stack" x-data="nxSite" x-cloak x-effect="if (site) document.getElementById('nx-site-title').textContent = site.name">
 	<template x-if="loading && !site"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
 	<template x-if="error && !site"><div class="alert danger" x-text="error"></div></template>
 
 	<template x-if="site">
-		<div class="stack">
+		<div class="stack" x-data="nxSiteTools">
 			<!-- Summary -->
 			<section class="card">
 				<div class="card-head">
@@ -30,6 +46,8 @@
 						<dd>
 							<template x-if="site.plan"><span x-text="site.plan.title + ' · ' + nx.money(site.plan.price_monthly, site.plan.currency) + ' ' + __('/ month')"></span></template>
 							<template x-if="!site.plan"><span class="muted">—</span></template>
+							<template x-if="usage && usage.over_limit"><span class="badge danger">{{ _("Over plan limit") }}</span></template>
+							<template x-if="usage && usage.throttled"><span class="badge warning">{{ _("Throttled") }}</span></template>
 						</dd>
 						<dt>{{ _("Created") }}</dt><dd x-text="nx.fmtDate(site.creation)"></dd>
 					</dl>
@@ -43,6 +61,8 @@
 				<button type="button" :class="{ active: tab === 'apps' }" @click="tab = 'apps'">{{ _("Apps") }}</button>
 				<button type="button" :class="{ active: tab === 'domains' }" @click="tab = 'domains'">{{ _("Domains") }}</button>
 				<button type="button" :class="{ active: tab === 'backups' }" @click="tab = 'backups'">{{ _("Backups") }}</button>
+				<button type="button" :class="{ active: tab === 'usage' }" @click="tab = 'usage'">{{ _("Usage") }}</button>
+				<button type="button" x-show="site.can_write !== false" :class="{ active: tab === 'config' }" @click="tab = 'config'; if (!cfg.loaded && !cfg.loading) loadConfig(false)">{{ _("Config") }}</button>
 				<button type="button" :class="{ active: tab === 'jobs' }" @click="tab = 'jobs'">{{ _("Jobs") }} <span class="spinner" x-show="active" style="width: 12px; height: 12px"></span></button>
 				<button type="button" :class="{ active: tab === 'settings' }" @click="tab = 'settings'">{{ _("Settings") }}</button>
 			</div>
@@ -154,6 +174,13 @@
 									<td class="nowrap" x-text="nx.bytes(b.size)"></td>
 									<td><span :class="nx.statusClass(b.status)" x-text="__(b.status)"></span></td>
 									<td class="actions">
+										<template x-for="f in backupFiles(b.name)" :key="f.file_type">
+											<button class="btn sm ghost" type="button" x-show="f.downloadable" :disabled="downloading === b.name + ':' + f.file_type"
+												:title="__('Download') + ' · ' + nx.bytes(f.size)" @click="download(b.name, f.file_type)">
+												<span class="spinner" x-show="downloading === b.name + ':' + f.file_type"></span>
+												<span x-text="'⬇ ' + fileLabel(f.file_type)"></span>
+											</button>
+										</template>
 										<button class="btn sm" type="button" x-show="b.restorable" :disabled="!['Active', 'Broken'].includes(site.status) || busy.restore"
 											@click="run('restore', { backup: b.name }, __('Restore this backup? The current data of {0} will be replaced.', [site.name]))">{{ _("Restore") }}</button>
 									</td>
@@ -161,6 +188,119 @@
 							</template>
 						</tbody>
 					</table>
+				</div>
+			</section>
+
+			<!-- Usage -->
+			<div class="stack" x-show="tab === 'usage'">
+				<template x-if="usageLoading && !usage"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+				<template x-if="usageError && !usage"><div class="alert danger" x-text="usageError"></div></template>
+				<template x-if="usage">
+					<div class="stack">
+						<section class="card">
+							<div class="card-head">
+								<h2>{{ _("Usage today") }}</h2>
+								<span class="small muted">{{ _("UTC day; CPU resets at midnight UTC") }}</span>
+								<span class="spacer"></span>
+								<button class="btn sm ghost" type="button" @click="loadUsage()" :disabled="usageLoading">{{ _("Refresh") }}</button>
+							</div>
+							<div class="card-body stack">
+								<template x-if="usage.throttled"><div class="alert warning">{{ _("This site is over its daily CPU budget and requests are rate limited until midnight UTC. Upgrade the plan to lift the limit now.") }}</div></template>
+								<template x-if="usage.suspended"><div class="alert danger">{{ _("This site is in maintenance mode because it is over its plan limits. Upgrade the plan or reduce usage to bring it back.") }}</div></template>
+								<template x-if="!usage.throttled && !usage.suspended && usage.status.status === 'over'"><div class="alert danger">{{ _("This site is over its plan limits.") }}</div></template>
+								<template x-if="usage.status.status === 'warn'"><div class="alert warning">{{ _("This site is close to its plan limits.") }}</div></template>
+								<template x-for="m in meters()" :key="m.key">
+									<div>
+										<div class="row between small"><span x-text="m.label"></span><span class="ltr" x-text="meterText(m)"></span></div>
+										<div class="nx-meter" :class="m.status" role="progressbar" :aria-valuenow="m.percent || 0" aria-valuemin="0" aria-valuemax="100"><span :style="'width:' + meterWidth(m)"></span></div>
+									</div>
+								</template>
+								<div class="small muted">
+									<span x-text="__('Requests today: {0}', [fmtNum(usage.usage.requests, 0)])"></span>
+									<template x-if="usage.updated_at"><span x-text="' · ' + __('Updated {0}', [nx.fmtDate(usage.updated_at)])"></span></template>
+								</div>
+							</div>
+						</section>
+						<section class="card" x-show="usage.history.length">
+							<div class="card-head"><h2>{{ _("CPU time per day") }}</h2><span class="small muted">{{ _("Last 30 days") }}</span></div>
+							<div class="card-body">
+								<div class="nx-bars" dir="ltr">
+									<template x-for="r in usage.history" :key="r.date">
+										<span :style="'height:' + barHeight(r)" :title="r.date + ': ' + fmtNum(r.cpu_seconds) + ' s · ' + fmtNum(r.requests, 0) + ' ' + __('requests')"></span>
+									</template>
+								</div>
+							</div>
+						</section>
+						<section class="card">
+							<div class="card-head">
+								<h2>{{ _("Plan") }}</h2>
+								<template x-if="usage.plan"><span class="small muted" x-text="usage.plan.title"></span></template>
+							</div>
+							<div class="card-body flush">
+								<template x-if="!usage.plans.length"><div class="empty">{{ _("No plans available.") }}</div></template>
+								<table class="nx-table" x-show="usage.plans.length">
+									<tbody>
+										<template x-for="p in usage.plans" :key="p.name">
+											<tr>
+												<td><div x-text="planLabel(p)"></div><div class="small muted" x-text="planLimits(p)"></div></td>
+												<td class="actions">
+													<template x-if="usage.plan && usage.plan.name === p.name"><span class="badge plain">{{ _("Current plan") }}</span></template>
+													<template x-if="!usage.plan || usage.plan.name !== p.name">
+														<button class="btn sm" :class="{ primary: isUpgrade(p) }" type="button" :disabled="planBusy || !usage.can_change_plan || !['Active', 'Suspended'].includes(site.status)"
+															@click="changePlan(p)" x-text="isUpgrade(p) ? __('Upgrade plan') : __('Switch')"></button>
+													</template>
+												</td>
+											</tr>
+										</template>
+									</tbody>
+								</table>
+								<template x-if="!usage.can_change_plan"><div class="small muted" style="padding: 10px 18px">{{ _("Only team owners, admins and billing members can change the plan.") }}</div></template>
+							</div>
+						</section>
+					</div>
+				</template>
+			</div>
+
+			<!-- Config -->
+			<section class="card" x-show="tab === 'config'">
+				<div class="card-head">
+					<h2>{{ _("Site config") }}</h2>
+					<span class="small muted ltr">site_config.json</span>
+					<span class="spacer"></span>
+					<button class="btn sm ghost" type="button" :disabled="cfg.loading" @click="loadConfig(true)"><span class="spinner" x-show="cfg.loading"></span> {{ _("Reload") }}</button>
+					<button class="btn sm primary" type="button" x-show="site.can_write !== false" :disabled="saving || !cfg.loaded || !dirty() || site.status !== 'Active'" @click="saveConfig()"><span class="spinner" x-show="saving"></span> {{ _("Save changes") }}</button>
+				</div>
+				<div class="card-body stack">
+					<div class="small muted">{{ _("Values are JSON: numbers, true/false, lists and objects are typed; text values stay text. Secrets are hidden; type a new value to replace one. Database, encryption and Nexaploy-managed keys are read-only.") }}</div>
+					<template x-if="cfg.error"><div class="alert danger" x-text="cfg.error"></div></template>
+					<template x-if="cfg.loading && !cfg.loaded"><div class="loading"><span class="spinner"></span> {{ _("Reading the config from the server…") }}</div></template>
+				</div>
+				<div class="card-body flush table-wrap" x-show="cfg.loaded">
+					<table class="nx-table nx-config">
+						<thead><tr><th>{{ _("Key") }}</th><th>{{ _("Value") }}</th><th></th></tr></thead>
+						<tbody>
+							<template x-for="r in cfg.rows" :key="r.key">
+								<tr :class="{ removed: r.removed }">
+									<td class="mono ltr nowrap"><span x-text="r.key"></span> <template x-if="r.secret"><span class="badge plain">{{ _("secret") }}</span></template></td>
+									<td>
+										<template x-if="r.readonly"><span class="mono ltr small" x-text="r.text"></span></template>
+										<template x-if="!r.readonly"><input :readonly="site.can_write === false" class="input ltr mono" type="text" x-model="r.text" :disabled="r.removed" spellcheck="false" @focus="if (r.secret && r.text === r.origText) r.text = ''" @blur="if (r.secret && r.text === '') r.text = r.origText"></template>
+									</td>
+									<td class="actions">
+										<template x-if="r.readonly"><span class="badge plain">{{ _("Read-only") }}</span></template>
+										<template x-if="!r.readonly"><button class="btn sm ghost" type="button" @click="r.isNew && !r.removed ? cfg.rows.splice(cfg.rows.indexOf(r), 1) : (r.removed = !r.removed)" x-text="r.removed ? __('Undo') : __('Remove')"></button></template>
+									</td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+				<div class="card-body" x-show="cfg.loaded">
+					<form class="row" @submit.prevent="addRow()">
+						<input class="input ltr mono" style="max-width: 240px" type="text" x-model="newKey" placeholder="key_name" spellcheck="false">
+						<input class="input ltr mono" style="max-width: 360px" type="text" x-model="newValue" placeholder='value, 1, true, {"a": 1}' spellcheck="false">
+						<button class="btn" type="submit" :disabled="!newKey.trim()">{{ _("Add key") }}</button>
+					</form>
 				</div>
 			</section>
 

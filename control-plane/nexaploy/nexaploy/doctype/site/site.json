@@ -27,6 +27,16 @@
   "column_break_monitoring",
   "is_up",
   "last_uptime_check",
+  "section_break_usage",
+  "current_cpu_seconds_today",
+  "database_mb",
+  "storage_mb",
+  "usage_updated_at",
+  "column_break_usage",
+  "over_limit",
+  "throttled",
+  "usage_suspended",
+  "usage_alert_state",
   "section_break_move",
   "move_target_bench",
   "move_backup",
@@ -79,8 +89,8 @@
   {
    "fieldname": "team",
    "fieldtype": "Link",
-   "label": "Team (Owner)",
-   "options": "User"
+   "label": "Team",
+   "options": "Team"
   },
   {
    "fieldname": "plan",
@@ -174,6 +184,79 @@
    "read_only": 1
   },
   {
+   "collapsible": 0,
+   "fieldname": "section_break_usage",
+   "fieldtype": "Section Break",
+   "label": "Usage"
+  },
+  {
+   "fieldname": "current_cpu_seconds_today",
+   "fieldtype": "Float",
+   "label": "CPU Seconds Today (UTC)",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "database_mb",
+   "fieldtype": "Float",
+   "label": "Database (MB)",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "storage_mb",
+   "fieldtype": "Float",
+   "label": "Storage (MB)",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "usage_updated_at",
+   "fieldtype": "Datetime",
+   "label": "Usage Updated At",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_usage",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "over_limit",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Over Plan Limit",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "throttled",
+   "fieldtype": "Check",
+   "label": "Throttled",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Suspended by plan limit enforcement (lifted automatically when under the limits)",
+   "fieldname": "usage_suspended",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Suspended for Usage",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "usage_alert_state",
+   "fieldtype": "Small Text",
+   "hidden": 1,
+   "label": "Usage Alert State",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
    "collapsible": 1,
    "description": "State of an in-progress move to another bench (backup -> restore).",
    "fieldname": "section_break_move",
@@ -214,7 +297,7 @@
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-10 12:00:00.000000",
+ "modified": "2026-11-20 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Site",

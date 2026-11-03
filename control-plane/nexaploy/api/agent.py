@@ -151,6 +151,13 @@ def register(registration_token=None, hostname=None, facts=None, agent_version=N
 		frappe.local.response["http_status_code"] = 401
 		raise frappe.AuthenticationError(_("Invalid, used or expired registration token"))
 
+	# the token's team is a Team (§9); a legacy user-valued token maps to that user's team
+	team = row.team
+	if team and not frappe.db.exists("Team", team):
+		from nexaploy.teams import personal_team_for
+
+		team = personal_team_for(team)
+
 	server_token = generate_token()
 	server_id = generate_server_id()
 	while frappe.db.exists("Server", {"server_id": server_id}):
@@ -165,7 +172,7 @@ def register(registration_token=None, hostname=None, facts=None, agent_version=N
 			"server_id": server_id,
 			"hostname": (hostname or "")[:140],
 			"ownership": "BYOS",
-			"team": row.team,
+			"team": team,
 			"status": "Active",
 			"plan": byos_plan,
 			"token_hash": hash_token(server_token),
@@ -213,6 +220,7 @@ def heartbeat(server_id=None, facts=None, benches=None, agent_version=None, **kw
 		ops.record_heartbeat_metrics(server, _load_json(facts, None))
 	except Exception:
 		frappe.log_error(title=f"Nexaploy: heartbeat metrics failed for {server}")
+	ops.ingest_usage(server, kwargs.get("usage"))  # never raises
 	pending = frappe.db.count("Agent Job", {"server": server, "status": "Pending"})
 	return {"ok": True, "pending_jobs": pending}
 

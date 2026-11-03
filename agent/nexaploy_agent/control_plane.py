@@ -1,6 +1,7 @@
 """Outbound control-plane protocol (§5.6).
 
-* heartbeat every ``heartbeat_seconds``: ``{server_id, facts, benches, agent_version}``
+* heartbeat every ``heartbeat_seconds``: ``{server_id, facts, benches, agent_version[, usage]}``
+  (``usage`` - per-site CPU/DB/storage - at most every 15 minutes, see runtime/usage.py)
 * poll every ``poll_seconds``: ``{"message": [{job_id, kind, params}]}`` -> enqueued
   locally with ``origin=control_plane, remote_id=job_id`` (deduplicated)
 * job_update on every status/step change of control-plane jobs
@@ -132,15 +133,19 @@ class ControlPlaneClient:
         raise ControlPlaneError(f"{name}: control plane unreachable: {last}")
 
     # ---- protocol calls ----------------------------------------------------------------
-    def heartbeat(self, facts: dict[str, Any], benches: list[dict[str, Any]]) -> Any:
+    def heartbeat(self, facts: dict[str, Any], benches: list[dict[str, Any]],
+                  usage: dict[str, Any] | None = None) -> Any:
         if not self.enabled:
             return None
-        return self.request("POST", "heartbeat", json={
+        body: dict[str, Any] = {
             "server_id": self.settings.agent.server_id,
             "facts": facts,
             "benches": benches,
             "agent_version": __version__,
-        })
+        }
+        if usage:
+            body["usage"] = usage
+        return self.request("POST", "heartbeat", json=body)
 
     def poll(self) -> list[dict[str, Any]]:
         if not self.enabled:
@@ -178,6 +183,9 @@ class ControlPlaneService:
         self.client = client or ControlPlaneClient(ctx.settings)
         self._updates: "queue.Queue[str]" = queue.Queue()
         self._threads: list[threading.Thread] = []
+        from .runtime.usage import HeartbeatUsage
+
+        self.usage = HeartbeatUsage(lambda: self.ctx.usage)
 
     @property
     def enabled(self) -> bool:
@@ -196,7 +204,13 @@ class ControlPlaneService:
         benches = self.ctx.benches.list(with_status=True)
         for b in benches:
             b["sites"] = [self.ctx.sites.info(b["name"], s) for s in b.get("sites", [])]
-        self.client.heartbeat(facts, benches)
+        usage = self.usage.maybe_collect()
+        try:
+            self.client.heartbeat(facts, benches, usage=usage)
+        except Exception:
+            if usage is not None:
+                self.usage.last = None  # not delivered: send it with the next heartbeat
+            raise
 
     def poll_once(self) -> list[str]:
         created: list[str] = []

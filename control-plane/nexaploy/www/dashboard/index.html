@@ -1,7 +1,7 @@
 {% extends "templates/dashboard_base.html" %}
 
 {% block topbar_actions %}
-<a class="btn primary" href="/dashboard/sites?new=1">{{ _("New Site") }}</a>
+<a class="btn primary" href="/dashboard/sites?new=1" x-show="nx.can('write')">{{ _("New Site") }}</a>
 {% endblock %}
 
 {% block content %}
@@ -46,7 +46,7 @@
 						<template x-if="!data.sites.recent.length">
 							<div class="empty">
 								<p>{{ _("You have no sites yet.") }}</p>
-								<a class="btn primary" href="/dashboard/sites?new=1">{{ _("Create your first site") }}</a>
+								<a class="btn primary" href="/dashboard/sites?new=1" x-show="nx.can('write')">{{ _("Create your first site") }}</a>
 							</div>
 						</template>
 						<table class="nx-table" x-show="data.sites.recent.length">
@@ -65,7 +65,7 @@
 				<section class="card">
 					<div class="card-head">
 						<h2>{{ _("Servers") }}</h2>
-						<a class="btn sm" href="/dashboard/servers?add=1">{{ _("Add your own server") }}</a>
+						<a class="btn sm" href="/dashboard/servers?add=1" x-show="nx.can('admin')">{{ _("Add your own server") }}</a>
 					</div>
 					<div class="card-body flush">
 						<template x-if="!data.servers.recent.length">

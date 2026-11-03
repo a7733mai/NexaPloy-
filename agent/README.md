@@ -119,7 +119,7 @@ URL/token come from `agent.toml` (or `--url/--token`, `NEXAPLOY_URL/NEXAPLOY_TOK
 | `bench.start/stop/restart` | `bench` | one step |
 | `bench.update` | `bench, image, registry?` | ensure_image, write_config, configure, start, migrate_sites |
 | `bench.remove` | `bench, force?` | check, down, remove_routes, remove_files (archived to `benches/.archived/` when forced with sites) |
-| `site.create` | `bench, name, admin_password, apps?` | check, new_site, install_apps, write_route |
+| `site.create` | `bench, name, admin_password, apps?` | check, new_site, install_apps, enable_monitor, write_route |
 | `site.install_app` / `site.uninstall_app` | `site, app` | install / uninstall |
 | `site.add_domain` / `site.remove_domain` | `site, domain` | add/remove domain in site_config, write_route |
 | `site.backup` | `site, with_files=true, upload=true` | backup, stage (manifest + sha256), upload, prune |
@@ -153,6 +153,47 @@ is an argument list and every name is validated against the §2 regexes first.
 plus every bench compose project, with `state` and healthcheck `health`), `bench_health`
 (per bench: total, running, unhealthy container names), `unhealthy_containers` (not running or
 healthcheck unhealthy; one-shot `configurator` ignored) and `utc_offset_minutes`.
+
+## Usage, site config and backup files
+
+**`site.usage`** `{bench?, site?, ensure_monitor?, refresh_sizes?}` (also `POST /v1/usage`) — step `collect`.
+Per site: CPU/request time per UTC day, database size and file storage
+(`nexaploy_agent/runtime/usage.py`):
+
+- *CPU*: `site.create` turns on the Frappe monitor (`bench --site s set-config -p monitor 1`,
+  step `enable_monitor`; `ensure_monitor: true` does it for older sites). Frappe appends one JSON line
+  per request/background job to `benches/<b>/logs/monitor.json.log`; the agent reads it incrementally
+  (byte offset + inode per bench in `<root>/agent/data/usage_state.json`; rotation/truncation restarts at 0,
+  a trailing partial line waits for the next read) and sums `duration` (µs) of `request` and `job`
+  transactions per site per UTC day (7 days kept).
+- *Database*: `docker exec -e MYSQL_PWD nexaploy-db mariadb -uroot -N -B -e "SELECT table_schema,
+  SUM(data_length+index_length) ..."`; the root password from `db.env` is passed to the docker CLI in the
+  environment (`MYSQL_PWD`) only — never argv, step output or `jobs.db`. Matched to `db_name` in site_config.
+  Cached 10 min.
+- *Storage*: `du -sb` of `sites/<s>/public/files` and `sites/<s>/private/files` (backups excluded),
+  cached 1 h, 120 s timeout.
+
+Result: `{collected_at, date, lines_read, sites: {site: {bench, database_mb, storage_mb, monitor_enabled,
+days: {YYYY-MM-DD: {cpu_seconds, requests, jobs}}}}, usage}` where `usage` is the compact block below.
+With a control plane, the heartbeat carries the same compact block as `usage` **at most every 15 minutes**
+(`{collected_at, date, sites: {site: {database_mb, storage_mb, days: {today, yesterday: {cpu_seconds,
+requests}}}}}`); if the heartbeat fails it is retried with the next one. Collection errors never break the heartbeat.
+
+**`site.get_config`** `{site}` (also `GET /v1/sites/{s}/config`, synchronous) — result `{config, redacted}`
+with `db_password`, `encryption_key`, `admin_password` and any key matching `password|secret|token|key`
+masked as `********`.
+
+**`site.update_config`** `{site, set: {key: json}, remove: [keys]}` (also `PATCH /v1/sites/{s}/config`) —
+one atomic rewrite of `site_config.json` (Frappe format: `indent=1`, sorted keys, owner 3113, mode kept);
+unchanged keys are not rewritten (a no-op job leaves the file alone); `db_*` connection keys,
+`encryption_key`, `admin_password`, `root_password` are refused; a key cannot be both set and removed.
+Result `{changed, removed}`. Values of sensitive keys are masked in output and scrubbed from `jobs.db`.
+
+**Backup files**: `site.backup` (and the backup step of `site.drop`) results add
+`backup_files: [{file_type: database|public|private|site_config, name, size, sha256, remote_key}]`.
+`remote_key` is the object key inside the bucket (`<prefix>/<bench>/<site>/<ts>/<name>`; the rclone remote is
+an alias of the bucket root) and `null` when the backup was not uploaded. The control plane uses it for
+presigned downloads.
 
 ## Templates
 

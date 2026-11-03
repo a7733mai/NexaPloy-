@@ -5,6 +5,8 @@
  * - nx.pollJob(name, onUpdate): polls nexaploy.api.dashboard.get_job until the job is terminal.
  * - nx.toast(message, kind)
  * - __(): translations from NX_BOOT.messages (this app's ar.csv), "{0}" placeholders.
+ * - Teams: every call sends X-Nexaploy-Team (the page's team, else localStorage/cookie
+ *   nexaploy_team); nx.can(action) applies the role matrix of ARCHITECTURE.md §9.
  * - Alpine.data components for each /dashboard page (Alpine.js 3.14.1 is loaded after this file).
  */
 (function () {
@@ -13,6 +15,14 @@
 	var BOOT = window.NX_BOOT || {};
 	var MESSAGES = BOOT.messages || {};
 	var API = "nexaploy.api.dashboard.";
+	var TEAMS_API = "nexaploy.api.teams.";
+	var TEAM_KEY = "nexaploy_team";
+	var ROLE_MATRIX = {
+		read: ["Owner", "Admin", "Developer", "Billing"],
+		write: ["Owner", "Admin", "Developer"],
+		billing: ["Owner", "Admin", "Billing"],
+		admin: ["Owner", "Admin"],
+	};
 	var TERMINAL = ["Success", "Failure"];
 	var ACTION_LABELS = {
 		backup: "Backup",
@@ -69,6 +79,34 @@
 		return null;
 	}
 
+	function readCookie(name) {
+		var m = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
+		return m ? decodeURIComponent(m[1]) : null;
+	}
+
+	function storedTeam() {
+		try { return window.localStorage.getItem(TEAM_KEY); } catch (e) { return null; }
+	}
+
+	function rememberTeam(team) {
+		try {
+			if (team) window.localStorage.setItem(TEAM_KEY, team);
+			else window.localStorage.removeItem(TEAM_KEY);
+		} catch (e) { /* private mode */ }
+	}
+
+	/* The team this page was rendered for wins, so the page and its API calls agree. */
+	function currentTeam() {
+		return BOOT.team || storedTeam() || readCookie(TEAM_KEY) || null;
+	}
+	if (BOOT.team) rememberTeam(BOOT.team);
+
+	function can(action, role) {
+		if (BOOT.is_admin && role === undefined) return true;
+		role = role === undefined ? BOOT.role : role;
+		return !!role && (ROLE_MATRIX[action] || []).indexOf(role) !== -1;
+	}
+
 	function call(method, args) {
 		var headers = {
 			"Accept": "application/json",
@@ -76,6 +114,8 @@
 			"X-Requested-With": "XMLHttpRequest",
 		};
 		if (window.frappe && window.frappe.csrf_token) headers["X-Frappe-CSRF-Token"] = window.frappe.csrf_token;
+		var team = currentTeam();
+		if (team) headers["X-Nexaploy-Team"] = team;
 		return fetch("/api/method/" + method, {
 			method: "POST",
 			headers: headers,
@@ -292,7 +332,8 @@
 		boot: BOOT, call: call, api: api, toast: toast, pollJob: pollJob, copy: copy, fmtDate: fmtDate,
 		ago: ago, since: since, bytes: bytes, money: money, statusClass: statusClass, flatten: flatten,
 		query: query, invoiceList: invoiceList, invoiceAmount: invoiceAmount, isUnpaid: isUnpaid,
-		siteNamePreview: siteNamePreview, format: format,
+		siteNamePreview: siteNamePreview, format: format, can: can, currentTeam: currentTeam,
+		rememberTeam: rememberTeam,
 	};
 
 	/* ------------------------------------------------------------------ job viewer mixin */
@@ -343,6 +384,151 @@
 	/* ------------------------------------------------------------------ pages */
 	document.addEventListener("alpine:init", function () {
 		var Alpine = window.Alpine;
+
+		Alpine.data("nxTeamSwitcher", function () {
+			return {
+				teams: BOOT.teams || [],
+				current: BOOT.team || "",
+				role: BOOT.role || "",
+				busy: false,
+				switchTo: function (team) {
+					var self = this;
+					if (!team || team === this.current) return;
+					this.busy = true;
+					call(TEAMS_API + "switch_team", { team: team }).then(
+						function () {
+							rememberTeam(team);
+							window.location.reload();
+						},
+						function (e) { toast(e.message, "error"); self.busy = false; }
+					);
+				},
+			};
+		});
+
+		Alpine.data("nxTeam", function () {
+			return {
+				loading: true,
+				error: null,
+				team: null,
+				form: { email: "", role: "Developer" },
+				edit: { title: "", billing_email: "" },
+				lastInvite: null,
+				showCreate: false,
+				newTitle: "",
+				busy: {},
+				inviteToken: query("invite"),
+				invite: null,
+				inviteLoading: false,
+				inviteError: null,
+				init: function () {
+					if (this.inviteToken) this.loadInvite();
+					if (BOOT.portal_access !== false) this.load();
+					else this.loading = false;
+				},
+				load: function () {
+					var self = this;
+					return call(TEAMS_API + "get_team").then(
+						function (r) {
+							self.team = r;
+							self.edit = { title: r.title, billing_email: r.billing_email || "" };
+							self.error = null;
+						},
+						function (e) { self.error = e.message; }
+					).finally(function () { self.loading = false; });
+				},
+				loadInvite: function () {
+					var self = this;
+					this.inviteLoading = true;
+					call(TEAMS_API + "get_invitation", { token: this.inviteToken }).then(
+						function (r) { self.invite = r; },
+						function (e) { self.inviteError = e.message; }
+					).finally(function () { self.inviteLoading = false; });
+				},
+				accept: function () {
+					var self = this;
+					this.busy.accept = true;
+					call(TEAMS_API + "accept_invitation", { token: this.inviteToken }).then(
+						function (r) {
+							rememberTeam(r.team);
+							toast(__("You joined {0}", [r.title]), "success");
+							window.location.href = "/dashboard/team";
+						},
+						function (e) { toast(e.message, "error"); self.busy.accept = false; }
+					);
+				},
+				get assignableRoles() {
+					var roles = (this.team && this.team.roles) || ["Owner", "Admin", "Developer", "Billing"];
+					var owner = this.team && this.team.is_owner;
+					return roles.filter(function (r) { return owner || r !== "Owner"; });
+				},
+				canEdit: function (m) {
+					if (!this.team || !this.team.permissions.admin) return false;
+					return this.team.is_owner || m.role !== "Owner";
+				},
+				act: function (key, method, args, okMessage) {
+					var self = this;
+					this.busy[key] = true;
+					return call(TEAMS_API + method, args).then(
+						function (r) {
+							if (okMessage) toast(okMessage, "success");
+							return self.load().then(function () { return r; });
+						},
+						function (e) { toast(e.message, "error"); self.load(); throw e; }
+					).finally(function () { self.busy[key] = false; });
+				},
+				inviteMember: function () {
+					var self = this;
+					var email = this.form.email.trim();
+					if (!email) return;
+					this.act("invite", "invite_member", { email: email, role: this.form.role }).then(function (r) {
+						self.lastInvite = r;
+						self.form.email = "";
+					}, function () {});
+				},
+				changeRole: function (m, role) {
+					if (role === m.role) return;
+					this.act("role-" + m.user, "change_role", { user: m.user, role: role }, __("Role updated")).catch(function () {});
+				},
+				remove: function (m) {
+					if (!window.confirm(__("Remove {0} from the team?", [m.full_name || m.user]))) return;
+					this.act("rm-" + m.user, "remove_member", { user: m.user }, __("Member removed")).catch(function () {});
+				},
+				revoke: function (i) {
+					this.act("rv-" + i.name, "revoke_invitation", { name: i.name }, __("Invitation revoked")).catch(function () {});
+				},
+				leave: function () {
+					var self = this;
+					if (!window.confirm(__("Leave {0}?", [this.team.title]))) return;
+					this.busy.leave = true;
+					call(TEAMS_API + "leave_team", { team: this.team.name }).then(
+						function (r) {
+							rememberTeam(r.current);
+							window.location.href = "/dashboard";
+						},
+						function (e) { toast(e.message, "error"); self.busy.leave = false; }
+					);
+				},
+				saveTeam: function () {
+					this.act("save", "update_team", { title: this.edit.title, billing_email: this.edit.billing_email }, __("Saved")).then(function () {
+						window.location.reload();
+					}, function () {});
+				},
+				createTeam: function () {
+					var title = this.newTitle.trim();
+					if (!title) return;
+					this.busy.create = true;
+					var self = this;
+					call(TEAMS_API + "create_team", { title: title }).then(
+						function (r) {
+							rememberTeam(r.name);
+							window.location.href = "/dashboard/team";
+						},
+						function (e) { toast(e.message, "error"); self.busy.create = false; }
+					);
+				},
+			};
+		});
 
 		Alpine.data("nxOverview", function () {
 			return {

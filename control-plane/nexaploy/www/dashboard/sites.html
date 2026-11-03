@@ -136,7 +136,7 @@
 		<div class="card-head">
 			<h2>{{ _("Sites") }}</h2>
 			<input class="input" style="max-width: 240px" type="search" x-model="q" placeholder="{{ _('Search sites') }}">
-			<button class="btn primary" type="button" @click="openNew()" x-show="!showNew">{{ _("New Site") }}</button>
+			<button class="btn primary" type="button" @click="openNew()" x-show="!showNew && nx.can('write')">{{ _("New Site") }}</button>
 		</div>
 		<div class="card-body flush table-wrap">
 			<template x-if="loading && !sites.length"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>

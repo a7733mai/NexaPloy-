@@ -13,6 +13,13 @@
   "price_monthly",
   "currency",
   "max_sites",
+  "plan_order",
+  "section_break_limits",
+  "cpu_seconds_per_day",
+  "overage_action",
+  "column_break_limits",
+  "max_storage_mb",
+  "max_database_mb",
   "section_break_2",
   "description"
  ],
@@ -66,6 +73,47 @@
    "label": "Max Sites"
   },
   {
+   "description": "Upgrade suggestions go from lower to higher order",
+   "fieldname": "plan_order",
+   "fieldtype": "Int",
+   "label": "Plan Order"
+  },
+  {
+   "fieldname": "section_break_limits",
+   "fieldtype": "Section Break",
+   "label": "Usage Limits"
+  },
+  {
+   "description": "Request + background job time per UTC day (Frappe monitor). 0 = unlimited",
+   "fieldname": "cpu_seconds_per_day",
+   "fieldtype": "Int",
+   "label": "CPU Seconds per Day"
+  },
+  {
+   "default": "Notify",
+   "description": "Notify: email the team. Throttle: Frappe rate_limit while over the CPU budget. Suspend: maintenance mode while over any limit",
+   "fieldname": "overage_action",
+   "fieldtype": "Select",
+   "label": "Overage Action",
+   "options": "Notify\nThrottle\nSuspend"
+  },
+  {
+   "fieldname": "column_break_limits",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Public + private files. 0 = unlimited",
+   "fieldname": "max_storage_mb",
+   "fieldtype": "Int",
+   "label": "Max Storage (MB)"
+  },
+  {
+   "description": "0 = unlimited",
+   "fieldname": "max_database_mb",
+   "fieldtype": "Int",
+   "label": "Max Database (MB)"
+  },
+  {
    "fieldname": "section_break_2",
    "fieldtype": "Section Break"
   },
@@ -78,7 +126,7 @@
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-03 12:00:00.000000",
+ "modified": "2026-11-20 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Nexaploy Plan",

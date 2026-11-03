@@ -7,6 +7,9 @@ from pathlib import Path
 from typing import Any
 
 from .. import validation as v
+from ..config import FRAPPE_UID
+from ..fsutil import atomic_write, chown
+from ..redact import MASK, is_sensitive
 from .bench import BenchManager
 from .docker import Docker, Result, parse_app_list
 
@@ -14,8 +17,48 @@ BENCH_DB_ROOT_USER = "root"
 CONTAINER_BENCH = "/home/frappe/frappe-bench"
 
 
+# site_config.json keys the agent never changes through site.update_config (they are owned by
+# bench new-site / restore). The control plane applies a stricter user-facing deny-list.
+PROTECTED_CONFIG_KEYS = frozenset({
+    "db_name", "db_password", "db_type", "db_host", "db_port", "db_user", "db_socket",
+    "encryption_key", "admin_password", "root_password",
+})
+# Always redacted in site.get_config results (in addition to password|secret|token|key).
+REDACTED_CONFIG_KEYS = frozenset({"db_password", "encryption_key", "admin_password", "root_password"})
+
+
 class SiteError(RuntimeError):
     pass
+
+
+def redact_site_config(config: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """Mask secret values of a site_config (top level). Returns (config, redacted keys)."""
+    out: dict[str, Any] = {}
+    redacted: list[str] = []
+    for key, value in config.items():
+        if key in REDACTED_CONFIG_KEYS or is_sensitive(str(key)):
+            out[key] = MASK if value not in (None, "") else value
+            redacted.append(key)
+        else:
+            out[key] = value
+    return out, sorted(redacted)
+
+
+def apply_config_changes(config: dict[str, Any], set_values: dict[str, Any],
+                         remove: list[str]) -> tuple[dict[str, Any], list[str], list[str]]:
+    """Pure: new config + (keys set/changed, keys removed). Unchanged keys are not reported."""
+    new = dict(config)
+    changed: list[str] = []
+    removed: list[str] = []
+    for key, value in set_values.items():
+        if key not in new or new[key] != value:
+            new[key] = value
+            changed.append(key)
+    for key in remove:
+        if key in new:
+            del new[key]
+            removed.append(key)
+    return new, changed, removed
 
 
 class SiteManager:
@@ -44,6 +87,16 @@ class SiteManager:
             return json.loads((self.site_dir(bench, site) / "site_config.json").read_text())
         except (OSError, json.JSONDecodeError):
             return {}
+
+    def config_path(self, bench: str, site: str) -> Path:
+        return self.site_dir(bench, site) / "site_config.json"
+
+    def write_site_config(self, bench: str, site: str, config: dict[str, Any]) -> None:
+        """Atomic rewrite in Frappe's format (indent=1, sorted), owned by the frappe user."""
+        path = self.config_path(bench, site)
+        mode = path.stat().st_mode & 0o7777 if path.exists() else 0o644
+        atomic_write(path, json.dumps(config, indent=1, sort_keys=True), mode=mode)
+        chown(path, FRAPPE_UID, FRAPPE_UID)
 
     def domains(self, bench: str, site: str) -> list[str]:
         """Extra domains from site_config ``domains`` (strings or dicts)."""

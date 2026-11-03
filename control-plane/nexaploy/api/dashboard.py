@@ -1,9 +1,11 @@
 """Customer portal API (/dashboard pages call these with POST /api/method/...).
 
-Every method is scoped to the session user's team (team = frappe.session.user, see
-nexaploy/permissions.py). System Managers (and Administrator) see everything. Queries use
-frappe.get_all with explicit team filters, and single-document methods check the team
-before touching the document, raising frappe.PermissionError otherwise.
+Every method is scoped to the request's current team (nexaploy.teams.get_current_team:
+header X-Nexaploy-Team, cookie nexaploy_team, else the user's first team). Lists filter on
+that team; single-document methods check the document's team with
+nexaploy.teams.check_team_access (read for get/list, write for mutations, admin for
+registration tokens and server operations), raising frappe.PermissionError otherwise.
+Platform admins (System Manager / Administrator) pass every check and may select any team.
 
 Pure helpers live in nexaploy/portal_utils.py.
 """
@@ -32,6 +34,8 @@ from nexaploy.portal_utils import (
 	text_direction,
 	to_bool,
 )
+from nexaploy.team_utils import ROLE_MATRIX, role_allows
+from nexaploy.teams import check_team_access, get_current_team, get_user_teams
 from nexaploy.utils import SUPPORTED_MAJORS, redact_params
 
 JOB_FIELDS = [
@@ -51,33 +55,44 @@ JOB_FIELDS = [
 # --------------------------------------------------------------------------- access helpers
 
 
-def _ctx():
-	"""(user, is_admin) for a portal user; PermissionError for anyone else."""
+def _ctx(action="read"):
+	"""Portal context {user, team, role, admin} for the current team; raises
+	frappe.PermissionError for guests, users without the portal role and members whose
+	role does not allow `action` (read/write/billing/admin) in the current team."""
 	user = frappe.session.user
 	if not user or user == "Guest":
 		raise frappe.PermissionError(_("Please log in to use the dashboard"))
 	roles = frappe.get_roles(user)
 	if not has_portal_access(roles, user):
 		raise frappe.PermissionError(_("You need the Nexaploy Customer role to use the dashboard"))
-	return user, is_portal_admin(roles, user)
+	team = get_current_team(user)
+	role = check_team_access(team, action, user)
+	return frappe._dict(user=user, team=team, role=role, admin=is_portal_admin(roles, user))
 
 
-def _team_filters(user, admin, **extra):
+def _team_filters(c, **extra):
 	filters = dict(extra)
-	if not admin:
-		filters["team"] = user
+	filters["team"] = c.team
 	return filters
 
 
-def _check_team(doctype, name, user, admin):
-	"""Raise unless `doctype/name` exists and belongs to the user's team."""
+def _check_team(doctype, name, c, action="read"):
+	"""Raise unless `doctype/name` exists and the user's role in its team allows `action`.
+	Returns the document's team and the user's role in it."""
 	if not name:
 		frappe.throw(_("{0} is required").format(_(doctype)))
 	team = frappe.db.get_value(doctype, name, "team")
 	if team is None and not frappe.db.exists(doctype, name):
 		raise frappe.DoesNotExistError(_("{0} {1} not found").format(_(doctype), name))
-	if not admin and team != user:
+	if not team and not c.admin:
 		raise frappe.PermissionError(_("{0} {1} belongs to another team").format(_(doctype), name))
+	role = check_team_access(team, action, c.user) if team else c.role
+	return team, role
+
+
+def _permissions(role):
+	"""{read, write, billing, admin} booleans for the portal UI."""
+	return {action: role_allows(role, action) for action in ROLE_MATRIX}
 
 
 def _root_domain():
@@ -161,7 +176,7 @@ def _byos_plan():
 # --------------------------------------------------------------------------- jobs
 
 
-def _team_jobs(user, admin, limit=20, server=None, site=None):
+def _team_jobs(c, limit=20, server=None, site=None):
 	"""Agent Jobs visible to the team, newest first.
 
 	A customer sees jobs on their own servers plus jobs that reference their sites and
@@ -175,17 +190,15 @@ def _team_jobs(user, admin, limit=20, server=None, site=None):
 			queries.append({"reference_doctype": "Site Backup", "reference_name": ["in", backups]})
 	elif server:
 		queries = [{"server": server}]
-	elif admin:
-		queries = [{}]
 	else:
 		queries = []
-		servers = frappe.get_all("Server", filters={"team": user}, pluck="name")
+		servers = frappe.get_all("Server", filters={"team": c.team}, pluck="name")
 		if servers:
 			queries.append({"server": ["in", servers]})
-		sites = frappe.get_all("Site", filters={"team": user}, pluck="name")
+		sites = frappe.get_all("Site", filters={"team": c.team}, pluck="name")
 		if sites:
 			queries.append({"reference_doctype": "Site", "reference_name": ["in", sites]})
-		backups = frappe.get_all("Site Backup", filters={"team": user}, pluck="name")
+		backups = frappe.get_all("Site Backup", filters={"team": c.team}, pluck="name")
 		if backups:
 			queries.append({"reference_doctype": "Site Backup", "reference_name": ["in", backups]})
 
@@ -201,19 +214,24 @@ def _team_jobs(user, admin, limit=20, server=None, site=None):
 	return result
 
 
-def _job_allowed(job, user, admin):
-	if admin:
+def _job_allowed(job, c):
+	if c.admin:
 		return True
-	if job.server and frappe.db.get_value("Server", job.server, "team") == user:
+	member_of = {t["name"] for t in get_user_teams(c.user)}
+
+	def ok(team):
+		return bool(team) and team in member_of
+
+	if job.server and ok(frappe.db.get_value("Server", job.server, "team")):
 		return True
 	ref_dt, ref_name = job.reference_doctype, job.reference_name
 	if not (ref_dt and ref_name):
 		return False
 	if ref_dt in ("Site", "Site Backup", "Bench", "Release Group"):
-		return frappe.db.get_value(ref_dt, ref_name, "team") == user
+		return ok(frappe.db.get_value(ref_dt, ref_name, "team"))
 	if ref_dt == "Deploy Candidate":
 		group = frappe.db.get_value("Deploy Candidate", ref_name, "release_group")
-		return bool(group) and frappe.db.get_value("Release Group", group, "team") == user
+		return bool(group) and ok(frappe.db.get_value("Release Group", group, "team"))
 	return False
 
 
@@ -229,23 +247,28 @@ def _job_for(reference_doctype, reference_name, kind=None):
 
 @frappe.whitelist()
 def overview():
-	user, admin = _ctx()
+	c = _ctx()
 	servers = frappe.get_all(
 		"Server",
-		filters=_team_filters(user, admin, status=["!=", "Archived"]),
+		filters=_team_filters(c, status=["!=", "Archived"]),
 		fields=["name", "hostname", "status", "ownership", "last_heartbeat"],
 		order_by="creation desc",
 	)
 	sites = frappe.get_all(
 		"Site",
-		filters=_team_filters(user, admin, status=["!=", "Archived"]),
+		filters=_team_filters(c, status=["!=", "Archived"]),
 		fields=["name", "status", "bench", "server", "plan", "creation"],
 		order_by="creation desc",
 	)
-	jobs = _team_jobs(user, admin, limit=10)
+	jobs = _team_jobs(c, limit=10)
 	return {
-		"user": user,
-		"is_admin": admin,
+		"user": c.user,
+		"is_admin": c.admin,
+		"team": c.team,
+		"team_title": frappe.db.get_value("Team", c.team, "title"),
+		"role": c.role,
+		"permissions": _permissions(c.role),
+		"teams": get_user_teams(c.user),
 		"servers": {"total": len(servers), "by_status": summarize_counts(servers), "recent": servers[:5]},
 		"sites": {"total": len(sites), "by_status": summarize_counts(sites), "recent": sites[:5]},
 		"recent_jobs": jobs,
@@ -258,11 +281,11 @@ def overview():
 
 @frappe.whitelist()
 def list_sites(include_archived=False):
-	user, admin = _ctx()
+	c = _ctx()
 	extra = {} if to_bool(include_archived) else {"status": ["!=", "Archived"]}
 	sites = frappe.get_all(
 		"Site",
-		filters=_team_filters(user, admin, **extra),
+		filters=_team_filters(c, **extra),
 		fields=["name", "status", "bench", "server", "plan", "team", "creation"],
 		order_by="creation desc",
 	)
@@ -280,8 +303,8 @@ def list_sites(include_archived=False):
 
 @frappe.whitelist()
 def get_site(name):
-	user, admin = _ctx()
-	_check_team("Site", name, user, admin)
+	c = _ctx()
+	site_team, role = _check_team("Site", name, c, "read")
 	doc = frappe.get_doc("Site", name)
 
 	bench = frappe.db.get_value(
@@ -337,20 +360,23 @@ def get_site(name):
 			"hostname": server.hostname,
 			"ownership": server.ownership,
 			"status": server.status,
-			"own": bool(server.team) and (admin or server.team == user),
+			"own": bool(server.team) and (c.admin or server.team == site_team),
 		},
 		"plan": plan,
 		"apps": [app_info(row.app, row.status) for row in doc.apps],
 		"available_apps": [app_info(a) for a in group_apps if a not in installed_names],
 		"domains": [{"domain": row.domain, "status": row.status} for row in doc.domains],
 		"backups": backups,
-		"jobs": _team_jobs(user, admin, limit=20, site=name),
-		"can_drop": bool(frappe.has_permission("Site", "delete", doc)),
+		"jobs": _team_jobs(c, limit=20, site=name),
+		"role": role,
+		"permissions": _permissions(role),
+		"can_write": role_allows(role, "write"),
+		"can_drop": role_allows(role, "write") and bool(frappe.has_permission("Site", "delete", doc)),
 		"moving": doc.status == "Moving",
 	}
 
 
-def _deployable_bench(bench, user, admin):
+def _deployable_bench(bench, c):
 	"""Bench row (+ server info) if the user may create sites on it, else PermissionError."""
 	row = frappe.db.get_value(
 		"Bench", bench, ["name", "bench_name", "server", "release_group", "team", "status"], as_dict=True
@@ -363,9 +389,9 @@ def _deployable_bench(bench, user, admin):
 	row.ownership = server.ownership
 	row.server_team = server.team
 	row.server_status = server.status
-	row.own = bool(user and (row.team == user or server.team == user))
+	row.own = bool(c.team and (row.team == c.team or server.team == c.team))
 	row.shared = not row.team and not server.team and server.ownership == "Hosted"
-	if not (admin or row.own or row.shared):
+	if not (c.admin or row.own or row.shared):
 		raise frappe.PermissionError(_("You cannot deploy on bench {0}").format(bench))
 	return row
 
@@ -374,7 +400,7 @@ def _deployable_bench(bench, user, admin):
 def list_benches(server=None):
 	"""Active benches the user can deploy sites on: benches of their team / on their servers,
 	plus shared hosted benches (Bench.team empty on a Hosted server without a team)."""
-	user, admin = _ctx()
+	c = _ctx()
 	filters = {"status": "Active"}
 	if server:
 		filters["server"] = server
@@ -399,16 +425,16 @@ def list_benches(server=None):
 		s = servers.get(b.server) or frappe._dict()
 		if s.status == "Archived":
 			continue
-		own = b.team == user or s.team == user
+		own = bool(c.team) and (b.team == c.team or s.team == c.team)
 		shared = not b.team and not s.team and s.ownership == "Hosted"
-		if not (admin or own or shared):
+		if not (c.admin or own or shared):
 			continue
 		b.server_hostname = s.hostname
 		b.ownership = s.ownership
 		b.server_status = s.status
 		b.own = bool(own)
 		b.shared = bool(shared)
-		b.allow_custom_domain = bool(admin or own)
+		b.allow_custom_domain = bool(c.admin or own)
 		b.pop("team", None)
 		result.append(b)
 
@@ -447,15 +473,15 @@ def list_plans(plan_type="Site"):
 def create_site(bench, subdomain_or_name, apps=None, plan=None):
 	"""Create a Site on `bench`. Returns {name, admin_password, job}; the password is
 	shown once (it is stored only in the Site's encrypted Password field)."""
-	user, admin = _ctx()
-	b = _deployable_bench(bench, user, admin)
+	c = _ctx("write")
+	b = _deployable_bench(bench, c)
 	if b.status != "Active":
 		frappe.throw(_("Bench {0} is not active").format(bench))
 	if b.server_status == "Archived":
 		frappe.throw(_("Server {0} is archived").format(b.server))
 
 	try:
-		site_name = build_site_name(subdomain_or_name, _root_domain(), allow_custom=admin or b.own)
+		site_name = build_site_name(subdomain_or_name, _root_domain(), allow_custom=c.admin or b.own)
 		app_list = parse_app_list(apps)
 	except ValueError as exc:
 		frappe.throw(_(str(exc)))
@@ -480,9 +506,7 @@ def create_site(bench, subdomain_or_name, apps=None, plan=None):
 		if not plan:
 			frappe.throw(_("No Site plan is available"))
 
-	team = user
-	if admin:
-		team = b.team or b.server_team or user
+	team = c.team
 
 	password = generate_password()
 	doc = frappe.get_doc(
@@ -538,8 +562,8 @@ def site_action(name, action, args=None, **kwargs):
 	"""Run a Site action: backup, install_app, uninstall_app, add_domain, remove_domain,
 	migrate, drop, restore. Arguments come in `args` (dict/JSON) or as keyword arguments.
 	Returns {action, result, job}."""
-	user, admin = _ctx()
-	_check_team("Site", name, user, admin)
+	c = _ctx()
+	_check_team("Site", name, c, "write")
 	merged = dict(frappe.parse_json(args) or {}) if args else {}
 	merged.update({k: v for k, v in kwargs.items() if k not in ("cmd", "name", "action", "args")})
 	try:
@@ -570,11 +594,11 @@ def site_action(name, action, args=None, **kwargs):
 
 @frappe.whitelist()
 def get_job(name):
-	user, admin = _ctx()
+	c = _ctx()
 	job = frappe.db.get_value("Agent Job", name, JOB_FIELDS, as_dict=True)
 	if not job:
 		raise frappe.DoesNotExistError(_("Agent Job {0} not found").format(name))
-	if not _job_allowed(job, user, admin):
+	if not _job_allowed(job, c):
 		raise frappe.PermissionError(_("Not allowed"))
 	doc = frappe.get_doc("Agent Job", name)
 	job["params"] = doc.get_redacted_params()
@@ -596,8 +620,8 @@ def get_job(name):
 
 @frappe.whitelist()
 def list_jobs(limit=50):
-	user, admin = _ctx()
-	return _team_jobs(user, admin, limit=min(int(limit or 50), 200))
+	c = _ctx()
+	return _team_jobs(c, limit=min(int(limit or 50), 200))
 
 
 # --------------------------------------------------------------------------- servers
@@ -605,11 +629,11 @@ def list_jobs(limit=50):
 
 @frappe.whitelist()
 def list_servers(include_archived=False):
-	user, admin = _ctx()
+	c = _ctx()
 	extra = {} if to_bool(include_archived) else {"status": ["!=", "Archived"]}
 	servers = frappe.get_all(
 		"Server",
-		filters=_team_filters(user, admin, **extra),
+		filters=_team_filters(c, **extra),
 		fields=[
 			"name", "server_id", "hostname", "ownership", "status", "plan", "team",
 			"last_heartbeat", "agent_version", "creation",
@@ -632,13 +656,13 @@ def list_servers(include_archived=False):
 		s["benches"] = bench_counts.get(s.name, 0)
 		s["sites"] = site_counts.get(s.name, 0)
 		s["heartbeat_age"] = seconds_since(s.last_heartbeat, now)
-	return {"servers": servers, "byos_plan": _byos_plan()}
+	return {"servers": servers, "byos_plan": _byos_plan(), "can_add": role_allows(c.role, "admin")}
 
 
 @frappe.whitelist()
 def get_server(name):
-	user, admin = _ctx()
-	_check_team("Server", name, user, admin)
+	c = _ctx()
+	_server_team, role = _check_team("Server", name, c, "read")
 	s = frappe.db.get_value(
 		"Server",
 		name,
@@ -674,20 +698,22 @@ def get_server(name):
 		b["frappe_major"] = majors.get(b.release_group)
 		b["sites"] = counts.get(b.name, 0)
 	s["benches"] = benches
-	s["jobs"] = _team_jobs(user, admin, limit=20, server=name)
+	s["jobs"] = _team_jobs(c, limit=20, server=name)
+	s["role"] = role
+	s["permissions"] = _permissions(role)
 	return s
 
 
 @frappe.whitelist(methods=["POST"])
 def create_registration_token():
-	"""Single-use BYOS registration token for the session user (see
+	"""Single-use BYOS registration token for the current team (needs the admin action, see
 	Server Registration Token.generate_registration_token). The token is shown once."""
-	user, admin = _ctx()
+	c = _ctx("admin")
 	from nexaploy.nexaploy.doctype.server_registration_token.server_registration_token import (
 		generate_registration_token,
 	)
 
-	result = generate_registration_token(team=None if admin else user)
+	result = generate_registration_token(team=c.team)
 	result["byos_plan"] = _byos_plan()
 	return result
 
@@ -695,8 +721,8 @@ def create_registration_token():
 @frappe.whitelist()
 def registration_status(name):
 	"""Poll target for the "Add your own server" flow: has the token been used yet?"""
-	user, admin = _ctx()
-	_check_team("Server Registration Token", name, user, admin)
+	c = _ctx()
+	_check_team("Server Registration Token", name, c, "admin")
 	row = frappe.db.get_value(
 		"Server Registration Token", name, ["used", "server", "expires_on"], as_dict=True
 	)
@@ -744,8 +770,13 @@ def _portal_messages(lang):
 		return {}
 
 
-def prepare_page(context, page, title):
-	"""Common get_context() for /dashboard/* pages: login + role gate, no cache, RTL, boot."""
+def prepare_page(context, page, title, require_role=True):
+	"""Common get_context() for /dashboard/* pages: login + role gate, no cache, RTL, boot.
+
+	Adds the current team to the context and NX_BOOT (`team`, `team_title`, `teams`,
+	`role`, `permissions`) for the sidebar team switcher and role-based buttons.
+	require_role=False lets a logged-in user without the portal role through (team page
+	accepting an invitation, which grants the role)."""
 	user = frappe.session.user
 	if not user or user == "Guest":
 		request = getattr(frappe.local, "request", None)
@@ -754,7 +785,8 @@ def prepare_page(context, page, title):
 		frappe.local.flags.redirect_location = login_redirect_url(path, query)
 		raise frappe.Redirect
 	roles = frappe.get_roles(user)
-	if not has_portal_access(roles, user):
+	portal_access = has_portal_access(roles, user)
+	if not portal_access and require_role:
 		frappe.throw(_("You need the Nexaploy Customer role to use the dashboard"), frappe.PermissionError)
 
 	lang = getattr(frappe.local, "lang", None) or "en"
@@ -774,6 +806,18 @@ def prepare_page(context, page, title):
 	context.user = user
 	context.is_admin = is_portal_admin(roles, user)
 	context.root_domain = _root_domain()
+	team, role, teams = None, None, []
+	if portal_access:
+		team = get_current_team(user)
+		teams = get_user_teams(user)
+		role = next((t["role"] for t in teams if t["name"] == team), None)
+		if role is None and context.is_admin:
+			role = "Owner"
+		if team and not any(t["name"] == team for t in teams):
+			teams.append({"name": team, "title": frappe.db.get_value("Team", team, "title") or team, "role": role})
+	context.team = team
+	context.team_role = role
+	context.teams = teams
 	context.boot = {
 		"user": user,
 		"fullname": context.user_fullname,
@@ -783,5 +827,11 @@ def prepare_page(context, page, title):
 		"root_domain": context.root_domain,
 		"page": page,
 		"messages": _portal_messages(lang),
+		"team": team,
+		"team_title": next((t["title"] for t in teams if t["name"] == team), team),
+		"teams": teams,
+		"role": role,
+		"permissions": _permissions(role),
+		"portal_access": portal_access,
 	}
 	return context

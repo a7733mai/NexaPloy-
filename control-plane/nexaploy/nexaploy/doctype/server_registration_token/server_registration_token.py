@@ -19,19 +19,21 @@ class ServerRegistrationToken(Document):
 
 @frappe.whitelist()
 def generate_registration_token(team=None, expires_in_hours=DEFAULT_TTL_HOURS):
-	"""Create a single-use BYOS registration token.
+	"""Create a single-use BYOS registration token for `team` (default: the current team).
 
-	Returns the plaintext token (shown once; only its sha256 is stored) and the install
-	one-liner. install.sh is agent/install/install.sh, served by the web server at /install.sh.
+	Needs the `admin` action in that team (Owner/Admin, ARCHITECTURE.md §9); platform admins
+	may pass any team. Returns the plaintext token (shown once; only its sha256 is stored)
+	and the install one-liner. install.sh is agent/install/install.sh, served by the web
+	server at /install.sh.
 	"""
+	from nexaploy.teams import check_team_access, get_current_team, is_platform_admin
+
 	user = frappe.session.user
 	roles = frappe.get_roles(user)
-	if "System Manager" not in roles:
-		if "Nexaploy Customer" not in roles:
-			raise frappe.PermissionError(_("Not allowed"))
-		# customers can only create tokens for themselves
-		team = user
-	team = team or user
+	if not is_platform_admin(user) and "Nexaploy Customer" not in roles:
+		raise frappe.PermissionError(_("Not allowed"))
+	team = team or get_current_team(user)
+	check_team_access(team, "admin", user)
 
 	expires_in_hours = min(max(int(expires_in_hours or DEFAULT_TTL_HOURS), 1), 24 * 7)
 	token = generate_token()

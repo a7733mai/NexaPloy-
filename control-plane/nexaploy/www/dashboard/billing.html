@@ -29,7 +29,7 @@
 							<td class="nowrap" x-text="amount(inv)"></td>
 							<td><span :class="nx.statusClass(inv.status)" x-text="__(inv.status)"></span></td>
 							<td class="actions">
-								<button class="btn sm primary" type="button" x-show="unpaid(inv)" :disabled="paying === inv.name" @click="pay(inv)">
+								<button class="btn sm primary" type="button" x-show="unpaid(inv) && nx.can('billing')" :disabled="paying === inv.name" @click="pay(inv)">
 									<span class="spinner" x-show="paying === inv.name"></span> {{ _("Pay") }}
 								</button>
 							</td>

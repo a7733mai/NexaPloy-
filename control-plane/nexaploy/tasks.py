@@ -223,3 +223,41 @@ def apply_auto_updates():
 		except Exception:
 			frappe.log_error(title=f"Nexaploy: auto update failed for {group}")
 	frappe.db.commit()
+
+
+# --------------------------------------------------------------------------- plan limits & usage
+
+SITE_USAGE_RETENTION_DAYS = 400
+
+
+def enforce_plan_limits():
+	"""Every 15 min: compare each site's usage today (UTC; Site Usage from agent heartbeats) with
+	its plan limits and apply the plan's overage_action (ops_utils.usage_status /
+	enforcement_actions): Notify -> email the team at 80 % and 100 % (once per 24 h per level);
+	Throttle -> Frappe `rate_limit` in site_config while over the CPU budget, lifted the next UTC
+	day or when back under; Suspend -> Site Suspended + maintenance_mode while over any limit,
+	lifted automatically. Sites suspended for billing are never touched.
+	"""
+	from nexaploy.ops import enforce_site_limits
+
+	sites = frappe.get_all(
+		"Site",
+		filters={"status": ["in", ["Active", "Suspended"]]},
+		or_filters={"plan": ["is", "set"], "throttled": 1, "usage_suspended": 1},
+		pluck="name",
+	)
+	for name in sites:
+		try:
+			enforce_site_limits(name)
+		except Exception:
+			frappe.log_error(title=f"Nexaploy: plan limit enforcement failed for {name}")
+	frappe.db.commit()
+
+
+def prune_site_usage():
+	"""Daily: delete Site Usage rows older than 400 days."""
+	from datetime import datetime, timedelta
+
+	cutoff = (datetime.utcnow() - timedelta(days=SITE_USAGE_RETENTION_DAYS)).date()
+	frappe.db.delete("Site Usage", {"date": ["<", cutoff]})
+	frappe.db.commit()

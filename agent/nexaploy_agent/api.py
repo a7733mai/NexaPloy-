@@ -237,6 +237,22 @@ def create_app(ctx: AgentContext | None = None, settings: Settings | None = None
     def set_config(site: str, body: dict[str, Any] = Body(...)):
         return accepted("site.set_config", body_with(body, site=site))
 
+    @app.get("/v1/sites/{site}/config", dependencies=auth)
+    def get_config(site: str):
+        from .runtime.site import redact_site_config
+
+        bench = require_site(site)
+        config, redacted = redact_site_config(ctx.sites.site_config(bench, site))
+        return {"site": site, "bench": bench, "config": config, "redacted": redacted}
+
+    @app.patch("/v1/sites/{site}/config", dependencies=auth, status_code=202)
+    def update_config(site: str, body: dict[str, Any] = Body(...)):
+        return accepted("site.update_config", body_with(body, site=site))
+
+    @app.post("/v1/usage", dependencies=auth, status_code=202)
+    def collect_usage(body: dict[str, Any] | None = Body(None)):
+        return accepted("site.usage", dict(body or {}))
+
     @app.delete("/v1/sites/{site}", dependencies=auth, status_code=202)
     def drop_site(site: str, skip_backup: bool = Query(False), body: dict[str, Any] | None = Body(None)):
         params = body_with(body, site=site)

@@ -1,7 +1,8 @@
 """Customer billing API and payment gateway webhooks.
 
-Customers (Nexaploy Customer role) see only invoices whose `team` is themselves; System
-Managers see everything. Webhooks are guest endpoints authenticated by the gateway's
+Invoices belong to a Team (ARCHITECTURE.md §9): every member may read the current team's
+invoices; paying needs the `billing` action (Owner/Admin/Billing). Platform admins pass
+every check. Webhooks are guest endpoints authenticated by the gateway's
 signature only - nothing in their payload is trusted before verification.
 """
 
@@ -16,6 +17,7 @@ from nexaploy.billing.gateways.base import (
 	WebhookVerificationError,
 	get_gateway,
 )
+from nexaploy.teams import check_team_access, get_current_team, team_notification_emails
 
 INVOICE = "Nexaploy Invoice"
 LIST_FIELDS = (
@@ -32,27 +34,27 @@ def _user():
 	return user
 
 
-def _is_admin(user):
-	return user == "Administrator" or "System Manager" in frappe.get_roles(user)
-
-
-def _get_invoice_for_user(name):
+def _get_invoice_for_user(name, action="read"):
 	user = _user()
 	if not frappe.db.exists(INVOICE, name):
 		raise frappe.DoesNotExistError(_("Invoice {0} not found").format(name))
 	invoice = frappe.get_doc(INVOICE, name)
-	if not _is_admin(user) and invoice.team != user:
+	try:
+		check_team_access(invoice.team, "read", user)
+	except (frappe.PermissionError, frappe.DoesNotExistError):
 		# same error as a missing invoice: do not leak other teams' invoice names
-		raise frappe.DoesNotExistError(_("Invoice {0} not found").format(name))
+		raise frappe.DoesNotExistError(_("Invoice {0} not found").format(name)) from None
+	if action != "read":
+		check_team_access(invoice.team, action, user)
 	return invoice
 
 
 @frappe.whitelist()
 def get_invoices(status=None, limit=50):
 	user = _user()
-	filters = {"status": ["!=", "Draft"]}
-	if not _is_admin(user):
-		filters["team"] = user
+	team = get_current_team(user)
+	check_team_access(team, "read", user)
+	filters = {"status": ["!=", "Draft"], "team": team}
 	if status:
 		filters["status"] = status
 	return frappe.get_all(
@@ -94,7 +96,7 @@ def enabled_gateways():
 @frappe.whitelist(methods=["POST"])
 def pay_invoice(name, gateway):
 	"""Start a hosted checkout for an Unpaid/Overdue invoice; returns {url, reference}."""
-	invoice = _get_invoice_for_user(name)
+	invoice = _get_invoice_for_user(name, "billing")
 	if invoice.status not in invoicing.OPEN_STATUSES:
 		frappe.throw(_("Invoice {0} is {1}").format(invoice.name, invoice.status))
 	if gateway not in enabled_gateways():
@@ -106,6 +108,7 @@ def pay_invoice(name, gateway):
 				"total": invoice.total,
 				"currency": invoice.currency,
 				"team": invoice.team,
+				"email": next(iter(team_notification_emails(invoice.team, "billing")), None),
 			}
 		)
 	except GatewayError as e:

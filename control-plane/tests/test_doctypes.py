@@ -22,10 +22,18 @@ EXPECTED = {
 	"Nexaploy Payment",
 	# operations
 	"Nexaploy Settings", "Server Metric",
+	# teams (§9)
+	"Team", "Team Member", "Team Invitation",
+	# custom apps from GitHub
+	"GitHub Settings", "GitHub Installation", "Custom App",
+	# plan usage / backup downloads
+	"Site Usage", "Site Backup File",
 }
 CHILD_TABLES = {
 	"Marketplace App Release", "Release Group App", "Site Domain", "Site App", "Agent Job Step",
 	"Nexaploy Invoice Item",
+	"Team Member",
+	"Site Backup File",
 }
 REQUIRED_KEYS = {"doctype", "name", "module", "fields", "permissions", "modified", "istable", "engine"}
 VALID_FIELDTYPES = {
@@ -215,3 +223,43 @@ def test_fixture_role():
 	with open(os.path.join(APP, "fixtures", "role.json")) as fh:
 		roles = json.load(fh)
 	assert roles[0]["role_name"] == "Nexaploy Customer"
+
+
+def test_team_fields_link_team():
+	"""§9: every `team` field in every DocType is a Link to Team."""
+	found = 0
+	for d in BY_NAME.values():
+		for f in d["fields"]:
+			if f["fieldname"] == "team":
+				found += 1
+				assert f["fieldtype"] == "Link" and f.get("options") == "Team", d["name"]
+	assert found >= 9
+
+
+def test_team_doctypes_spec():
+	"""Key fields from ARCHITECTURE.md §9."""
+	spec = {
+		"Team": "team_name title owner_user billing_email currency enabled two_factor_required members",
+		"Team Member": "user role",
+		"Team Invitation": "team email role token_hash expires_on status",
+	}
+	for dt, fields in spec.items():
+		names = {f["fieldname"] for f in BY_NAME[dt]["fields"]}
+		missing = set(fields.split()) - names
+		assert not missing, f"{dt}: missing {missing}"
+	fields = {dt: {f["fieldname"]: f for f in BY_NAME[dt]["fields"]} for dt in spec}
+	assert BY_NAME["Team"]["autoname"] == "field:team_name"
+	assert fields["Team"]["team_name"].get("unique") == 1
+	assert fields["Team"]["members"]["options"] == "Team Member"
+	roles = ["Owner", "Admin", "Developer", "Billing"]
+	assert fields["Team Member"]["role"]["options"].split("\n") == roles
+	assert fields["Team Invitation"]["role"]["options"].split("\n") == roles
+	assert fields["Team Invitation"]["status"]["options"].split("\n") == ["Pending", "Accepted", "Expired", "Revoked"]
+	token = fields["Team Invitation"]["token_hash"]
+	assert token.get("hidden") == 1 and token.get("unique") == 1
+	for dt in ("Team", "Team Invitation"):
+		perms = {p["role"]: p for p in BY_NAME[dt]["permissions"]}
+		assert all(perms["System Manager"].get(k) for k in ("read", "write", "create", "delete"))
+		customer = perms["Nexaploy Customer"]
+		assert customer.get("read") == 1
+		assert not any(customer.get(k) for k in ("write", "create", "delete"))

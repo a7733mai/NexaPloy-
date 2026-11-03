@@ -10,8 +10,9 @@ from .image_jobs import ImageBuild
 from .server_jobs import BackupPruneRemote, ServerConfigureBackups, ServerHealth
 from .site_jobs import (
     SiteAddDomain, SiteBackup, SiteCreate, SiteDrop, SiteInstallApp, SiteMigrate,
-    SiteRemoveDomain, SiteRestore, SiteSetConfig, SiteUninstallApp,
+    SiteGetConfig, SiteRemoveDomain, SiteRestore, SiteSetConfig, SiteUninstallApp, SiteUpdateConfig,
 )
+from .usage_jobs import SiteUsage
 
 JOB_CLASSES: tuple[type[Job], ...] = (
     ImageBuild,
@@ -19,6 +20,7 @@ JOB_CLASSES: tuple[type[Job], ...] = (
     SiteCreate, SiteInstallApp, SiteUninstallApp, SiteAddDomain, SiteRemoveDomain,
     SiteBackup, SiteRestore, SiteMigrate, SiteSetConfig, SiteDrop,
     ServerConfigureBackups, ServerHealth, BackupPruneRemote,
+    SiteUsage, SiteGetConfig, SiteUpdateConfig,
 )
 REGISTRY: dict[str, type[Job]] = {cls.kind: cls for cls in JOB_CLASSES}
 

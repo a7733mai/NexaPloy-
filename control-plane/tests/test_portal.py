@@ -27,8 +27,13 @@ JS = os.path.join(APP, "public", "js", "dashboard.js")
 CSS = os.path.join(APP, "public", "css", "dashboard.css")
 API = os.path.join(APP, "api", "dashboard.py")
 AR_CSV = os.path.join(APP, "translations", "ar.csv")
+# Feature branches drop their strings in translations/ar.<feature>.part (same CSV format);
+# the integrator merges them into ar.csv. The checks below accept both.
+AR_PARTS = sorted(glob.glob(os.path.join(APP, "translations", "ar.*.part")))
+TEAMS_API = os.path.join(APP, "api", "teams.py")
+TEAMS = os.path.join(APP, "teams.py")
 
-PAGES = ["index", "sites", "site", "servers", "server", "marketplace", "billing"]
+PAGES = ["index", "sites", "site", "servers", "server", "marketplace", "billing", "team"]
 PAGE_HTML = sorted(glob.glob(os.path.join(WWW, "*.html")))
 
 # _("...") / __('...') with a literal first argument
@@ -258,6 +263,9 @@ def _context(page, lang="en"):
 		"user": "a@b.c",
 		"user_fullname": "A B",
 		"is_admin": False,
+		"team": "acme",
+		"team_role": "Developer",
+		"teams": [{"name": "acme", "title": "Acme", "role": "Developer"}],
 	}
 
 
@@ -287,7 +295,8 @@ def test_pages_extend_base(path):
 
 
 def test_alpine_components_registered():
-	js = read(JS)
+	import glob
+	js = "\n".join(read(f) for f in glob.glob(os.path.join(APP, "public", "js", "*.js")))
 	registered = set(re.findall(r'Alpine\.data\("(\w+)"', js))
 	used = set()
 	for path in PAGE_HTML:
@@ -365,7 +374,7 @@ def test_py_compile_all():
 
 
 def _source_strings():
-	files = PAGE_HTML + [BASE, JS, API] + glob.glob(os.path.join(WWW, "*.py"))
+	files = PAGE_HTML + [BASE, JS, API, TEAMS_API, TEAMS] + glob.glob(os.path.join(WWW, "*.py"))
 	strings = set()
 	for path in files:
 		for m in STRING_RE.finditer(read(path)):
@@ -373,17 +382,28 @@ def _source_strings():
 	return strings
 
 
+def _read_csv(path):
+	with open(path, encoding="utf-8", newline="") as fh:
+		return [r for r in csv.reader(fh) if r]
+
+
 def _ar():
-	with open(AR_CSV, encoding="utf-8", newline="") as fh:
-		rows = list(csv.reader(fh))
+	"""ar.csv plus every translations/ar.*.part file."""
+	rows = _read_csv(AR_CSV)
+	for part in AR_PARTS:
+		rows += _read_csv(part)
 	return rows
+
+
+@pytest.mark.parametrize("path", [AR_CSV] + AR_PARTS, ids=os.path.basename)
+def test_ar_csv_no_duplicates(path):
+	sources = [r[0] for r in _read_csv(path)]
+	assert len(sources) == len(set(sources)), "duplicate source strings"
 
 
 def test_ar_csv_well_formed():
 	rows = _ar()
 	assert rows
-	sources = [r[0] for r in rows]
-	assert len(sources) == len(set(sources)), "duplicate source strings"
 	for row in rows:
 		assert len(row) in (2, 3), row
 		assert row[0].strip() and row[1].strip(), row

@@ -72,8 +72,8 @@
   {
    "fieldname": "team",
    "fieldtype": "Link",
-   "label": "Team (Owner)",
-   "options": "User"
+   "label": "Team",
+   "options": "Team"
   }
  ],
  "index_web_pages_for_search": 0,

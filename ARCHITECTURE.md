@@ -267,17 +267,20 @@ retention_days = 14
 | POST | `/v1/benches/{b}/update` | `{image, registry?}` → job `bench.update` (up with new image, migrate all sites) |
 | DELETE | `/v1/benches/{b}` | job `bench.remove` (refuses if sites exist unless `force`) |
 | GET | `/v1/benches/{b}/sites` | list |
-| POST | `/v1/benches/{b}/sites` | `{name, admin_password, apps:[...]}` → job `site.create` (new-site, install apps, write route) |
+| POST | `/v1/benches/{b}/sites` | `{name, admin_password, apps:[...]}` → job `site.create` (new-site, install apps, enable Frappe monitor `set-config -p monitor 1`, write route) |
 | POST | `/v1/sites/{s}/apps` | `{app}` → job `site.install_app` |
 | DELETE | `/v1/sites/{s}/apps/{app}` | job `site.uninstall_app` |
 | POST | `/v1/sites/{s}/domains` | `{domain}` → job `site.add_domain` (route rewrite + add-domain) |
 | DELETE | `/v1/sites/{s}/domains/{d}` | job `site.remove_domain` |
-| POST | `/v1/sites/{s}/backup` | `{with_files: true, upload: true}` → job `site.backup` |
+| POST | `/v1/sites/{s}/backup` | `{with_files: true, upload: true}` → job `site.backup` (result adds `backup_files:[{file_type: database\|public\|private\|site_config, name, size, sha256, remote_key}]`; `remote_key` = object key in the bucket) |
 | GET | `/v1/sites/{s}/backups` | list local + remote |
 | POST | `/v1/sites/{s}/backups/prune-remote` | `{bench?, keep_days=14, keep_min=3, prefix?}` → job `backup.prune_remote` (`rclone lsf` the dated dirs, `rclone purge` those older than `keep_days`, never the newest `keep_min`) |
 | POST | `/v1/sites/{s}/restore` | `{backup_id}` or `{remote_path}` → job `site.restore` |
 | POST | `/v1/sites/{s}/migrate` | job `site.migrate` |
 | POST | `/v1/sites/{s}/config` | `{key, value}` → job `site.set_config` |
+| GET | `/v1/sites/{s}/config` | site_config.json, secrets redacted (`db_password`, `encryption_key`, keys matching `password\|secret\|token\|key`); the CP uses job `site.get_config` `{site}` (same result) |
+| PATCH | `/v1/sites/{s}/config` | `{set: {k: json}, remove: [k]}` → job `site.update_config` (one atomic rewrite of site_config.json; `db_*`/`encryption_key` refused) |
+| POST | `/v1/usage` | `{bench?, site?, ensure_monitor?, refresh_sizes?}` → job `site.usage` (per-site CPU/request time, DB size, file storage; result `{sites, usage}`) |
 | DELETE | `/v1/sites/{s}` | job `site.drop` (backup first unless `skip_backup`) |
 
 The agent resolves which bench a site belongs to by scanning `benches/*/sites/<s>/site_config.json`.
@@ -317,7 +320,13 @@ lists (no `shell=True`); names are validated against §2 regexes first.
 
 Outbound only. If `control_plane.url` is set the agent (header `Authorization: token <control_plane.token>`):
 
-- `POST {url}/api/method/nexaploy.api.agent.heartbeat` body `{server_id, facts, benches, agent_version}` every `heartbeat_seconds`.
+- `POST {url}/api/method/nexaploy.api.agent.heartbeat` body `{server_id, facts, benches, agent_version[, usage]}` every `heartbeat_seconds`.
+  `usage` (at most every 15 min, agent-side throttle) = `{collected_at, date, sites: {site: {database_mb, storage_mb,
+  days: {YYYY-MM-DD: {cpu_seconds, requests}}}}}` for today and yesterday (UTC). CPU = sum of Frappe monitor
+  `duration` (µs) of `request`/`job` transactions read incrementally from `benches/<b>/logs/monitor.json.log`
+  (offset/inode in `agent/data/usage_state.json`); DB size from `information_schema` via
+  `docker exec -e MYSQL_PWD nexaploy-db mariadb -uroot` (password only in the env); storage = `du -sb` of
+  `sites/<s>/{public,private}/files` (cached 1 h). The CP upserts one **Site Usage** row per site per UTC day.
   `facts` include `cpu_count`, `load_avg`, `mem_total/mem_available/mem_used`, `mounts`
   (`[{path, total, used, free, used_percent}]` for `/` and `/opt/nexaploy`), `containers`
   (Nexaploy containers: `{name, project, service, state, health}`), `bench_health`
@@ -376,13 +385,18 @@ Compatible with Frappe v15+. DocTypes (module "Nexaploy"):
 | Agent Job | `server`, `kind`, `params` (JSON), `status` (Pending/Queued/Running/Success/Failure), `reference_doctype`, `reference_name`, `error`, `result`, child `Agent Job Step` |
 | Nexaploy Plan | `title`, `plan_type` (Server Hosted/Server BYOS/Site), `price_monthly`, `currency`, `max_sites` |
 | Nexaploy Settings (single) | `registry_url`, `registry_username`, `registry_password` (Password), `root_domain` (default `nexaploy.cloud`), `default_build_server`, `alert_email`, backup storage `backup_remote_type` (s3), `backup_provider`, `backup_endpoint`, `backup_region`, `backup_bucket`, `backup_prefix`, `backup_access_key`, `backup_secret_key` (Password) |
+| Site Usage | `site`, `date` (UTC), `team`, `server`, `cpu_seconds`, `requests`, `database_mb`, `storage_mb` — upserted from heartbeat `usage` |
+| Site Backup File (child of Site Backup) | `file_type` (database/public/private/site_config), `file_name`, `remote_key`, `size`, `sha256` |
 | Server Metric | `server`, `timestamp`, `load_1`, `memory_used_mb`, `memory_total_mb`, `disk_used_gb`, `disk_total_gb`, `unhealthy_containers`, `raw` (JSON) — one per heartbeat at most every 5 min, pruned after 30 days |
 
 Operations fields: Server `cpu_count`, `memory_total_mb`, `disk_total_gb`, `disk_used_percent`,
 `unhealthy_containers`, `last_alert_at`; Site `backup_frequency` (Daily/Every 12 hours/Weekly/Off),
 `backup_retention_days` (14), `backup_with_files`, `last_backup_at`, `is_up`, `last_uptime_check`;
 Site Backup status adds `Deleted`; Release Group `auto_update`, `update_window` (`HH:MM-HH:MM`,
-server-local). Agent Job kinds add `server.configure_backups`, `server.health`, `backup.prune_remote`.
+server-local). Agent Job kinds add `server.configure_backups`, `server.health`, `backup.prune_remote`, `site.usage`,
+`site.get_config`, `site.update_config`. Plan limits: Nexaploy Plan `cpu_seconds_per_day`, `max_storage_mb`,
+`max_database_mb` (0 = unlimited), `overage_action` (Notify/Throttle/Suspend), `plan_order`; Site
+`current_cpu_seconds_today`, `database_mb`, `storage_mb`, `over_limit`, `throttled` (+ hidden `usage_suspended`).
 
 Rules: creating Site/Bench/Backup docs enqueues `Agent Job` rows; `poll` hands Pending jobs to
 the matching server (→ Queued); `job_update` maps agent statuses (queued/running/success/failure
@@ -395,7 +409,11 @@ remote location, Site Backups purged → `Deleted`), `check_alerts` (5 min; disk
 unhealthy containers → email team, max 1 per 6 h per server and kind), `check_sites_uptime`
 (5 min; `GET https://<site>/api/method/ping`, 10 s timeout, alert on transitions),
 `apply_auto_updates` (15 min; `bench.update` inside the update window), `prune_server_metrics`
-(daily). A Server that becomes Active (register / first heartbeat) and every change of the backup
+(daily), `enforce_plan_limits` (15 min; `ops_utils.usage_status` ok/warn ≥80 %/over → Notify emails the
+team at most once per 24 h per level, Throttle sets site_config `rate_limit {limit, window: 86400}` while over
+the CPU budget, Suspend sets Site Suspended + `maintenance_mode` while over any limit; both lifted
+automatically — CPU resets each UTC day), `prune_site_usage` (daily, 400 days). Backup downloads are SigV4
+presigned S3 GET URLs (15 min) built from Nexaploy Settings backup credentials (`nexaploy.api.site_tools`). A Server that becomes Active (register / first heartbeat) and every change of the backup
 storage settings enqueue `server.configure_backups`; all servers share one bucket under
 `<backup_prefix>/<server_id>` so a backup taken on one server restores on another.
 

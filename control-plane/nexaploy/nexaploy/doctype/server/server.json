@@ -77,8 +77,8 @@
    "fieldname": "team",
    "fieldtype": "Link",
    "in_standard_filter": 1,
-   "label": "Team (Owner)",
-   "options": "User"
+   "label": "Team",
+   "options": "Team"
   },
   {
    "fieldname": "plan",

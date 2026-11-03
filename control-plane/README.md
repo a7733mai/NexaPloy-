@@ -58,8 +58,8 @@ Operations fields: **Server** `cpu_count`, `memory_total_mb`, `disk_total_gb`, `
 `last_uptime_check`, hidden `suspended_for_billing` (set by billing only); **Site Backup** status
 `Deleted`; **Release Group** `auto_update`, `update_window`, method `deploy_latest`.
 
-`team` is a Link to **User** (the customer account). Users with the *Nexaploy Customer* role
-only see rows whose `team` is themselves (`nexaploy/permissions.py`).
+`team` is a Link to **Team** on every DocType (see *Teams* below). Users only see rows of
+teams they are members of (`nexaploy/permissions.py`).
 
 ## Code map
 
@@ -67,6 +67,9 @@ only see rows whose `team` is themselves (`nexaploy/permissions.py`).
 |---|---|
 | `nexaploy/api/agent.py` | `register`, `heartbeat`, `poll`, `job_update` (§5.6) + `validate_agent_auth` auth hook |
 | `nexaploy/api/marketplace.py` | `list_apps(frappe_major=None)` (guest-readable) |
+| `nexaploy/teams.py` | team membership — the only place it is checked: `get_current_team`, `check_team_access`, `get_user_teams`, `get_team_role`, `is_platform_admin`, `team_notification_emails` |
+| `nexaploy/team_utils.py` | pure team logic (no frappe import): role matrix, permission-type mapping, slugs, invitation tokens, last-Owner rules, notification recipients |
+| `nexaploy/api/teams.py` | portal team API: `my_teams`, `switch_team`, `create_team`, `get_team`, `update_team`, `invite_member`, `get_invitation`, `accept_invitation`, `revoke_invitation`, `remove_member`, `change_role`, `leave_team` |
 | `nexaploy/agent_job.py` | `create_agent_job(server, kind, params, reference_doctype, reference_name)` |
 | `nexaploy/agent_callbacks.py` | per-kind callbacks run by `job_update` |
 | `nexaploy/utils.py` | pure logic (no frappe import): name regexes, token hashing, status mapping, compatibility, apps.json, move plan |
@@ -74,6 +77,44 @@ only see rows whose `team` is themselves (`nexaploy/permissions.py`).
 | `nexaploy/ops.py` | operations glue: registry params, backup config push, heartbeat metrics, alert emails, auto updates |
 | `nexaploy/ops_utils.py` | pure operations logic (no frappe import): registry tags, backup due, retention, metrics, alert rate limit, update windows |
 | `tests/` | plain pytest, runs without a bench: `python -m pytest control-plane/tests` |
+
+## Teams
+
+A **Team** (ARCHITECTURE.md §9) owns servers, release groups, benches, sites, backups,
+subscriptions and invoices; every `team` field is a Link to Team.
+
+| DocType | Naming | Notes |
+|---|---|---|
+| Team | `team_name` (slug of the title, unique; `acme-corp`, `acme-corp-2`, …) | `title`, `owner_user`, `billing_email`, `currency`, `enabled`, `two_factor_required`, child **Team Member** (`user`, `role` Owner/Admin/Developer/Billing) |
+| Team Invitation | hash | `team`, `email`, `role`, `token_hash` (sha256 only), `expires_on` (7 days), `status` Pending/Accepted/Expired/Revoked, `invited_by`, `accepted_by`, `accepted_on` |
+
+| Action | Owner | Admin | Developer | Billing |
+|---|---|---|---|---|
+| `read` | ✅ | ✅ | ✅ | ✅ |
+| `write` (sites, benches, apps, backups, domains, config) | ✅ | ✅ | ✅ | ❌ |
+| `billing` (invoices, payments, plans) | ✅ | ✅ | ❌ | ✅ |
+| `admin` (members, invitations, servers, registration tokens) | ✅ | ✅ | ❌ | ❌ |
+
+- **Current team**: header `X-Nexaploy-Team`, else cookie `nexaploy_team`, else the user's first
+  team. Values the user is not a member of are ignored. A user without any team gets a personal
+  team (`<user>'s team`, Owner) on first use. Platform admins (System Manager /
+  Administrator) pass every check and may select any team.
+- **Row permissions** (`permissions.py`): list queries use
+  `team in (select parent from tabTeam Member where parenttype='Team' and user=…)` (enabled teams);
+  `has_team_permission` maps Frappe ptypes to actions (read/select/print/export → `read`;
+  write/create/submit/cancel/delete → `write`, `billing` on invoices/payments/subscriptions,
+  `admin` on servers, registration tokens, teams and invitations).
+- **Portal**: sidebar team switcher (`switch_team` sets the cookie; the JS sends
+  `X-Nexaploy-Team` on every call), `/dashboard/team` (members, roles, invitations,
+  `?invite=<token>` accepts). `overview`, `get_site`, `get_server` return `role` and
+  `permissions` and `NX_BOOT.role` drives `nx.can(action)` to hide write/billing/admin buttons.
+- **Invitations**: `invite_member` (admin) emails `/dashboard/team?invite=<token>`; only an Owner
+  may invite/grant/revoke/remove Owners; a team always keeps one Owner. Accepting requires the
+  invitee's email, adds the member and grants the *Nexaploy Customer* role.
+- **Notifications**: `team_notification_emails(team, "ops")` → Owner/Admin/Developer (server
+  alerts, uptime); `"billing"` → `billing_email` + Owner/Billing members (payment checkout email).
+- **Migration**: patch `nexaploy.patches.v0_2.user_team_to_team` creates a personal team for each
+  User found in a `team` field and rewrites those fields to the Team name.
 
 ## Agent protocol
 
@@ -231,6 +272,68 @@ scheduler_events = {
 }
 ```
 
+## Plan limits & usage
+
+**Plans.** Site plans (Nexaploy Plan, `plan_type` Site) carry `cpu_seconds_per_day`, `max_database_mb`,
+`max_storage_mb` (0 = unlimited), `overage_action` (Notify / Throttle / Suspend) and `plan_order` (upgrade
+suggestions go up in this order, then price).
+
+**Collection.** Agents report per-site usage with the heartbeat at most every 15 minutes (`usage` block,
+ARCHITECTURE §5.6) and as the result of `site.usage` jobs. `nexaploy.ops.ingest_usage(server, usage)` upserts
+one **Site Usage** row per site per UTC day (`cpu_seconds`, `requests`, `database_mb`, `storage_mb`; CPU never
+decreases within a day) — only for sites on that server — and updates Site `current_cpu_seconds_today`,
+`database_mb`, `storage_mb`, `usage_updated_at`. It never raises. The heartbeat endpoint calls it with
+`ops.ingest_usage(server, kwargs.get("usage"))`.
+
+**Enforcement** (`tasks.enforce_plan_limits`, every 15 min; `ops.enforce_site_limits(site)`). Pure decisions in
+`ops_utils.usage_status(plan, usage)` (ok / warn ≥ 80 % / over > 100 % per metric) and
+`ops_utils.enforcement_actions(plan, status, site)`:
+
+| overage_action | warn | over | back under (or next UTC day for CPU) |
+|---|---|---|---|
+| Notify | email | email | — |
+| Throttle | email | email + site_config `rate_limit {limit: max(60, 10 % of the CPU budget), window: 86400}` (Frappe's request-time rate limiter) when **CPU** is over; Site `throttled` | `rate_limit` removed, `throttled` = 0 |
+| Suspend | email | email + Site **Suspended** (`usage_suspended`, not `suspended_for_billing`) + `maintenance_mode: 1` when any metric is over | `maintenance_mode: 0`, Site Active |
+
+Emails go to `nexaploy.teams.team_notification_emails(team, "ops")` (fallback: ops alert recipients), at most
+once per 24 h per level (`Site.usage_alert_state`). Config changes go out as one `site.update_config` job.
+Billing-suspended sites are never touched. `Site.over_limit` mirrors the current state. Site Usage rows are
+pruned after 400 days (`tasks.prune_site_usage`, daily).
+
+## Backup downloads
+
+`site.backup` callbacks store a **Site Backup File** row per file (`file_type` database / public / private /
+site_config, `file_name`, `remote_key`, `size`, `sha256`) from the agent's `backup_files`.
+`nexaploy.api.site_tools.download_backup(backup, file_type)` (team `read`) returns `{url, expires_in: 900}`: an
+AWS Signature V4 query-string presigned GET (`ops_utils.presign_s3_get`, pure, verified against the AWS
+documented example) built from the Nexaploy Settings backup credentials. No endpoint = AWS virtual-hosted
+style; a custom endpoint (MinIO, Wasabi, R2, ...) = path style `<endpoint>/<bucket>/<key>`. Each download is
+logged as a comment on the Site Backup. Backups taken under a different bucket than the current settings
+cannot be downloaded this way.
+
+## Site config editor
+
+`nexaploy.api.site_tools` (team `write`): `get_site_config(site, refresh=0)` queues `site.get_config` (result
+under a minute old is reused) → poll `get_site_config_result(site, job)`; secrets are redacted by the agent and
+again by `ops_utils.redact_site_config` (which also lists read-only keys). `update_site_config(site, changes,
+remove)` validates with `ops_utils.validate_config_changes` — JSON-typed values (no null; use `remove`), ≤ 16 KB
+each, ≤ 50 keys, the mask `********` is refused, and the deny-list `CONFIG_DENY` (`db_*`, `encryption_key`,
+`host_name`, `domains`, `rate_limit`, `monitor`, `limits`, redis/ports, `nexaploy_*`) — returns warnings for
+`developer_mode`, `maintenance_mode`, `pause_scheduler`, ... and queues one `site.update_config`. Secret values
+are scrubbed from Agent Job.params when the job finishes.
+
+`change_plan(site, plan)` (team `billing`) saves Site.plan (the Site `on_update` hook re-syncs the billing
+subscription) and re-runs enforcement immediately. `get_usage(site)` returns today's usage vs the plan,
+30-day history and the plans to upgrade to. Portal: `/dashboard/site` tabs *Usage* and *Config* and download
+buttons on backups (`public/js/site_tools.js`, Alpine component `nxSiteTools`).
+
+Scheduler additions (hooks.py):
+
+```python
+"*/15 * * * *": [..., "nexaploy.tasks.enforce_plan_limits"],
+"daily": [..., "nexaploy.tasks.prune_site_usage"],
+```
+
 ## Billing notes (Phase 3, not implemented)
 
 - Plans exist as data only; nothing is invoiced yet. BYOS = flat management fee per server
@@ -255,4 +358,87 @@ on a bench:
 - the `auth_hooks` workaround for `Authorization: token <T>` on Frappe v15/v16;
 - `for_update` row locking in `poll` / `job_update` / `register`;
 - callbacks and the `move_to_bench` chain against a real agent;
-- permission query conditions for the *Nexaploy Customer* role.
+- permission query conditions for the *Nexaploy Customer* role (team membership subqueries);
+- team switcher cookie/header handling and invitation emails.
+
+## Custom apps & bench groups
+
+Teams can run their **own Frappe apps from private repositories** in customer-managed Release
+Groups ("bench groups", like Frappe Cloud's Bench Groups): pick a Frappe major, marketplace apps
+and custom apps, build an image, and run it as a Bench on one of the team's servers.
+
+### DocTypes
+
+| DocType | Naming | Notes |
+|---|---|---|
+| GitHub Settings | single | `github_app_id`, `app_slug`, `client_id`, `client_secret` (Password), `private_key` (Password, PEM), `webhook_secret` (Password) |
+| GitHub Installation | `installation_id` | `team`, `account_login`, `account_type` User/Organization, `status` Active/Suspended/Deleted, `installed_by`, `repository_selection` |
+| Custom App | hash | `team`, `app_name` (python package), `title`, `provider` GitHub/Other, `repo_url` (never with credentials), `repo_full_name`, `installation`, `branch`, `frappe_majors` ("14,15,16", empty = unchecked), `frappe_dependency`, `last_commit(_at/_message)`, `status` Active/Disabled; `access_username` + `access_token` (Password) for non-GitHub hosts |
+| Release Group App | child | + `source_type` Marketplace/Custom, `custom_app`, `app_name` (python name of either kind) |
+| Release Group | | + `update_available` (set by the push webhook, cleared by a successful build containing the latest commits) |
+| Deploy Candidate | | + hidden `app_sources` (non-secret: custom app, installation, repo), `commits` |
+
+Validation (`nexaploy.utils.check_group_apps`, pure): marketplace rows are unchanged (approved +
+release for the major); a custom app must belong to the **same team** as the group (so shared,
+teamless groups can never use one), be Active and, when it declares `frappe_majors`, support the
+group's major; app names are unique across both kinds.
+
+### GitHub App setup (admin)
+
+1. GitHub → Settings → Developer settings → **New GitHub App**. Repository permissions:
+   *Contents: Read-only*, *Metadata: Read-only*. Subscribe to **Push** (installation events are
+   always sent).
+2. *Callback URL* and *Setup URL*: `https://<cp>/api/method/nexaploy.api.github.installation_callback`;
+   enable **Request user authorization (OAuth) during installation**.
+3. *Webhook URL*: `https://<cp>/api/method/nexaploy.api.github.webhook`, with a webhook secret.
+4. Fill **GitHub Settings** (App ID, slug, client ID + secret, private key PEM, webhook secret).
+
+Dependency: `PyJWT[crypto]` (i.e. `cryptography`), already installed with Frappe; without it
+`nexaploy.github_utils.build_app_jwt` raises a clear error.
+
+### Flow
+
+1. *Connect GitHub* → `nexaploy.api.github.install_url` → GitHub install page with
+   `state` = HMAC-signed `{team, user, expiry 1 h}` (key derived from the site encryption key).
+2. GitHub redirects to `installation_callback(installation_id, setup_action, state, code)`. It
+   requires a login, checks the state (same user, write access to the team), and **proves the user
+   can access the installation** by exchanging the OAuth `code` and listing `/user/installations`
+   (without `client_secret` only platform admins can link installations — installation ids are
+   guessable). An installation belongs to one team. Stored as **GitHub Installation**.
+3. `list_repos(installation)` / `list_branches(installation, repo)` → `add_custom_app(installation,
+   repo, branch)` reads `pyproject.toml` / `setup.py` / `<dir>/hooks.py` through the contents API to
+   detect the app name, and `[tool.bench.frappe-dependencies] frappe` (else a `version-NN` branch
+   name) for `frappe_majors`. Other hosts: `add_custom_app_from_url(repo_url, branch, app_name,
+   access_token, access_username)`.
+4. `nexaploy.api.benches.create_release_group(title, frappe_major, apps=[{source_type, app,
+   branch}], build_server)`, `add_app`, `remove_app`, `deploy` (Deploy Candidate → `image.build`),
+   `list_deploys`, `get_deploy` (build log / live steps), `deploy_to_server(release_group, server)`
+   (creates a Bench on a team server, or `bench.update`s the group's existing bench there),
+   `options(frappe_major)`, `update_release_group`. All team-scoped via `nexaploy.teams`
+   (`read` / `write`); build and target servers must be the team's own (or the platform default
+   build server).
+5. **Push webhook** (`X-Hub-Signature-256` verified with the webhook secret, 401 otherwise): a
+   push to a tracked branch updates `Custom App.last_commit` and sets `update_available` on every
+   group whose row tracks that repo + branch; groups with `auto_update` start a build right away
+   (and roll their benches inside `update_window` when it succeeds). `installation`
+   deleted/suspend/unsuspend events update the installation status.
+
+### Secrets never stored
+
+`Deploy Candidate.apps_json` holds plain `https://github.com/owner/repo` URLs (also what
+`bench.create` receives). The `image.build` job of a group with custom apps stores the placeholder
+`__secret__:github:<deploy candidate>:apps_json`; `poll` resolves it through
+`nexaploy.github_secrets.resolve`, which mints a **fresh, repository-scoped, read-only installation
+token** (`POST /app/installations/{id}/access_tokens`, 1 h) per installation and returns
+`https://x-access-token:<token>@github.com/owner/repo` URLs (other providers: the Custom App's
+`access_token`). If GitHub is unreachable the credential-free list is sent and the clone fails
+visibly. `image-builder/build.sh` redacts URL credentials and `ghp_/ghs_/github_pat_` tokens from
+its output and log and writes a redacted `apps.json` copy; `.git` dirs are stripped from the image.
+A build that waits more than ~1 h in the agent queue after `poll` fails on clone; retry it.
+
+### Portal
+
+`/dashboard/benches` (list, create, connect GitHub, custom apps) and `/dashboard/bench?name=`
+(apps, deploys with live build log, *Update available* badge, deploy, benches on servers). JS:
+`public/js/benches.js` (components `nxBenches`, `nxBench`). Arabic strings:
+`translations/ar.github.part`.

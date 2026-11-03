@@ -14,14 +14,20 @@ class Site(Document):
 
 	def before_insert(self):
 		if not self.team:
-			self.team = frappe.db.get_value("Bench", self.bench, "team") or (
-				frappe.session.user if "Nexaploy Customer" in frappe.get_roles() else None
-			)
+			self.team = frappe.db.get_value("Bench", self.bench, "team") or self._current_team()
 		self.status = "Pending"
 		for row in self.apps:
 			row.status = "Pending"
 		for row in self.domains:
 			row.status = "Pending"
+
+	@staticmethod
+	def _current_team():
+		from nexaploy.teams import get_current_team, is_platform_admin
+
+		if is_platform_admin():
+			return None
+		return get_current_team()
 
 	def validate(self):
 		if self.site_name:

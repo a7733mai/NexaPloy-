@@ -7,17 +7,43 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from pydantic import field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from .. import validation as v
 from ..config import FRAPPE_UID
 from ..fsutil import chown, ensure_dir
 from ..runtime.backup import BackupError, classify, new_ts
-from ..runtime.site import CONTAINER_BENCH, SiteManager
+from ..runtime.site import (
+    CONTAINER_BENCH, PROTECTED_CONFIG_KEYS, SiteManager, apply_config_changes, redact_site_config,
+)
 from .base import BaseParams, Conflict, Job, NotFound, SiteParams
 
 RESTORE_STAGING = ".nexaploy-restore"
 ARCHIVED_SITES = f"{CONTAINER_BENCH}/sites/.archived_sites"
+
+
+BACKUP_FILE_TYPES = {"database": "database", "public": "public", "private": "private", "config": "site_config"}
+
+
+def backup_file_list(manifest: dict[str, Any], remote_path: str | None) -> list[dict[str, Any]]:
+    """Manifest files -> [{file_type, name, size, sha256, remote_key}] for the control plane.
+
+    ``remote_key`` is the object key inside the bucket: the rclone remote is an alias of
+    ``<remote>-s3:<bucket>``, so ``<remote>:<prefix>/<bench>/<site>/<ts>`` + ``/<name>``
+    is ``<prefix>/<bench>/<site>/<ts>/<name>`` in the bucket (None until uploaded).
+    """
+    rel = remote_path.partition(":")[2].strip("/") if remote_path else None
+    out = []
+    for f in manifest.get("files", []):
+        kind = f.get("type") or classify(f.get("name", ""))
+        out.append({
+            "file_type": BACKUP_FILE_TYPES.get(kind or "", kind),
+            "name": f.get("name"),
+            "size": f.get("size"),
+            "sha256": f.get("sha256"),
+            "remote_key": f"{rel}/{f.get('name')}" if rel else None,
+        })
+    return out
 
 
 class _SiteJob(Job):
@@ -89,6 +115,7 @@ class _SiteJob(Job):
             "manifest": manifest,
             "created_at": manifest["created_at"],
             "size": sum(f["size"] for f in manifest["files"]),
+            "backup_files": backup_file_list(manifest, self.result.get("remote_path")),
         })
         self.log(f"staged {len(manifest['files'])} files in {dest}")
 
@@ -110,6 +137,7 @@ class _SiteJob(Job):
         self.result.update({"uploaded": True, "remote_path": remote})
         if isinstance(self.result.get("manifest"), dict):
             self.result["manifest"]["remote_path"] = remote
+            self.result["backup_files"] = backup_file_list(self.result["manifest"], remote)
 
 
 # --------------------------------------------------------------------------- create
@@ -151,7 +179,7 @@ class SiteCreate(_SiteJob):
     """bench new-site, install apps, write the Traefik route."""
 
     kind = "site.create"
-    steps = ("check", "new_site", "install_apps", "write_route")
+    steps = ("check", "new_site", "install_apps", "enable_monitor", "write_route")
     Params = SiteCreateParams
 
     @property
@@ -211,8 +239,22 @@ class SiteCreate(_SiteJob):
             self.check(self.ctx.sites.install_app(bench, self.site, app), f"install-app {app}")
         self.result["apps"] = self.ctx.sites.installed_apps(bench, self.site) or []
 
+    def step_enable_monitor(self) -> None:
+        """Frappe monitor -> logs/monitor.json.log, the source of per-site CPU usage."""
+        enable_monitor(self, self.p.bench)
+
     def step_write_route(self) -> None:
         self.write_route()
+
+
+def enable_monitor(job: Job, bench: str) -> bool:
+    """``bench --site s set-config -p monitor 1`` unless already on. True when changed."""
+    site = job.site  # type: ignore[attr-defined]
+    if job.ctx.sites.site_config(bench, site).get("monitor"):
+        job.skip("monitor already enabled")
+        return False
+    job.check(job.ctx.sites.set_config(bench, site, "monitor", 1), "enable monitor")
+    return True
 
 
 # --------------------------------------------------------------------------- apps
@@ -541,6 +583,102 @@ class SiteSetConfig(_SiteJob):
             self.skip(f"{self.p.key} already set")
             return
         self.check(self.ctx.sites.set_config(bench, self.site, self.p.key, self.p.value), "bench set-config")
+
+
+class SiteGetConfig(_SiteJob):
+    """Return site_config.json with secrets redacted (db_password, encryption_key, *key*, ...)."""
+
+    kind = "site.get_config"
+    steps = ("read",)
+
+    def step_read(self) -> None:
+        bench = self.bench_for_site()
+        path = self.ctx.sites.config_path(bench, self.site)
+        try:
+            config = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            self.fail(f"cannot read {path.name}: {exc}")
+        if not isinstance(config, dict):
+            self.fail("site_config.json is not an object")
+        redacted, keys = redact_site_config(config)
+        self.result.update({"config": redacted, "redacted": keys})
+        self.log(f"{len(config)} keys ({len(keys)} redacted)")
+
+
+class SiteUpdateConfigParams(SiteParams):
+    set_values: dict[str, Any] = Field(default_factory=dict, alias="set")
+    remove: list[str] = []
+
+    model_config = ConfigDict(extra="ignore", str_strip_whitespace=True, populate_by_name=True)
+
+    @field_validator("set_values")
+    @classmethod
+    def _set(cls, value: dict[str, Any]) -> dict[str, Any]:
+        for key in value:
+            v.config_key(key)
+            if key in PROTECTED_CONFIG_KEYS:
+                raise ValueError(f"{key} cannot be changed")
+        if len(json.dumps(value, default=str)) > 256 * 1024:
+            raise ValueError("config changes too large")
+        return value
+
+    @field_validator("remove")
+    @classmethod
+    def _remove(cls, value: list[str]) -> list[str]:
+        out: list[str] = []
+        for key in value:
+            v.config_key(key)
+            if key in PROTECTED_CONFIG_KEYS:
+                raise ValueError(f"{key} cannot be removed")
+            if key not in out:
+                out.append(key)
+        return out
+
+    @model_validator(mode="after")
+    def _disjoint(self) -> "SiteUpdateConfigParams":
+        both = set(self.set_values) & set(self.remove)
+        if both:
+            raise ValueError(f"keys both set and removed: {', '.join(sorted(both))}")
+        return self
+
+
+class SiteUpdateConfig(_SiteJob):
+    """Batch site_config.json change ``{site, set: {k: v}, remove: [k]}`` in one atomic write.
+
+    Values are JSON (str/number/bool/list/object). Check-then-act: unchanged keys are not
+    rewritten; a no-op job does not touch the file. Protected keys (db_*, encryption_key)
+    are refused.
+    """
+
+    kind = "site.update_config"
+    steps = ("update",)
+    Params = SiteUpdateConfigParams
+
+    @classmethod
+    def validate_params(cls, raw: dict[str, Any]) -> dict[str, Any]:
+        return cls.Params.model_validate(raw).model_dump(mode="json", by_alias=True)
+
+    def step_update(self) -> None:
+        from ..redact import is_sensitive
+
+        bench = self.bench_for_site()
+        for key, value in self.p.set_values.items():
+            if is_sensitive(key) and isinstance(value, str):
+                self.secret(value)
+        path = self.ctx.sites.config_path(bench, self.site)
+        try:
+            current = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            self.fail(f"cannot read {path.name}: {exc}")
+        if not isinstance(current, dict):
+            self.fail("site_config.json is not an object")
+        new, changed, removed = apply_config_changes(current, self.p.set_values, self.p.remove)
+        self.result.update({"changed": changed, "removed": removed})
+        if not changed and not removed:
+            self.skip("site_config already up to date")
+            return
+        self.ctx.sites.write_site_config(bench, self.site, new)
+        self.log(f"site_config.json: set {', '.join(changed) or '-'}; removed {', '.join(removed) or '-'}")
 
 
 # --------------------------------------------------------------------------- drop

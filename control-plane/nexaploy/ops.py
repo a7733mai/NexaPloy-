@@ -1,5 +1,6 @@
 """Operations glue (frappe side): registry params, backup configuration push, metrics,
-alerts, auto updates. Pure logic lives in nexaploy.ops_utils.
+alerts, auto updates, plan usage limits, backup downloads and site config edits.
+Pure logic lives in nexaploy.ops_utils.
 """
 
 from datetime import datetime
@@ -147,11 +148,19 @@ def record_heartbeat_metrics(server, facts):
 
 
 def alert_recipients(team=None):
+	"""Team ops recipients (Owner/Admin/Developer, nexaploy.teams.team_notification_emails)
+	plus Nexaploy Settings.alert_email. A legacy user-valued `team` (before the
+	v0_2 user_team_to_team patch) still resolves to that user's email."""
+	from nexaploy.teams import team_notification_emails
+
 	recipients = []
 	if team:
-		email = frappe.db.get_value("User", team, "email") or (team if "@" in team else None)
-		if email:
-			recipients.append(email)
+		if frappe.db.exists("Team", team):
+			recipients.extend(team_notification_emails(team, "ops"))
+		else:
+			email = frappe.db.get_value("User", team, "email") or (team if "@" in team else None)
+			if email:
+				recipients.append(email)
 	ops = get_settings().alert_email
 	if ops and ops not in recipients:
 		recipients.append(ops)
@@ -216,3 +225,234 @@ def apply_auto_updates(release_group, force_window=False):
 		bench.update_image(dc_name)
 		updated.append(name)
 	return updated
+
+
+# --------------------------------------------------------------------------- plan limits & usage
+
+SITE_USAGE_FIELDS = [
+	"name", "site_name", "team", "server", "status", "plan", "throttled", "usage_suspended",
+	"suspended_for_billing", "database_mb", "storage_mb", "current_cpu_seconds_today",
+	"over_limit", "usage_alert_state",
+]
+PLAN_LIMIT_FIELDS = [
+	"name", "title", "cpu_seconds_per_day", "max_database_mb", "max_storage_mb", "overage_action",
+	"plan_order", "price_monthly", "currency",
+]
+
+
+def utc_today():
+	return datetime.utcnow().date()
+
+
+def ingest_usage(server, usage):
+	"""Upsert Site Usage rows (one per site per UTC day) from a heartbeat / site.usage block.
+
+	Only sites that live on `server` are accepted. CPU seconds and requests are daily totals
+	computed by the agent (never decreased here); database/storage are point-in-time values
+	that also update the Site (with today's CPU seconds). Never raises: usage must not break the
+	heartbeat. Returns the number of rows written.
+	"""
+	try:
+		return _ingest_usage(server, usage)
+	except Exception:
+		frappe.log_error(title=f"Nexaploy: usage ingestion failed for {server}")
+		return 0
+
+
+def _ingest_usage(server, usage):
+	rows = ou.usage_rows(usage)
+	if not rows or not server:
+		return 0
+	owned = set(
+		frappe.get_all(
+			"Site",
+			filters={"name": ["in", sorted({r["site"] for r in rows})], "server": server,
+			         "status": ["!=", "Archived"]},
+			pluck="name",
+		)
+	)
+	today = utc_today().isoformat()
+	written = 0
+	now = now_datetime()
+	for row in rows:
+		site = row["site"]
+		if site not in owned:
+			continue
+		values = {k: row[k] for k in ("cpu_seconds", "requests", "database_mb", "storage_mb") if k in row}
+		existing = frappe.db.get_value(
+			"Site Usage", {"site": site, "date": row["date"]}, ["name", "cpu_seconds", "requests"], as_dict=True
+		)
+		if existing:
+			for k in ("cpu_seconds", "requests"):
+				if k in values:
+					values[k] = max(values[k], existing.get(k) or 0)
+			frappe.db.set_value("Site Usage", existing.name, values, update_modified=False)
+		else:
+			frappe.get_doc(
+				{"doctype": "Site Usage", "site": site, "date": row["date"], "server": server, **values}
+			).insert(ignore_permissions=True)
+		written += 1
+		if row["date"] == today:
+			site_values = {"usage_updated_at": now}
+			if "cpu_seconds" in values:
+				site_values["current_cpu_seconds_today"] = values["cpu_seconds"]
+			for k in ("database_mb", "storage_mb"):
+				if k in values:
+					site_values[k] = values[k]
+			frappe.db.set_value("Site", site, site_values, update_modified=False)
+	return written
+
+
+def site_usage_today(site):
+	"""{cpu_seconds, requests, database_mb, storage_mb} for today (UTC); CPU resets each day."""
+	row = frappe.db.get_value(
+		"Site Usage", {"site": site.name, "date": utc_today()}, ["cpu_seconds", "requests"], as_dict=True
+	) or {}
+	return {
+		"cpu_seconds": row.get("cpu_seconds") or 0,
+		"requests": row.get("requests") or 0,
+		"database_mb": site.database_mb or 0,
+		"storage_mb": site.storage_mb or 0,
+	}
+
+
+def plan_limits(plan):
+	if not plan:
+		return {}
+	return frappe.db.get_value("Nexaploy Plan", plan, PLAN_LIMIT_FIELDS, as_dict=True) or {}
+
+
+def team_emails(team, kind="ops"):
+	"""Team notification recipients (nexaploy.teams), falling back to the ops alert recipients."""
+	try:
+		from nexaploy.teams import team_notification_emails
+
+		emails = list(team_notification_emails(team, kind=kind) or [])
+	except Exception:
+		emails = []
+	return emails or alert_recipients(team)
+
+
+def enqueue_config_update(site, set_values=None, remove=None):
+	"""site.update_config {site, set, remove} on the site's server; returns the Agent Job name.
+
+	Values of secret-like keys are scrubbed from Agent Job.params once the job finishes
+	(agent_callbacks.on_site_update_config).
+	"""
+	row = frappe.db.get_value("Site", site, ["site_name", "server"], as_dict=True)
+	if not row:
+		frappe.throw(f"Site {site} not found")
+	params = {"site": row.site_name, "set": set_values or {}, "remove": list(remove or [])}
+	return create_agent_job(row.server, "site.update_config", params, "Site", site).name
+
+
+def _usage_message(site, plan, status, level):
+	lines = [
+		f"Site {site.name} is {'over' if level == 'over' else 'close to'} the limits of its plan "
+		f"{plan.get('title') or site.plan} today:",
+		"",
+	]
+	labels = {"cpu": "CPU time (s/day)", "database": "Database (MB)", "storage": "Storage (MB)"}
+	for name, m in status["metrics"].items():
+		if m["limit"]:
+			lines.append(f"- {labels[name]}: {m['used']:.1f} of {m['limit']:.0f} ({m['percent']}%)")
+	action = ou.normalize_overage_action(plan.get("overage_action"))
+	if level == "over" and action == "Throttle":
+		lines += ["", "Requests are rate limited until the next UTC day or until you upgrade."]
+	elif level == "over" and action == "Suspend":
+		lines += ["", "The site is in maintenance mode until usage is back under the limits or you upgrade."]
+	lines += ["", f"Upgrade the plan from the dashboard: /dashboard/site?name={site.name}#usage"]
+	return "\n".join(lines)
+
+
+def enforce_site_limits(site_name, now=None):
+	"""Apply the plan's overage action to one site (pure decision in ops_utils). Returns actions."""
+	site = frappe.db.get_value("Site", site_name, SITE_USAGE_FIELDS, as_dict=True)
+	if not site or site.status not in ("Active", "Suspended"):
+		return []
+	if site.status == "Suspended" and not site.usage_suspended:
+		return []  # suspended by billing / staff: not ours
+	now = now or now_datetime()
+	plan = plan_limits(site.plan)
+	usage = site_usage_today(site)
+	status = ou.usage_status(plan, usage)
+	actions = ou.enforcement_actions(plan, status, site)
+	updates = {
+		"over_limit": int(status["status"] == "over"),
+		"current_cpu_seconds_today": usage["cpu_seconds"],
+	}
+	set_values, remove = {}, []
+	state = ou.load_alert_state(site.usage_alert_state)
+	state_changed = False
+	for action in actions:
+		if action in ("notify_warn", "notify_over"):
+			level = action.split("_", 1)[1]
+			kind = f"usage_{level}"
+			if not ou.should_alert(state, kind, now, ou.USAGE_ALERT_INTERVAL):
+				continue
+			recipients = team_emails(site.team)
+			if recipients:
+				try:
+					frappe.sendmail(
+						recipients=recipients,
+						subject=f"[Nexaploy] {site.name} {'is over' if level == 'over' else 'is near'} its plan limits",
+						message=_usage_message(site, plan, status, level),
+						delayed=True,
+					)
+				except Exception:
+					frappe.log_error(title=f"Nexaploy: usage email failed for {site.name}")
+					continue
+			state = ou.record_alert(state, kind, now)
+			state_changed = True
+		elif action == "throttle":
+			set_values["rate_limit"] = ou.throttle_rate_limit(plan)
+			updates["throttled"] = 1
+		elif action == "unthrottle":
+			remove.append("rate_limit")
+			updates["throttled"] = 0
+		elif action == "suspend":
+			set_values["maintenance_mode"] = 1
+			updates.update({"status": "Suspended", "usage_suspended": 1})
+		elif action == "unsuspend":
+			set_values["maintenance_mode"] = 0
+			updates["usage_suspended"] = 0
+			if site.status == "Suspended" and not site.suspended_for_billing:
+				updates["status"] = "Active"
+	if state_changed:
+		updates["usage_alert_state"] = frappe.as_json(state)
+	if set_values or remove:
+		try:
+			enqueue_config_update(site.name, set_values, remove)
+		except Exception:
+			frappe.log_error(title=f"Nexaploy: usage enforcement job failed for {site.name}")
+			for k in ("throttled", "usage_suspended", "status"):
+				updates.pop(k, None)
+	frappe.db.set_value("Site", site.name, updates, update_modified=False)
+	return actions
+
+
+# --------------------------------------------------------------------------- backup downloads
+
+DOWNLOAD_EXPIRES = 900
+
+
+def backup_download_url(backup, file_type, expires=DOWNLOAD_EXPIRES):
+	"""Presigned S3 GET URL (SigV4, `expires` seconds) for one file of a Site Backup."""
+	doc = frappe.get_doc("Site Backup", backup)
+	if doc.status != "Success":
+		frappe.throw(f"Backup {backup} is {doc.status}; only successful backups can be downloaded")
+	row = next((f for f in doc.get("files") or [] if f.file_type == file_type), None)
+	if not row:
+		frappe.throw(f"Backup {backup} has no {file_type} file")
+	if not row.remote_key:
+		frappe.throw(f"The {file_type} file of backup {backup} was not uploaded to backup storage")
+	settings = get_settings()
+	if not ou.backup_configured(settings.as_dict()):
+		frappe.throw("Backup storage is not configured")
+	secret = settings.get_password("backup_secret_key", raise_exception=False)
+	if not secret:
+		frappe.throw("Backup storage secret key is not set")
+	return ou.presign_s3_get(
+		settings.backup_endpoint, settings.backup_region, settings.backup_bucket, row.remote_key,
+		settings.backup_access_key, secret, expires=expires,
+	)

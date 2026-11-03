@@ -4,7 +4,7 @@
 <div class="stack" x-data="nxServers" x-cloak>
 
 	<!-- Add your own server (BYOS) -->
-	<section class="card" x-show="adding">
+	<section class="card" x-show="adding && nx.can('admin')">
 		<div class="card-head">
 			<h2>{{ _("Add your own server") }}</h2>
 			<button class="btn sm ghost" type="button" @click="adding = false">{{ _("Close") }}</button>
@@ -58,7 +58,7 @@
 	<section class="card">
 		<div class="card-head">
 			<h2>{{ _("Servers") }}</h2>
-			<button class="btn primary" type="button" x-show="!adding" @click="adding = true">{{ _("Add your own server") }}</button>
+			<button class="btn primary" type="button" x-show="!adding && nx.can('admin')" @click="adding = true">{{ _("Add your own server") }}</button>
 		</div>
 		<div class="card-body flush table-wrap">
 			<template x-if="loading"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
@@ -66,7 +66,7 @@
 			<template x-if="!loading && !error && !servers.length">
 				<div class="empty">
 					<p>{{ _("You have no servers yet. Sites can also run on our shared hosting.") }}</p>
-					<button class="btn primary" type="button" @click="adding = true">{{ _("Add your own server") }}</button>
+					<button class="btn primary" type="button" x-show="nx.can('admin')" @click="adding = true">{{ _("Add your own server") }}</button>
 				</div>
 			</template>
 			<table class="nx-table" x-show="servers.length">

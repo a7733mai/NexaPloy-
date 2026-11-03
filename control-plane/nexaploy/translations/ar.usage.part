@@ -1,0 +1,82 @@
+Add key,إضافة مفتاح
+CPU time per day,وقت المعالج يوميًا
+Config,الإعدادات
+Current plan,الخطة الحالية
+Download,تنزيل
+Key,المفتاح
+Last 30 days,آخر 30 يومًا
+No plans available.,لا توجد خطط متاحة.
+"Only team owners, admins and billing members can change the plan.",يمكن لمالكي الفريق والمسؤولين وأعضاء الفوترة فقط تغيير الخطة.
+Over plan limit,تجاوز حد الخطة
+Read-only,للقراءة فقط
+Reading the config from the server…,جارٍ قراءة الإعدادات من الخادم…
+Reload,إعادة التحميل
+Requests today: {0},الطلبات اليوم: {0}
+Save changes,حفظ التغييرات
+Site config,إعدادات الموقع
+Switch,تبديل
+This site is close to its plan limits.,هذا الموقع قريب من حدود خطته.
+This site is in maintenance mode because it is over its plan limits. Upgrade the plan or reduce usage to bring it back.,هذا الموقع في وضع الصيانة لأنه تجاوز حدود خطته. قم بترقية الخطة أو قلّل الاستخدام لإعادته.
+This site is over its daily CPU budget and requests are rate limited until midnight UTC. Upgrade the plan to lift the limit now.,تجاوز هذا الموقع حصته اليومية من وقت المعالج، والطلبات محدودة حتى منتصف الليل بالتوقيت العالمي. قم بترقية الخطة لرفع الحد الآن.
+This site is over its plan limits.,هذا الموقع تجاوز حدود خطته.
+Throttled,محدود السرعة
+UTC day; CPU resets at midnight UTC,يوم بالتوقيت العالمي؛ يُعاد ضبط المعالج عند منتصف الليل UTC
+Undo,تراجع
+Updated {0},آخر تحديث {0}
+Upgrade plan,ترقية الخطة
+Usage,الاستخدام
+Usage today,الاستخدام اليوم
+Value,القيمة
+"Values are JSON: numbers, true/false, lists and objects are typed; text values stay text. Secrets are hidden; type a new value to replace one. Database, encryption and Nexaploy-managed keys are read-only.",القيم بصيغة JSON: الأرقام وtrue/false والقوائم والكائنات لها أنواعها، والقيم النصية تبقى نصًا. الأسرار مخفية؛ اكتب قيمة جديدة لاستبدالها. مفاتيح قاعدة البيانات والتشفير والمفاتيح التي يديرها Nexaploy للقراءة فقط.
+requests,طلبات
+secret,سري
+CPU time today,وقت المعالج اليوم
+s,ث
+Database,قاعدة البيانات
+File storage,تخزين الملفات
+Unlimited,غير محدود
+/ month,/ شهريًا
+{0} CPU s/day,{0} ثانية معالج/يوم
+Unlimited CPU,معالج غير محدود
+{0} MB database,{0} ميغابايت لقاعدة البيانات
+Unlimited database,قاعدة بيانات غير محدودة
+{0} MB storage,{0} ميغابايت للتخزين
+Unlimited storage,تخزين غير محدود
+Change the plan of {0} to {1}?,تغيير خطة {0} إلى {1}؟
+Plan changed to {0},تم تغيير الخطة إلى {0}
+Public files,الملفات العامة
+Private files,الملفات الخاصة
+Could not read the site config,تعذّرت قراءة إعدادات الموقع
+The server agent did not answer. Try again later.,لم يستجب وكيل الخادم. حاول مرة أخرى لاحقًا.
+Invalid config key,مفتاح إعداد غير صالح
+{0} already exists,{0} موجود بالفعل
+Invalid JSON value: {0},قيمة JSON غير صالحة: {0}
+Nothing to change,لا يوجد ما يتغير
+Apply config changes to {0}? ({1}),تطبيق تغييرات الإعدادات على {0}؟ ({1})
+Update config,تحديث الإعدادات
+Site config updated,تم تحديث إعدادات الموقع
+Config update failed,فشل تحديث الإعدادات
+Job queued: {0},تمت جدولة المهمة: {0}
+Site is required,الموقع مطلوب
+Site {0} not found,الموقع {0} غير موجود
+Site {0} is {1},الموقع {0} في حالة {1}
+Plan {0} is not an available Site plan,الخطة {0} ليست خطة موقع متاحة
+Unknown backup file type {0},نوع ملف نسخ احتياطي غير معروف {0}
+Backup {0} not found,النسخة الاحتياطية {0} غير موجودة
+{0} downloaded the {1} file,قام {0} بتنزيل ملف {1}
+Plan changed from {0} to {1} by {2},تم تغيير الخطة من {0} إلى {1} بواسطة {2}
+{0} changed site config: set {1}; removed {2},قام {0} بتغيير إعدادات الموقع: تعيين {1}؛ حذف {2}
+Please log in,يرجى تسجيل الدخول
+Not allowed,غير مسموح
+{0} cannot be negative (0 = unlimited),{0} لا يمكن أن يكون سالبًا (0 = غير محدود)
+"Overage Action must be Notify, Throttle or Suspend",يجب أن يكون إجراء التجاوز: إشعار أو تحديد السرعة أو إيقاف
+Site Usage,استخدام الموقع
+Site Backup File,ملف النسخة الاحتياطية
+CPU Seconds per Day,ثواني المعالج يوميًا
+Max Storage (MB),الحد الأقصى للتخزين (ميغابايت)
+Max Database (MB),الحد الأقصى لقاعدة البيانات (ميغابايت)
+Overage Action,إجراء التجاوز
+Plan Order,ترتيب الخطة
+Notify,إشعار
+Throttle,تحديد السرعة
+Suspend,إيقاف

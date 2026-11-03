@@ -30,6 +30,10 @@ JOB_KINDS = (
 	"server.configure_backups",
 	"server.health",
 	"backup.prune_remote",
+	# plan usage / site config
+	"site.usage",
+	"site.get_config",
+	"site.update_config",
 )
 
 

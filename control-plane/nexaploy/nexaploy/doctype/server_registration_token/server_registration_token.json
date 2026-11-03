@@ -35,8 +35,8 @@
    "fieldname": "team",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Team (Owner)",
-   "options": "User"
+   "label": "Team",
+   "options": "Team"
   },
   {
    "fieldname": "column_break_1",

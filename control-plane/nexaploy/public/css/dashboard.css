@@ -290,3 +290,7 @@ pre.log {
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip { padding: 2px 8px; border-radius: 6px; background: var(--nx-surface-2); color: var(--nx-muted); font-size: 12px; }
 .price { font-weight: 650; }
+
+/* team switcher (sidebar) */
+.nx-team-switcher { display: flex; flex-direction: column; gap: 4px; padding: 0 10px 14px; }
+.nx-team-switcher select.input { width: 100%; }

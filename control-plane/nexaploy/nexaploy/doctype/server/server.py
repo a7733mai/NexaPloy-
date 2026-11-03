@@ -15,7 +15,9 @@ class Server(Document):
 			while frappe.db.exists("Server", {"server_id": self.server_id}):
 				self.server_id = generate_server_id()
 		if not self.team and "Nexaploy Customer" in frappe.get_roles():
-			self.team = frappe.session.user
+			from nexaploy.teams import get_current_team
+
+			self.team = get_current_team()
 
 	def autoname(self):
 		if not self.server_id:

@@ -228,3 +228,73 @@ Stripe,Stripe
 Paymob,Paymob
 Server Registration Token,رمز تسجيل الخادم
 Site Backup,نسخة احتياطية للموقع
+Team,الفريق
+Owner,المالك
+Admin,مسؤول
+Developer,مطوّر
+Accepted,مقبولة
+Expired,منتهية
+Revoked,ملغاة
+Email,البريد الإلكتروني
+Save,حفظ
+Saved,تم الحفظ
+Role,الدور
+Your role,دورك
+Accept invitation,قبول الدعوة
+Billing email,بريد الفوترة
+Create team,إنشاء فريق
+New team,فريق جديد
+Team ID,معرّف الفريق
+Team name,اسم الفريق
+Team invitation,دعوة إلى فريق
+Email address,عنوان البريد الإلكتروني
+Expires,تنتهي
+Invitations,الدعوات
+Invite,دعوة
+Invitation sent.,تم إرسال الدعوة.
+Invitation revoked,تم إلغاء الدعوة
+Member,العضو
+Members,الأعضاء
+Member removed,تمت إزالة العضو
+Role updated,تم تحديث الدور
+Revoke,إلغاء
+Leave team,مغادرة الفريق
+Leave {0}?,مغادرة {0}؟
+Remove {0} from the team?,إزالة {0} من الفريق؟
+You joined {0},انضممت إلى {0}
+you,أنت
+as,بدور
+You are invited to join,أنت مدعو للانضمام إلى
+Invoices are sent here and to Owners and Billing members.,تُرسل الفواتير إلى هذا العنوان وإلى المالكين وأعضاء الفوترة.
+"Owner and Admin manage members and servers; Developer manages sites, benches and backups; Billing manages invoices and payments. Everyone can view.",يدير المالك والمسؤول الأعضاء والخوادم؛ ويدير المطوّر المواقع والبيئات والنسخ الاحتياطية؛ وتدير الفوترة الفواتير والمدفوعات. ويمكن للجميع العرض.
+The email could not be sent. Share this link with the invitee:,تعذّر إرسال البريد. شارك هذا الرابط مع المدعو:
+This invitation is no longer valid.,هذه الدعوة لم تعد صالحة.
+This invitation was sent to another email address. Log in with it to accept:,أُرسلت هذه الدعوة إلى عنوان بريد آخر. سجّل الدخول به لقبولها:
+"If you did not expect this email, you can ignore it.",إذا لم تكن تتوقع هذه الرسالة، يمكنك تجاهلها.
+Open the link below to accept the invitation. It expires in 7 days.,افتح الرابط أدناه لقبول الدعوة. تنتهي صلاحيته خلال 7 أيام.
+You are invited to join {0} on Nexaploy,أنت مدعو للانضمام إلى {0} على Nexaploy
+{0} invited you to the team {1} as {2}.,دعاك {0} إلى الفريق {1} بدور {2}.
+{0} is already a member of this team,{0} عضو في هذا الفريق بالفعل
+Invitation token is required,رمز الدعوة مطلوب
+Invitation {0} not found,الدعوة {0} غير موجودة
+No team selected,لم يتم اختيار فريق
+Only an Owner can invite Owners,المالك وحده يمكنه دعوة مالكين
+Please log in,يرجى تسجيل الدخول
+Team {0} is disabled,الفريق {0} معطّل
+Team {0} not found,الفريق {0} غير موجود
+This invitation has expired,انتهت صلاحية هذه الدعوة
+This invitation is {0},هذه الدعوة {0}
+This invitation link is invalid,رابط الدعوة هذا غير صالح
+This invitation was sent to {0},أُرسلت هذه الدعوة إلى {0}
+You are not a member of team {0},لست عضوًا في الفريق {0}
+You can own at most {0} teams,يمكنك امتلاك {0} فرق كحد أقصى
+Your role {0} in team {1} does not allow this action,دورك {0} في الفريق {1} لا يسمح بهذا الإجراء
+Unknown team role,دور فريق غير معروف
+User is not a member of this team,المستخدم ليس عضوًا في هذا الفريق
+Only an Owner can change the Owner role,المالك وحده يمكنه تغيير دور المالك
+A team must keep at least one Owner,يجب أن يبقى للفريق مالك واحد على الأقل
+Team name is required,اسم الفريق مطلوب
+Team name must have at most 140 characters,يجب ألا يتجاوز اسم الفريق 140 حرفًا
+Enter a valid email address,أدخل عنوان بريد إلكتروني صالحًا
+{0} is listed twice in the team,{0} مُدرج مرتين في الفريق
+"Team name {0} must be lowercase letters, digits and '-'",يجب أن يتكون اسم الفريق {0} من أحرف صغيرة وأرقام و'-'

@@ -65,7 +65,7 @@ class Gateway:
 		self.settings = settings
 
 	def create_checkout(self, invoice: Mapping[str, Any]) -> CheckoutSession:
-		"""Start a hosted payment for `invoice` ({name, total, currency, team}) and return the
+		"""Start a hosted payment for `invoice` ({name, total, currency, team, email}) and return the
 		URL to send the customer to plus the gateway's reference for it."""
 		raise NotImplementedError
 

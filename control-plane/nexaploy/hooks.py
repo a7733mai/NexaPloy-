@@ -48,6 +48,9 @@ permission_query_conditions = {
 	"Nexaploy Invoice": "nexaploy.permissions.team_query",
 	"Nexaploy Subscription": "nexaploy.permissions.team_query",
 	"Nexaploy Payment": "nexaploy.permissions.team_query",
+	"Site Usage": "nexaploy.permissions.team_query",
+	"Team": "nexaploy.permissions.team_doc_query",
+	"Team Invitation": "nexaploy.permissions.team_invitation_query",
 	"Deploy Candidate": "nexaploy.permissions.deploy_candidate_query",
 	"Agent Job": "nexaploy.permissions.agent_job_query",
 }
@@ -62,6 +65,9 @@ has_permission = {
 	"Nexaploy Invoice": "nexaploy.permissions.has_team_permission",
 	"Nexaploy Subscription": "nexaploy.permissions.has_team_permission",
 	"Nexaploy Payment": "nexaploy.permissions.has_team_permission",
+	"Site Usage": "nexaploy.permissions.has_team_permission",
+	"Team": "nexaploy.permissions.has_team_doc_permission",
+	"Team Invitation": "nexaploy.permissions.has_team_permission",
 }
 
 # Document Events
@@ -87,12 +93,13 @@ scheduler_events = {
 		# mark servers Offline when no heartbeat for 5 minutes
 		"* * * * *": ["nexaploy.tasks.mark_offline_servers"],
 		"*/5 * * * *": ["nexaploy.tasks.check_alerts", "nexaploy.tasks.check_sites_uptime"],
-		"*/15 * * * *": ["nexaploy.tasks.apply_auto_updates"],
+		"*/15 * * * *": ["nexaploy.tasks.apply_auto_updates", "nexaploy.tasks.enforce_plan_limits"],
 	},
 	"hourly": ["nexaploy.tasks.prune_registration_tokens", "nexaploy.tasks.schedule_backups"],
 	"daily": [
 		"nexaploy.tasks.prune_remote_backups",
 		"nexaploy.tasks.prune_server_metrics",
+		"nexaploy.tasks.prune_site_usage",
 		"nexaploy.billing.subscriptions.reconcile_subscriptions",
 		"nexaploy.billing.invoicing.generate_monthly_invoices",
 		"nexaploy.billing.invoicing.mark_overdue_and_suspend",

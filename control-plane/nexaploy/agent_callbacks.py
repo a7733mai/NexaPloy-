@@ -256,6 +256,10 @@ def on_site_backup(job):
 		if info["size"] is not None:
 			backup.size = info["size"]
 		backup.created_at = info["created_at"] or job.ended_at or backup.created_at
+		# per-file object keys (database / public / private / site_config) for downloads
+		backup.set("files", [])
+		for row in ops_utils.backup_files_from_result(_json(job.result, {})):
+			backup.append("files", row)
 		# system-time clock (created_at from the agent is UTC); compared with now_datetime()
 		frappe.db.set_value(
 			"Site", backup.site, "last_backup_at", job.ended_at or frappe.utils.now_datetime(),
@@ -289,6 +293,41 @@ def on_prune_remote(job):
 	):
 		if ops_utils.backup_was_pruned(row.remote_path, pruned):
 			frappe.db.set_value("Site Backup", row.name, "status", "Deleted")
+
+
+# --------------------------------------------------------------------------- usage / site config
+
+
+@handles("site.usage")
+def on_site_usage(job):
+	"""site.usage result.usage -> Site Usage rows (same as the heartbeat usage block)."""
+	if job.status != "Success":
+		return
+	result = _json(job.result, {}) or {}
+	from nexaploy.ops import ingest_usage
+
+	ingest_usage(job.server, result.get("usage") if isinstance(result, dict) else None)
+
+
+@handles("site.get_config")
+def on_site_get_config(job):
+	"""Nothing to store: the portal reads the (agent-redacted) result from the Agent Job."""
+
+
+@handles("site.update_config")
+def on_site_update_config(job):
+	"""Scrub secret values from the stored params once the job is final; log failures."""
+	if job.status not in TERMINAL_JOB_STATUSES:
+		return
+	from nexaploy.utils import redact_params
+
+	params = _json(job.params, {}) or {}
+	scrubbed = redact_params(params)
+	if scrubbed != params:
+		frappe.db.set_value("Agent Job", job.name, "params", frappe.as_json(scrubbed), update_modified=False)
+	if job.status == "Failure":
+		frappe.log_error(title=f"Nexaploy: site config update failed for {job.reference_name}",
+			message=job.error or "")
 
 
 # --------------------------------------------------------------------------- servers

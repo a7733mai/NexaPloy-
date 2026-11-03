@@ -152,6 +152,8 @@ def transaction_to_payment(obj: Mapping[str, Any]) -> PaymentEvent:
 
 def billing_data(email: str | None) -> dict[str, str]:
 	"""Paymob requires every billing_data key; "NA" is accepted for unknown values."""
+	if email and "@" not in str(email):
+		email = None  # e.g. a Team name: not an address
 	name = (email or "customer").split("@")[0] or "customer"
 	data = {
 		k: "NA"
@@ -219,7 +221,7 @@ class PaymobGateway(Gateway):
 				"amount_cents": amount_cents,
 				"expiration": 3600,
 				"order_id": order_id,
-				"billing_data": billing_data(invoice.get("team")),
+				"billing_data": billing_data(invoice.get("email") or invoice.get("team")),
 				"currency": currency,
 				"integration_id": int(s["paymob_integration_id"]),
 				"lock_order_when_paid": True,
