@@ -453,3 +453,28 @@ team_notification_emails(team, kind="ops"|"billing") -> list[str]
 Pure helpers (no frappe import) live in `nexaploy/team_utils.py`: `role_allows(role, action)`,
 slug generation, invitation token hashing. Platform admins pass every check.
 Portal JS sends `X-Nexaploy-Team` on every call (team switcher in the sidebar).
+
+## 10. Activity log (shared contract for Phase 4 features)
+
+Every customer-visible mutation is recorded in **Team Activity** (`team`, `user`, `action`,
+`reference_doctype`, `reference_name`, `details` (JSON, secrets removed), `ip_address`, `creation`).
+
+```python
+from nexaploy.activity import log_activity
+log_activity(team, action, reference_doctype=None, reference_name=None, details=None)
+# never raises; action is a dotted verb, e.g. "site.create", "site.sql", "site.console",
+# "site.rename", "site.transfer", "team.invite", "api_key.create", "credits.topup"
+```
+
+Phase 4 job kinds (agent ↔ CP), owners in brackets:
+
+| Kind | Params | Owner |
+|---|---|---|
+| `site.logs` | `{site, log: web\|worker\|scheduler\|frappe\|error, lines, since?}` | observability |
+| `site.analytics` | `{site, date_from, date_to}` (aggregates monitor.json.log) | observability |
+| `site.slow_queries` | `{site, limit, min_seconds}` | observability |
+| `site.sql` | `{site, query, read_only: true, max_rows, timeout}` | observability |
+| `site.console` | `{site, code, commit: false, timeout}` | observability |
+| `site.clone` | `{bench, site, target_site, scrub: true}` (staging) | lifecycle |
+| `site.rename` | `{bench, site, new_name}` | lifecycle |
+| `site.export` / `site.import` | cross-server move via backup/restore (reuse site.backup/site.restore) | lifecycle |
