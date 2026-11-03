@@ -6,6 +6,13 @@ app_email = "dev@nexaploy.local"
 app_license = "mit"
 required_apps = []
 
+# Customer portal (www/dashboard)
+# -------------------------------
+role_home_page = {"Nexaploy Customer": "dashboard"}
+portal_menu_items = [
+	{"title": "Dashboard", "route": "/dashboard", "reference_doctype": "", "role": "Nexaploy Customer"},
+]
+
 # Installation
 # ------------
 # Creates the "Nexaploy Customer" role and the default plans (idempotent).

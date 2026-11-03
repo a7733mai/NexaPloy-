@@ -1,0 +1,236 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block page_title %}<a href="/dashboard/sites" class="muted">{{ _("Sites") }}</a> <span class="muted">/</span> <span class="ltr" id="nx-site-title"></span>{% endblock %}
+
+{% block content %}
+<div class="stack" x-data="nxSite" x-cloak x-effect="if (site) document.getElementById('nx-site-title').textContent = site.name">
+	<template x-if="loading && !site"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+	<template x-if="error && !site"><div class="alert danger" x-text="error"></div></template>
+
+	<template x-if="site">
+		<div class="stack">
+			<!-- Summary -->
+			<section class="card">
+				<div class="card-head">
+					<h2 class="ltr" x-text="site.name"></h2>
+					<span :class="nx.statusClass(site.status)" x-text="__(site.status)"></span>
+					<a class="btn sm" :href="site.url" target="_blank" rel="noopener" x-show="site.status === 'Active'">{{ _("Open site") }}</a>
+					<a class="btn sm" :href="site.url + '/app'" target="_blank" rel="noopener" x-show="site.status === 'Active'">{{ _("Open desk") }}</a>
+				</div>
+				<div class="card-body">
+					<dl class="kv">
+						<dt>{{ _("Frappe version") }}</dt><dd x-text="site.frappe_major ? 'v' + site.frappe_major : '—'"></dd>
+						<dt>{{ _("Bench") }}</dt><dd class="ltr" x-text="site.bench.bench_name || site.bench.name"></dd>
+						<dt>{{ _("Server") }}</dt>
+						<dd>
+							<template x-if="site.server.own"><a class="ltr" :href="'/dashboard/server?name=' + encodeURIComponent(site.server.name)" x-text="site.server.hostname || site.server.name"></a></template>
+							<template x-if="!site.server.own"><span>{{ _("Shared hosting") }}</span></template>
+						</dd>
+						<dt>{{ _("Plan") }}</dt>
+						<dd>
+							<template x-if="site.plan"><span x-text="site.plan.title + ' · ' + nx.money(site.plan.price_monthly, site.plan.currency) + ' ' + __('/ month')"></span></template>
+							<template x-if="!site.plan"><span class="muted">—</span></template>
+						</dd>
+						<dt>{{ _("Created") }}</dt><dd x-text="nx.fmtDate(site.creation)"></dd>
+					</dl>
+					<template x-if="site.status === 'Pending'"><div class="alert info" style="margin-block-start: 14px">{{ _("The site is being created. This page refreshes automatically.") }}</div></template>
+					<template x-if="site.status === 'Moving'"><div class="alert info" style="margin-block-start: 14px">{{ _("The site is being moved to another bench. Actions are disabled until the move finishes.") }}</div></template>
+					<template x-if="site.status === 'Broken'"><div class="alert danger" style="margin-block-start: 14px">{{ _("The last operation failed. Check the jobs log, restore a backup or contact support.") }}</div></template>
+				</div>
+			</section>
+
+			<div class="tabs" role="tablist">
+				<button type="button" :class="{ active: tab === 'apps' }" @click="tab = 'apps'">{{ _("Apps") }}</button>
+				<button type="button" :class="{ active: tab === 'domains' }" @click="tab = 'domains'">{{ _("Domains") }}</button>
+				<button type="button" :class="{ active: tab === 'backups' }" @click="tab = 'backups'">{{ _("Backups") }}</button>
+				<button type="button" :class="{ active: tab === 'jobs' }" @click="tab = 'jobs'">{{ _("Jobs") }} <span class="spinner" x-show="active" style="width: 12px; height: 12px"></span></button>
+				<button type="button" :class="{ active: tab === 'settings' }" @click="tab = 'settings'">{{ _("Settings") }}</button>
+			</div>
+
+			<!-- Apps -->
+			<div class="grid cols-2" x-show="tab === 'apps'">
+				<section class="card">
+					<div class="card-head"><h2>{{ _("Installed apps") }}</h2></div>
+					<div class="card-body flush">
+						<table class="nx-table">
+							<tbody>
+								<tr><td><div>Frappe Framework</div><div class="small muted ltr">frappe</div></td><td class="actions"><span class="badge success">{{ _("Installed") }}</span></td></tr>
+								<template x-for="a in site.apps" :key="a.app">
+									<tr>
+										<td><div x-text="a.title"></div><div class="small muted ltr" x-text="a.app"></div></td>
+										<td class="actions">
+											<span :class="nx.statusClass(a.status)" x-text="__(a.status)"></span>
+											<button class="btn sm danger" type="button" :disabled="site.status !== 'Active' || busy.uninstall_app"
+												@click="run('uninstall_app', { app: a.app }, __('Uninstall {0}? Its data will be removed from the site.', [a.title]))">{{ _("Uninstall") }}</button>
+										</td>
+									</tr>
+								</template>
+							</tbody>
+						</table>
+					</div>
+				</section>
+				<section class="card">
+					<div class="card-head">
+						<h2>{{ _("Available apps") }}</h2>
+						<a class="btn sm" :href="'/dashboard/marketplace?major=' + (site.frappe_major || '')">{{ _("Marketplace") }}</a>
+					</div>
+					<div class="card-body flush">
+						<template x-if="!site.available_apps.length">
+							<div class="empty">{{ _("All apps of this bench are installed. More apps need a bench with those apps.") }}</div>
+						</template>
+						<table class="nx-table" x-show="site.available_apps.length">
+							<tbody>
+								<template x-for="a in site.available_apps" :key="a.app">
+									<tr>
+										<td>
+											<div x-text="a.title"></div>
+											<div class="small muted"><span class="ltr" x-text="a.app"></span><template x-if="a.category"><span x-text="' · ' + __(a.category)"></span></template></div>
+										</td>
+										<td class="small" x-text="a.pricing === 'Paid' ? nx.money(a.price_monthly) + ' ' + __('/ month') : __('Free')"></td>
+										<td class="actions">
+											<button class="btn sm primary" type="button" :disabled="site.status !== 'Active' || busy.install_app"
+												@click="run('install_app', { app: a.app })">{{ _("Install") }}</button>
+										</td>
+									</tr>
+								</template>
+							</tbody>
+						</table>
+					</div>
+				</section>
+			</div>
+
+			<!-- Domains -->
+			<section class="card" x-show="tab === 'domains'">
+				<div class="card-head"><h2>{{ _("Domains") }}</h2></div>
+				<div class="card-body stack">
+					<form class="row" @submit.prevent="addDomain()">
+						<input class="input ltr" style="max-width: 360px" type="text" x-model="domain" placeholder="erp.example.com" spellcheck="false">
+						<button class="btn primary" type="submit" :disabled="site.status !== 'Active' || busy.add_domain || !domain.trim()">{{ _("Add domain") }}</button>
+					</form>
+					<div class="small muted">{{ _("Point a CNAME (or A record) for the domain to your site before adding it, so the certificate can be issued.") }}</div>
+				</div>
+				<div class="card-body flush">
+					<table class="nx-table">
+						<tbody>
+							<tr>
+								<td class="ltr" x-text="site.name"></td>
+								<td class="actions"><span class="badge plain">{{ _("Primary") }}</span></td>
+							</tr>
+							<template x-for="d in site.domains" :key="d.domain">
+								<tr>
+									<td><a class="ltr" :href="'https://' + d.domain" target="_blank" rel="noopener" x-text="d.domain"></a></td>
+									<td class="actions">
+										<span :class="nx.statusClass(d.status)" x-text="__(d.status)"></span>
+										<button class="btn sm danger" type="button" :disabled="site.status !== 'Active' || d.status === 'Removing' || busy.remove_domain"
+											@click="run('remove_domain', { domain: d.domain }, __('Remove domain {0}?', [d.domain]))">{{ _("Remove") }}</button>
+									</td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<!-- Backups -->
+			<section class="card" x-show="tab === 'backups'">
+				<div class="card-head">
+					<h2>{{ _("Backups") }}</h2>
+					<label class="check small"><input type="checkbox" x-model="withFiles"> {{ _("Include files") }}</label>
+					<button class="btn primary" type="button" :disabled="!['Active', 'Broken'].includes(site.status) || busy.backup"
+						@click="run('backup', { with_files: withFiles ? 1 : 0 })">
+						<span class="spinner" x-show="busy.backup"></span> {{ _("Backup now") }}
+					</button>
+				</div>
+				<div class="card-body flush table-wrap">
+					<template x-if="!site.backups.length"><div class="empty">{{ _("No backups yet.") }}</div></template>
+					<table class="nx-table" x-show="site.backups.length">
+						<thead><tr><th>{{ _("Created") }}</th><th>{{ _("Type") }}</th><th>{{ _("Files") }}</th><th>{{ _("Size") }}</th><th>{{ _("Status") }}</th><th></th></tr></thead>
+						<tbody>
+							<template x-for="b in site.backups" :key="b.name">
+								<tr>
+									<td class="nowrap" x-text="nx.fmtDate(b.created_at || b.creation)"></td>
+									<td x-text="__(b.purpose)"></td>
+									<td x-text="b.with_files ? __('Yes') : __('No')"></td>
+									<td class="nowrap" x-text="nx.bytes(b.size)"></td>
+									<td><span :class="nx.statusClass(b.status)" x-text="__(b.status)"></span></td>
+									<td class="actions">
+										<button class="btn sm" type="button" x-show="b.restorable" :disabled="!['Active', 'Broken'].includes(site.status) || busy.restore"
+											@click="run('restore', { backup: b.name }, __('Restore this backup? The current data of {0} will be replaced.', [site.name]))">{{ _("Restore") }}</button>
+									</td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<!-- Jobs -->
+			<section class="card" x-show="tab === 'jobs'">
+				<div class="card-head">
+					<h2>{{ _("Jobs") }}</h2>
+					<span class="small muted" x-show="active">{{ _("Refreshing automatically") }}</span>
+				</div>
+				<div class="card-body flush">
+					<template x-if="!site.jobs.length"><div class="empty">{{ _("No jobs yet.") }}</div></template>
+					<template x-for="j in site.jobs" :key="j.name">
+						<div style="border-block-end: 1px solid var(--nx-border)">
+							<div class="row" style="padding: 10px 18px; cursor: pointer" @click="toggleJob(j.name)">
+								<span class="mono" x-text="j.kind"></span>
+								<span class="spacer"></span>
+								<span class="small muted nowrap" x-text="nx.fmtDate(j.creation)"></span>
+								<span :class="nx.statusClass(j.status)" x-text="__(j.status)"></span>
+							</div>
+							<template x-if="openJob === j.name">
+								<div style="padding: 0 18px 14px">
+									<template x-if="!jobDetail"><div class="loading"><span class="spinner"></span></div></template>
+									<template x-if="jobDetail">
+										<div class="stack">
+											<template x-if="jobDetail.error"><pre class="log" x-text="jobDetail.error"></pre></template>
+											<template x-if="!jobDetail.steps.length"><div class="small muted">{{ _("Waiting for the server agent to pick up this job…") }}</div></template>
+											<ul class="steps">
+												<template x-for="s in jobDetail.steps" :key="s.idx">
+													<li>
+														<div class="step-head" @click="toggleStep(s.idx)">
+															<span class="small muted" x-text="s.idx"></span>
+															<span class="name" x-text="s.name"></span>
+															<span :class="nx.statusClass(s.status)" x-text="__(s.status)"></span>
+														</div>
+														<template x-if="openSteps[s.idx] && s.output"><pre class="log" x-text="s.output"></pre></template>
+													</li>
+												</template>
+											</ul>
+										</div>
+									</template>
+								</div>
+							</template>
+						</div>
+					</template>
+				</div>
+			</section>
+
+			<!-- Settings -->
+			<div class="stack" x-show="tab === 'settings'">
+				<section class="card">
+					<div class="card-head"><h2>{{ _("Migrate") }}</h2></div>
+					<div class="card-body row between">
+						<span class="muted">{{ _("Run database migrations (bench migrate) for this site.") }}</span>
+						<button class="btn" type="button" :disabled="site.status !== 'Active' || busy.migrate"
+							@click="run('migrate', {}, __('Run migrate on {0}?', [site.name]))">{{ _("Migrate") }}</button>
+					</div>
+				</section>
+				<section class="card" x-show="site.can_drop">
+					<div class="card-head"><h2 style="color: var(--nx-danger)">{{ _("Drop site") }}</h2></div>
+					<div class="card-body stack">
+						<span class="muted">{{ _("The site is backed up and then deleted from the server. This cannot be undone.") }}</span>
+						<div class="row">
+							<input class="input ltr" style="max-width: 320px" type="text" x-model="dropConfirm" :placeholder="site.name">
+							<button class="btn danger solid" type="button" :disabled="dropConfirm !== site.name || busy.drop || ['Moving', 'Archived'].includes(site.status)" @click="drop()">{{ _("Drop site") }}</button>
+						</div>
+						<span class="small muted">{{ _("Type the site name to confirm") }}</span>
+					</div>
+				</section>
+			</div>
+		</div>
+	</template>
+</div>
+{% endblock %}

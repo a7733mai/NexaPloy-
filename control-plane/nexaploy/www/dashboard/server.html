@@ -1,0 +1,118 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block page_title %}<a href="/dashboard/servers" class="muted">{{ _("Servers") }}</a> <span class="muted">/</span> <span class="ltr" id="nx-server-title"></span>{% endblock %}
+
+{% block content %}
+<div class="stack" x-data="nxServer" x-cloak x-effect="if (server) document.getElementById('nx-server-title').textContent = server.hostname || server.name">
+	<template x-if="loading && !server"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+	<template x-if="error && !server"><div class="alert danger" x-text="error"></div></template>
+
+	<template x-if="server">
+		<div class="stack">
+			<div class="grid cols-2">
+				<section class="card">
+					<div class="card-head">
+						<h2 class="ltr" x-text="server.hostname || server.name"></h2>
+						<span :class="nx.statusClass(server.status)" x-text="__(server.status)"></span>
+					</div>
+					<div class="card-body">
+						<dl class="kv">
+							<dt>{{ _("Server ID") }}</dt><dd class="mono" x-text="server.server_id"></dd>
+							<dt>{{ _("Type") }}</dt><dd x-text="__(server.ownership)"></dd>
+							<dt>{{ _("Last heartbeat") }}</dt>
+							<dd><span x-text="nx.ago(server.heartbeat_age)"></span> <span class="small muted" x-text="server.last_heartbeat ? '(' + nx.fmtDate(server.last_heartbeat) + ')' : ''"></span></dd>
+							<dt>{{ _("Agent version") }}</dt><dd class="mono" x-text="server.agent_version || '—'"></dd>
+							<dt>{{ _("Plan") }}</dt>
+							<dd>
+								<template x-if="server.plan_info"><span x-text="server.plan_info.title + ' · ' + nx.money(server.plan_info.price_monthly, server.plan_info.currency) + ' ' + __('/ month')"></span></template>
+								<template x-if="!server.plan_info"><span class="muted">—</span></template>
+							</dd>
+							<dt>{{ _("Created") }}</dt><dd x-text="nx.fmtDate(server.creation)"></dd>
+						</dl>
+						<template x-if="server.status === 'Offline'">
+							<div class="alert warning" style="margin-block-start: 14px">{{ _("No heartbeat for more than 5 minutes. Check that the server is running and the nexaploy-agent service is active.") }}</div>
+						</template>
+					</div>
+				</section>
+
+				<section class="card">
+					<div class="card-head"><h2>{{ _("Facts") }}</h2></div>
+					<div class="card-body">
+						<template x-if="!facts.length"><div class="muted">{{ _("The agent has not reported any facts yet.") }}</div></template>
+						<dl class="kv" x-show="facts.length">
+							<template x-for="f in facts" :key="f[0]">
+								<div style="display: contents"><dt class="mono small" x-text="f[0]"></dt><dd class="small ltr" x-text="f[1]"></dd></div>
+							</template>
+						</dl>
+					</div>
+				</section>
+			</div>
+
+			<section class="card">
+				<div class="card-head">
+					<h2>{{ _("Benches") }}</h2>
+					<a class="btn sm primary" :href="'/dashboard/sites?new=1&server=' + encodeURIComponent(server.name)" x-show="server.benches.length">{{ _("New Site") }}</a>
+				</div>
+				<div class="card-body flush table-wrap">
+					<template x-if="!server.benches.length"><div class="empty">{{ _("No benches on this server yet.") }}</div></template>
+					<table class="nx-table" x-show="server.benches.length">
+						<thead><tr><th>{{ _("Bench") }}</th><th>{{ _("Version") }}</th><th>{{ _("Image") }}</th><th>{{ _("Sites") }}</th><th>{{ _("Status") }}</th></tr></thead>
+						<tbody>
+							<template x-for="b in server.benches" :key="b.name">
+								<tr>
+									<td class="ltr" x-text="b.bench_name"></td>
+									<td x-text="b.frappe_major ? 'v' + b.frappe_major : ''"></td>
+									<td class="mono small ellipsis" style="max-width: 320px" x-text="b.image_tag"></td>
+									<td x-text="b.sites"></td>
+									<td><span :class="nx.statusClass(b.status)" x-text="__(b.status)"></span></td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section class="card">
+				<div class="card-head"><h2>{{ _("Jobs") }}</h2></div>
+				<div class="card-body flush">
+					<template x-if="!server.jobs.length"><div class="empty">{{ _("No jobs yet.") }}</div></template>
+					<template x-for="j in server.jobs" :key="j.name">
+						<div style="border-block-end: 1px solid var(--nx-border)">
+							<div class="row" style="padding: 10px 18px; cursor: pointer" @click="toggleJob(j.name)">
+								<span class="mono" x-text="j.kind"></span>
+								<span class="small muted ltr" x-text="j.reference_name"></span>
+								<span class="spacer"></span>
+								<span class="small muted nowrap" x-text="nx.fmtDate(j.creation)"></span>
+								<span :class="nx.statusClass(j.status)" x-text="__(j.status)"></span>
+							</div>
+							<template x-if="openJob === j.name">
+								<div style="padding: 0 18px 14px">
+									<template x-if="!jobDetail"><div class="loading"><span class="spinner"></span></div></template>
+									<template x-if="jobDetail">
+										<div class="stack">
+											<template x-if="jobDetail.error"><pre class="log" x-text="jobDetail.error"></pre></template>
+											<template x-if="!jobDetail.steps.length"><div class="small muted">{{ _("Waiting for the server agent to pick up this job…") }}</div></template>
+											<ul class="steps">
+												<template x-for="s in jobDetail.steps" :key="s.idx">
+													<li>
+														<div class="step-head" @click="toggleStep(s.idx)">
+															<span class="small muted" x-text="s.idx"></span>
+															<span class="name" x-text="s.name"></span>
+															<span :class="nx.statusClass(s.status)" x-text="__(s.status)"></span>
+														</div>
+														<template x-if="openSteps[s.idx] && s.output"><pre class="log" x-text="s.output"></pre></template>
+													</li>
+												</template>
+											</ul>
+										</div>
+									</template>
+								</div>
+							</template>
+						</div>
+					</template>
+				</div>
+			</section>
+		</div>
+	</template>
+</div>
+{% endblock %}

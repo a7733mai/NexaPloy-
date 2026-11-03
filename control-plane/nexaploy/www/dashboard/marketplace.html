@@ -1,0 +1,51 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block content %}
+<div class="stack" x-data="nxMarketplace" x-cloak>
+	<div class="card card-body row">
+		<label class="field" style="flex: 1 1 220px">
+			<span class="small muted">{{ _("Search") }}</span>
+			<input class="input" type="search" x-model="q" placeholder="{{ _('Search apps') }}">
+		</label>
+		<label class="field" style="flex: 0 1 180px">
+			<span class="small muted">{{ _("Frappe version") }}</span>
+			<select class="input" x-model="major">
+				<option value="">{{ _("All versions") }}</option>
+				<template x-for="m in majors" :key="m"><option :value="m" x-text="'v' + m"></option></template>
+			</select>
+		</label>
+		<label class="field" style="flex: 0 1 200px">
+			<span class="small muted">{{ _("Category") }}</span>
+			<select class="input" x-model="category">
+				<option value="">{{ _("All categories") }}</option>
+				<template x-for="c in categories" :key="c"><option :value="c" x-text="__(c)"></option></template>
+			</select>
+		</label>
+	</div>
+
+	<template x-if="loading"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+	<template x-if="error"><div class="alert danger" x-text="error"></div></template>
+	<template x-if="!loading && !error && !filtered.length"><div class="card empty">{{ _("No apps match your filters.") }}</div></template>
+
+	<div class="grid cards" x-show="!loading">
+		<template x-for="a in filtered" :key="a.app_name">
+			<article class="card app-card">
+				<div class="row between">
+					<div class="title" x-text="a.title"></div>
+					<span class="price" x-text="a.pricing === 'Paid' ? nx.money(a.price_monthly) + ' ' + __('/ month') : __('Free')"></span>
+				</div>
+				<div class="small muted"><span class="ltr" x-text="a.app_name"></span><template x-if="a.publisher"><span x-text="' · ' + a.publisher"></span></template></div>
+				<div class="desc" x-text="plain(a.description || '')"></div>
+				<div class="chips">
+					<template x-if="a.category"><span class="chip" x-text="__(a.category)"></span></template>
+					<template x-for="m in majorsOf(a)" :key="m"><span class="chip ltr" x-text="m"></span></template>
+				</div>
+				<div class="row" style="margin-block-start: auto">
+					<a class="btn sm" :href="a.repo_url" target="_blank" rel="noopener" x-show="a.repo_url">{{ _("Source code") }}</a>
+				</div>
+			</article>
+		</template>
+	</div>
+	<p class="small muted">{{ _("Apps are installed per site from the site's Apps tab. A site can only use apps that are part of its bench.") }}</p>
+</div>
+{% endblock %}

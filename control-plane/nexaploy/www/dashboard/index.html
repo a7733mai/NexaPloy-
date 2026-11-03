@@ -1,0 +1,116 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block topbar_actions %}
+<a class="btn primary" href="/dashboard/sites?new=1">{{ _("New Site") }}</a>
+{% endblock %}
+
+{% block content %}
+<div class="stack" x-data="nxOverview" x-cloak>
+	<template x-if="loading && !data"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+	<template x-if="error"><div class="alert danger" x-text="error"></div></template>
+
+	<template x-if="data">
+		<div class="stack">
+			<div class="grid cols-4">
+				<a class="card stat" href="/dashboard/sites">
+					<div class="label">{{ _("Sites") }}</div>
+					<div class="value" x-text="data.sites.total"></div>
+					<div class="sub"><span x-text="count('sites', 'Active')"></span> {{ _("active") }} · <span x-text="count('sites', 'Broken')"></span> {{ _("broken") }}</div>
+				</a>
+				<a class="card stat" href="/dashboard/servers">
+					<div class="label">{{ _("Servers") }}</div>
+					<div class="value" x-text="data.servers.total"></div>
+					<div class="sub"><span x-text="count('servers', 'Active')"></span> {{ _("active") }} · <span x-text="count('servers', 'Offline')"></span> {{ _("offline") }}</div>
+				</a>
+				<div class="card stat">
+					<div class="label">{{ _("Running jobs") }}</div>
+					<div class="value" x-text="data.active_jobs"></div>
+					<div class="sub">{{ _("of the last 10 jobs") }}</div>
+				</div>
+				<template x-if="billing">
+					<a class="card stat" href="/dashboard/billing">
+						<div class="label">{{ _("Unpaid invoices") }}</div>
+						<div class="value" x-text="billing.unpaid"></div>
+						<div class="sub"><span x-text="billing.total"></span> {{ _("invoices in total") }}</div>
+					</a>
+				</template>
+			</div>
+
+			<div class="grid cols-2">
+				<section class="card">
+					<div class="card-head">
+						<h2>{{ _("Sites") }}</h2>
+						<a class="btn sm" href="/dashboard/sites">{{ _("View all") }}</a>
+					</div>
+					<div class="card-body flush">
+						<template x-if="!data.sites.recent.length">
+							<div class="empty">
+								<p>{{ _("You have no sites yet.") }}</p>
+								<a class="btn primary" href="/dashboard/sites?new=1">{{ _("Create your first site") }}</a>
+							</div>
+						</template>
+						<table class="nx-table" x-show="data.sites.recent.length">
+							<tbody>
+								<template x-for="s in data.sites.recent" :key="s.name">
+									<tr class="clickable" @click="location.href = '/dashboard/site?name=' + encodeURIComponent(s.name)">
+										<td class="ltr" x-text="s.name"></td>
+										<td class="actions"><span :class="nx.statusClass(s.status)" x-text="__(s.status)"></span></td>
+									</tr>
+								</template>
+							</tbody>
+						</table>
+					</div>
+				</section>
+
+				<section class="card">
+					<div class="card-head">
+						<h2>{{ _("Servers") }}</h2>
+						<a class="btn sm" href="/dashboard/servers?add=1">{{ _("Add your own server") }}</a>
+					</div>
+					<div class="card-body flush">
+						<template x-if="!data.servers.recent.length">
+							<div class="empty">
+								<p>{{ _("Connect a server you own (BYOS) or deploy on our shared hosting.") }}</p>
+							</div>
+						</template>
+						<table class="nx-table" x-show="data.servers.recent.length">
+							<tbody>
+								<template x-for="s in data.servers.recent" :key="s.name">
+									<tr class="clickable" @click="location.href = '/dashboard/server?name=' + encodeURIComponent(s.name)">
+										<td><div class="ltr" x-text="s.hostname || s.name"></div><div class="small muted" x-text="__(s.ownership)"></div></td>
+										<td class="small muted">{{ _("Heartbeat") }}: <span x-text="nx.since(s.last_heartbeat)"></span></td>
+										<td class="actions"><span :class="nx.statusClass(s.status)" x-text="__(s.status)"></span></td>
+									</tr>
+								</template>
+							</tbody>
+						</table>
+					</div>
+				</section>
+			</div>
+
+			<section class="card">
+				<div class="card-head"><h2>{{ _("Recent jobs") }}</h2></div>
+				<div class="card-body flush table-wrap">
+					<template x-if="!data.recent_jobs.length"><div class="empty">{{ _("No jobs yet.") }}</div></template>
+					<table class="nx-table" x-show="data.recent_jobs.length">
+						<thead><tr><th>{{ _("Job") }}</th><th>{{ _("Target") }}</th><th>{{ _("Created") }}</th><th>{{ _("Status") }}</th></tr></thead>
+						<tbody>
+							<template x-for="j in data.recent_jobs" :key="j.name">
+								<tr>
+									<td class="mono" x-text="j.kind"></td>
+									<td>
+										<template x-if="j.reference_doctype === 'Site'"><a class="ltr" :href="'/dashboard/site?name=' + encodeURIComponent(j.reference_name) + '#jobs'" x-text="j.reference_name"></a></template>
+										<template x-if="j.reference_doctype !== 'Site'"><span class="ltr" x-text="j.reference_name || j.server"></span></template>
+									</td>
+									<td class="small muted nowrap" x-text="nx.fmtDate(j.creation)"></td>
+									<td><span :class="nx.statusClass(j.status)" x-text="__(j.status)"></span></td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</div>
+	</template>
+</div>
+{% endblock %}

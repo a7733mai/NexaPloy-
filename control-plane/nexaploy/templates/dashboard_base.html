@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="{{ lang or 'en' }}" dir="{{ dir or 'ltr' }}">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="robots" content="noindex">
+	<title>{{ title or _("Dashboard") }} · Nexaploy</title>
+	<link rel="stylesheet" href="/assets/nexaploy/css/dashboard.css">
+	<script>
+		window.frappe = window.frappe || {};
+		window.frappe.csrf_token = {{ (csrf_token or "") | tojson }};
+		window.NX_BOOT = {{ (boot or {}) | tojson }};
+	</script>
+	<script defer src="/assets/nexaploy/js/dashboard.js"></script>
+	<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+	{% block head %}{% endblock %}
+</head>
+<body class="nx">
+<div class="nx-shell" x-data="{ navOpen: false }" :class="{ 'nav-open': navOpen }">
+	<aside class="nx-sidebar" aria-label="{{ _('Navigation') }}">
+		<a class="nx-brand" href="/dashboard"><span class="nx-logo">N</span><span>Nexaploy</span></a>
+		<nav class="nx-nav">
+			<a href="/dashboard" class="{{ 'active' if page == 'overview' else '' }}">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+				<span>{{ _("Overview") }}</span>
+			</a>
+			<a href="/dashboard/sites" class="{{ 'active' if page in ('sites', 'site') else '' }}">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+				<span>{{ _("Sites") }}</span>
+			</a>
+			<a href="/dashboard/servers" class="{{ 'active' if page in ('servers', 'server') else '' }}">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></svg>
+				<span>{{ _("Servers") }}</span>
+			</a>
+			<a href="/dashboard/marketplace" class="{{ 'active' if page == 'marketplace' else '' }}">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16l-1.5 12h-13z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>
+				<span>{{ _("Marketplace") }}</span>
+			</a>
+			<a href="/dashboard/billing" class="{{ 'active' if page == 'billing' else '' }}">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>
+				<span>{{ _("Billing") }}</span>
+			</a>
+			{% if is_admin %}
+			<a href="/app">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>
+				<span>{{ _("Admin desk") }}</span>
+			</a>
+			{% endif %}
+		</nav>
+		<div class="nx-sidebar-foot">
+			<div class="nx-user" title="{{ user }}">{{ user_fullname or user }}</div>
+			<div class="small muted ellipsis">{{ user }}</div>
+			<div class="row small" style="margin-block-start: 8px">
+				<a href="/update-profile">{{ _("Profile") }}</a>
+				<span class="muted">·</span>
+				<a href="/api/method/web_logout">{{ _("Log out") }}</a>
+			</div>
+		</div>
+	</aside>
+	<div class="nx-backdrop" @click="navOpen = false"></div>
+	<main class="nx-main">
+		<header class="nx-topbar">
+			<button class="btn ghost sm nx-menu-btn" type="button" @click="navOpen = !navOpen" aria-label="{{ _('Menu') }}">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+			</button>
+			<h1 class="ellipsis">{% block page_title %}{{ title }}{% endblock %}</h1>
+			{% block topbar_actions %}{% endblock %}
+		</header>
+		<div class="nx-content">
+			{% block content %}{% endblock %}
+		</div>
+	</main>
+</div>
+<div class="nx-toasts" id="nx-toasts" aria-live="polite"></div>
+<noscript><div class="alert warning" style="margin: 16px">{{ _("The dashboard needs JavaScript.") }}</div></noscript>
+{% block scripts %}{% endblock %}
+</body>
+</html>

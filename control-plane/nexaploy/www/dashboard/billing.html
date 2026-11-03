@@ -1,0 +1,43 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block content %}
+<div class="stack" x-data="nxBilling" x-cloak>
+	<section class="card">
+		<div class="card-head">
+			<h2>{{ _("Invoices") }}</h2>
+			<label class="row small" x-show="gateways.length > 1">
+				<span class="muted">{{ _("Pay with") }}</span>
+				<select class="input" style="width: auto" x-model="gateway">
+					<template x-for="g in gateways" :key="g"><option :value="g" x-text="__(g)"></option></template>
+				</select>
+			</label>
+			<button class="btn sm" type="button" @click="load()" :disabled="loading">{{ _("Refresh") }}</button>
+		</div>
+		<div class="card-body flush table-wrap">
+			<template x-if="loading"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+			<template x-if="!loading && unavailable"><div class="empty">{{ _("Billing is not available yet.") }}</div></template>
+			<template x-if="!loading && error"><div class="alert danger" x-text="error"></div></template>
+			<template x-if="!loading && !unavailable && !error && !invoices.length"><div class="empty">{{ _("No invoices yet.") }}</div></template>
+			<table class="nx-table" x-show="!loading && invoices.length">
+				<thead><tr><th>{{ _("Invoice") }}</th><th>{{ _("Period") }}</th><th>{{ _("Due date") }}</th><th>{{ _("Amount") }}</th><th>{{ _("Status") }}</th><th></th></tr></thead>
+				<tbody>
+					<template x-for="inv in invoices" :key="inv.name">
+						<tr>
+							<td class="mono" x-text="inv.name"></td>
+							<td class="small nowrap" x-text="period(inv)"></td>
+							<td class="small nowrap" x-text="inv.due_date || ''"></td>
+							<td class="nowrap" x-text="amount(inv)"></td>
+							<td><span :class="nx.statusClass(inv.status)" x-text="__(inv.status)"></span></td>
+							<td class="actions">
+								<button class="btn sm primary" type="button" x-show="unpaid(inv)" :disabled="paying === inv.name" @click="pay(inv)">
+									<span class="spinner" x-show="paying === inv.name"></span> {{ _("Pay") }}
+								</button>
+							</td>
+						</tr>
+					</template>
+				</tbody>
+			</table>
+		</div>
+	</section>
+</div>
+{% endblock %}

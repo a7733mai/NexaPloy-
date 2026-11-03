@@ -1,0 +1,230 @@
+Servers,الخوادم
+Loading…,جارٍ التحميل…
+Server ID,معرّف الخادم
+Type,النوع
+Last heartbeat,آخر نبضة
+Agent version,إصدار الوكيل
+Plan,الخطة
+/ month,/ شهريًا
+Created,تاريخ الإنشاء
+No heartbeat for more than 5 minutes. Check that the server is running and the nexaploy-agent service is active.,لم تصل أي نبضة منذ أكثر من 5 دقائق. تأكد من أن الخادم يعمل وأن خدمة nexaploy-agent نشطة.
+Facts,معلومات الخادم
+The agent has not reported any facts yet.,لم يُرسل الوكيل أي معلومات بعد.
+Benches,البيئات (Benches)
+New Site,موقع جديد
+No benches on this server yet.,لا توجد بيئات على هذا الخادم بعد.
+Bench,البيئة (Bench)
+Version,الإصدار
+Image,الصورة
+Sites,المواقع
+Status,الحالة
+Jobs,المهام
+No jobs yet.,لا توجد مهام بعد.
+Waiting for the server agent to pick up this job…,بانتظار أن يستلم وكيل الخادم هذه المهمة…
+Add your own server,أضف خادمك الخاص
+Close,إغلاق
+Bring a fresh Ubuntu 22.04 or 24.04 server from any provider. Nexaploy installs its agent and manages benches and sites on it; your sites keep running even if you remove the agent.,استخدم خادم Ubuntu 22.04 أو 24.04 جديدًا من أي مزوّد. يثبّت Nexaploy وكيله عليه ويدير البيئات والمواقع؛ وتستمر مواقعك في العمل حتى لو أزلت الوكيل.
+per server per month for management. You pay your server provider directly.,لكل خادم شهريًا مقابل الإدارة. تدفع لمزوّد الخادم مباشرةً.
+Generate install command,إنشاء أمر التثبيت
+Run this command as root on your server:,شغّل هذا الأمر بصلاحيات root على خادمك:
+Copy,نسخ
+The token can be used once and expires on,يمكن استخدام الرمز مرة واحدة وتنتهي صلاحيته في
+Waiting for your server to register…,بانتظار تسجيل خادمك…
+"Server registered, waiting for the first heartbeat…",تم تسجيل الخادم، بانتظار أول نبضة…
+Your server is connected and active.,خادمك متصل ونشط.
+Open server,فتح الخادم
+This token has expired.,انتهت صلاحية هذا الرمز.
+Generate a new command,إنشاء أمر جديد
+You have no servers yet. Sites can also run on our shared hosting.,لا توجد لديك خوادم بعد. يمكن تشغيل المواقع أيضًا على الاستضافة المشتركة لدينا.
+Server,الخادم
+Heartbeat,النبضة
+Open site,فتح الموقع
+Open desk,فتح لوحة الإدارة
+Frappe version,إصدار Frappe
+Shared hosting,استضافة مشتركة
+The site is being created. This page refreshes automatically.,يجري إنشاء الموقع. تتحدّث هذه الصفحة تلقائيًا.
+The site is being moved to another bench. Actions are disabled until the move finishes.,يجري نقل الموقع إلى بيئة أخرى. الإجراءات معطّلة حتى ينتهي النقل.
+"The last operation failed. Check the jobs log, restore a backup or contact support.",فشلت العملية الأخيرة. راجع سجل المهام أو استعد نسخة احتياطية أو تواصل مع الدعم.
+Apps,التطبيقات
+Domains,النطاقات
+Backups,النسخ الاحتياطية
+Settings,الإعدادات
+Installed apps,التطبيقات المثبّتة
+Installed,مثبّت
+Uninstall {0}? Its data will be removed from the site.,إلغاء تثبيت {0}؟ ستُحذف بياناته من الموقع.
+Uninstall,إلغاء التثبيت
+Available apps,التطبيقات المتاحة
+Marketplace,متجر التطبيقات
+All apps of this bench are installed. More apps need a bench with those apps.,جميع تطبيقات هذه البيئة مثبّتة. تحتاج التطبيقات الإضافية إلى بيئة تحتوي عليها.
+Free,مجاني
+Install,تثبيت
+Add domain,إضافة نطاق
+"Point a CNAME (or A record) for the domain to your site before adding it, so the certificate can be issued.",وجّه سجل CNAME (أو سجل A) للنطاق إلى موقعك قبل إضافته حتى يمكن إصدار الشهادة.
+Primary,أساسي
+Remove domain {0}?,إزالة النطاق {0}؟
+Remove,إزالة
+Include files,تضمين الملفات
+Backup now,نسخ احتياطي الآن
+No backups yet.,لا توجد نسخ احتياطية بعد.
+Files,الملفات
+Size,الحجم
+Yes,نعم
+No,لا
+Restore this backup? The current data of {0} will be replaced.,استعادة هذه النسخة الاحتياطية؟ ستُستبدل البيانات الحالية لـ {0}.
+Restore,استعادة
+Refreshing automatically,يتحدّث تلقائيًا
+Migrate,ترحيل قاعدة البيانات
+Run database migrations (bench migrate) for this site.,تشغيل ترحيلات قاعدة البيانات (bench migrate) لهذا الموقع.
+Run migrate on {0}?,تشغيل الترحيل على {0}؟
+Drop site,حذف الموقع
+The site is backed up and then deleted from the server. This cannot be undone.,يُنسخ الموقع احتياطيًا ثم يُحذف من الخادم. لا يمكن التراجع عن ذلك.
+Type the site name to confirm,اكتب اسم الموقع للتأكيد
+Search,بحث
+Search apps,ابحث في التطبيقات
+All versions,كل الإصدارات
+Category,الفئة
+All categories,كل الفئات
+No apps match your filters.,لا توجد تطبيقات تطابق عوامل التصفية.
+Source code,الشيفرة المصدرية
+Apps are installed per site from the site's Apps tab. A site can only use apps that are part of its bench.,تُثبّت التطبيقات لكل موقع من تبويب التطبيقات الخاص به. يمكن للموقع استخدام تطبيقات بيئته فقط.
+Your site is being created. This usually takes a few minutes.,يجري إنشاء موقعك. يستغرق ذلك عادةً بضع دقائق.
+Site,الموقع
+Login,اسم الدخول
+Administrator password,كلمة مرور المسؤول
+Save this password now. It will not be shown again.,احفظ كلمة المرور هذه الآن، فلن تُعرض مرة أخرى.
+Follow progress,متابعة التقدّم
+Create another site,إنشاء موقع آخر
+No bench is available for new sites yet. Add your own server or contact support.,لا توجد بيئة متاحة للمواقع الجديدة بعد. أضف خادمك الخاص أو تواصل مع الدعم.
+Choose where to deploy,اختر مكان النشر
+Your servers,خوادمك
+apps,تطبيقات
+Site name,اسم الموقع
+"On your own server you can also enter a full domain, e.g. erp.example.com.",على خادمك الخاص يمكنك أيضًا إدخال نطاق كامل، مثل erp.example.com.
+Your site will be available at,سيكون موقعك متاحًا على
+This bench only has the Frappe framework.,تحتوي هذه البيئة على إطار Frappe فقط.
+No plan (included in your server),بدون خطة (مشمول في خادمك)
+Create site,إنشاء الموقع
+Search sites,ابحث في المواقع
+You have no sites yet.,لا توجد لديك مواقع بعد.
+active,نشط
+broken,معطّل
+offline,غير متصل
+Running jobs,المهام الجارية
+of the last 10 jobs,من آخر 10 مهام
+Unpaid invoices,فواتير غير مدفوعة
+invoices in total,فاتورة إجمالًا
+View all,عرض الكل
+Create your first site,أنشئ موقعك الأول
+Connect a server you own (BYOS) or deploy on our shared hosting.,اربط خادمًا تملكه (BYOS) أو انشر على الاستضافة المشتركة لدينا.
+Recent jobs,أحدث المهام
+Job,المهمة
+Target,الهدف
+Invoices,الفواتير
+Pay with,الدفع عبر
+Refresh,تحديث
+Billing is not available yet.,الفوترة غير متاحة بعد.
+No invoices yet.,لا توجد فواتير بعد.
+Invoice,الفاتورة
+Period,الفترة
+Due date,تاريخ الاستحقاق
+Amount,المبلغ
+Pay,ادفع
+Dashboard,لوحة التحكم
+Navigation,التنقل
+Overview,نظرة عامة
+Billing,الفوترة
+Admin desk,لوحة الإدارة
+Profile,الملف الشخصي
+Log out,تسجيل الخروج
+Menu,القائمة
+The dashboard needs JavaScript.,تحتاج لوحة التحكم إلى JavaScript.
+Request failed ({0}),فشل الطلب ({0})
+Network error. Check your connection.,خطأ في الشبكة. تحقّق من اتصالك.
+Copied to clipboard,تم النسخ إلى الحافظة
+Copy failed,فشل النسخ
+never,أبدًا
+just now,الآن
+{0} min ago,منذ {0} دقيقة
+{0} h ago,منذ {0} ساعة
+{0} d ago,منذ {0} يوم
+Choose a bench,اختر بيئة
+Enter a subdomain,أدخل نطاقًا فرعيًا
+No site selected,لم يتم اختيار موقع
+Job queued: {0},أُضيفت المهمة إلى قائمة الانتظار: {0}
+Server {0} is connected,الخادم {0} متصل
+No server selected,لم يتم اختيار خادم
+No payment method is available. Please contact support.,لا توجد وسيلة دفع متاحة. يرجى التواصل مع الدعم.
+Payment submitted,تم إرسال الدفعة
+Please log in to use the dashboard,يرجى تسجيل الدخول لاستخدام لوحة التحكم
+You need the Nexaploy Customer role to use the dashboard,تحتاج إلى دور Nexaploy Customer لاستخدام لوحة التحكم
+{0} is required,{0} مطلوب
+{0} {1} not found,{0} {1} غير موجود
+{0} {1} belongs to another team,{0} {1} يتبع فريقًا آخر
+Bench {0} not found,البيئة {0} غير موجودة
+You cannot deploy on bench {0},لا يمكنك النشر على البيئة {0}
+Unknown plan type {0},نوع خطة غير معروف {0}
+Bench {0} is not active,البيئة {0} غير نشطة
+Server {0} is archived,الخادم {0} مؤرشف
+{0} is already taken,{0} مستخدم بالفعل
+Apps {0} are not available on this bench,التطبيقات {0} غير متاحة على هذه البيئة
+Plan {0} is not an available Site plan,الخطة {0} ليست خطة مواقع متاحة
+No Site plan is available,لا توجد خطة مواقع متاحة
+Backup {0} does not belong to site {1},النسخة الاحتياطية {0} لا تخص الموقع {1}
+Backup {0} cannot be restored,لا يمكن استعادة النسخة الاحتياطية {0}
+Site {0} is {1}; it must be Active,حالة الموقع {0} هي {1}؛ يجب أن يكون نشطًا
+Agent Job {0} not found,مهمة الوكيل {0} غير موجودة
+Not allowed,غير مسموح
+Unsupported Frappe version {0},إصدار Frappe غير مدعوم {0}
+"Subdomain must have at least 3 characters (a-z, 0-9, -)",يجب أن يتكوّن النطاق الفرعي من 3 أحرف على الأقل (a-z، 0-9، -)
+Subdomain must have at most 63 characters,يجب ألا يتجاوز النطاق الفرعي 63 حرفًا
+Invalid subdomain,نطاق فرعي غير صالح
+This subdomain is reserved,هذا النطاق الفرعي محجوز
+Site name is required,اسم الموقع مطلوب
+Only one subdomain level is allowed,يُسمح بمستوى واحد فقط من النطاق الفرعي
+Custom domains are only allowed on your own servers; use a subdomain,النطاقات المخصّصة مسموحة على خوادمك الخاصة فقط؛ استخدم نطاقًا فرعيًا
+"Site name must be a lowercase FQDN, e.g. erp.example.com",يجب أن يكون اسم الموقع نطاقًا كاملًا بأحرف صغيرة، مثل erp.example.com
+apps must be a list,يجب أن تكون التطبيقات قائمة
+Backup,نسخ احتياطي
+Install app,تثبيت تطبيق
+Uninstall app,إلغاء تثبيت تطبيق
+Remove domain,إزالة نطاق
+Active,نشط
+Pending,قيد الانتظار
+Moving,قيد النقل
+Broken,معطّل
+Suspended,موقوف
+Archived,مؤرشف
+Offline,غير متصل
+Queued,في قائمة الانتظار
+Running,قيد التنفيذ
+Success,نجح
+Failure,فشل
+Failed,فشل
+Removing,قيد الإزالة
+Building,قيد البناء
+Draft,مسودة
+Unpaid,غير مدفوعة
+Paid,مدفوعة
+Overdue,متأخرة
+Void,ملغاة
+pending,قيد الانتظار
+running,قيد التنفيذ
+success,نجح
+failure,فشل
+skipped,تم التخطي
+Hosted,مستضاف
+BYOS,خادمك الخاص (BYOS)
+Manual,يدوي
+Scheduled,مجدول
+Move,نقل
+ERP,تخطيط الموارد (ERP)
+HR,الموارد البشرية
+CRM,إدارة العملاء (CRM)
+E-commerce,التجارة الإلكترونية
+Integration,تكامل
+Utility,أدوات
+Other,أخرى
+Stripe,Stripe
+Paymob,Paymob
+Server Registration Token,رمز تسجيل الخادم
+Site Backup,نسخة احتياطية للموقع

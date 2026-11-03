@@ -1,0 +1,90 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block content %}
+<div class="stack" x-data="nxServers" x-cloak>
+
+	<!-- Add your own server (BYOS) -->
+	<section class="card" x-show="adding">
+		<div class="card-head">
+			<h2>{{ _("Add your own server") }}</h2>
+			<button class="btn sm ghost" type="button" @click="adding = false">{{ _("Close") }}</button>
+		</div>
+		<div class="card-body stack">
+			<p class="muted" style="margin: 0">{{ _("Bring a fresh Ubuntu 22.04 or 24.04 server from any provider. Nexaploy installs its agent and manages benches and sites on it; your sites keep running even if you remove the agent.") }}</p>
+			<template x-if="byos">
+				<div class="alert info">
+					<b x-text="nx.money(byos.price_monthly, byos.currency)"></b> {{ _("per server per month for management. You pay your server provider directly.") }}
+				</div>
+			</template>
+
+			<template x-if="stage === 'start'">
+				<div class="row">
+					<button class="btn primary" type="button" :disabled="generating" @click="generate()">
+						<span class="spinner" x-show="generating"></span> {{ _("Generate install command") }}
+					</button>
+				</div>
+			</template>
+
+			<template x-if="token">
+				<div class="stack">
+					<div>
+						<div style="font-weight: 550; margin-block-end: 6px">{{ _("Run this command as root on your server:") }}</div>
+						<div class="codebox mono"><span x-text="token.install_command"></span><button class="btn sm" type="button" @click="nx.copy(token.install_command)">{{ _("Copy") }}</button></div>
+						<div class="small muted" style="margin-block-start: 6px">
+							{{ _("The token can be used once and expires on") }} <span class="ltr" x-text="nx.fmtDate(token.expires_on)"></span>.
+						</div>
+					</div>
+
+					<div class="alert info row" x-show="stage === 'waiting'">
+						<span class="spinner"></span> {{ _("Waiting for your server to register…") }}
+					</div>
+					<div class="alert info row" x-show="stage === 'registered'">
+						<span class="spinner"></span>
+						<span>{{ _("Server registered, waiting for the first heartbeat…") }} <span class="ltr" x-text="reg && reg.server ? (reg.server.hostname || reg.server.name) : ''"></span></span>
+					</div>
+					<div class="alert success" x-show="stage === 'active'">
+						{{ _("Your server is connected and active.") }}
+						<a :href="reg && reg.server ? '/dashboard/server?name=' + encodeURIComponent(reg.server.name) : '#'">{{ _("Open server") }}</a>
+					</div>
+					<div class="alert warning row" x-show="stage === 'expired'">
+						<span>{{ _("This token has expired.") }}</span>
+						<button class="btn sm" type="button" @click="generate()">{{ _("Generate a new command") }}</button>
+					</div>
+				</div>
+			</template>
+		</div>
+	</section>
+
+	<section class="card">
+		<div class="card-head">
+			<h2>{{ _("Servers") }}</h2>
+			<button class="btn primary" type="button" x-show="!adding" @click="adding = true">{{ _("Add your own server") }}</button>
+		</div>
+		<div class="card-body flush table-wrap">
+			<template x-if="loading"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+			<template x-if="error"><div class="alert danger" x-text="error"></div></template>
+			<template x-if="!loading && !error && !servers.length">
+				<div class="empty">
+					<p>{{ _("You have no servers yet. Sites can also run on our shared hosting.") }}</p>
+					<button class="btn primary" type="button" @click="adding = true">{{ _("Add your own server") }}</button>
+				</div>
+			</template>
+			<table class="nx-table" x-show="servers.length">
+				<thead><tr><th>{{ _("Server") }}</th><th>{{ _("Type") }}</th><th>{{ _("Benches") }}</th><th>{{ _("Sites") }}</th><th>{{ _("Heartbeat") }}</th><th>{{ _("Status") }}</th></tr></thead>
+				<tbody>
+					<template x-for="s in servers" :key="s.name">
+						<tr class="clickable" @click="location.href = '/dashboard/server?name=' + encodeURIComponent(s.name)">
+							<td><div class="ltr" x-text="s.hostname || s.name"></div><div class="small muted mono" x-text="s.server_id"></div></td>
+							<td x-text="__(s.ownership)"></td>
+							<td x-text="s.benches"></td>
+							<td x-text="s.sites"></td>
+							<td class="small muted nowrap" x-text="nx.ago(s.heartbeat_age)"></td>
+							<td><span :class="nx.statusClass(s.status)" x-text="__(s.status)"></span></td>
+						</tr>
+					</template>
+				</tbody>
+			</table>
+		</div>
+	</section>
+</div>
+{% endblock %}
