@@ -44,8 +44,27 @@ class Server(Document):
 		return {"server_id": self.server_id, "server_token": token}
 
 	@frappe.whitelist()
+	def health_check(self):
+		"""Enqueue server.health (fresh facts/metrics outside the heartbeat cycle)."""
+		self.check_permission("read")
+		from nexaploy.agent_job import create_agent_job
+
+		return create_agent_job(self.name, "server.health", {}, self.doctype, self.name).name
+
+	@frappe.whitelist()
+	def configure_backups(self):
+		"""Re-push the backup storage from Nexaploy Settings (server.configure_backups)."""
+		frappe.only_for("System Manager")
+		from nexaploy.ops import configure_backups
+
+		return configure_backups(self.name)
+
+	@frappe.whitelist()
 	def archive(self):
 		self.check_permission("write")
 		self.on_trash()
 		self.db_set("status", "Archived")
 		self.db_set("token_hash", None)
+		from nexaploy.ops import sync_billing
+
+		sync_billing(self)

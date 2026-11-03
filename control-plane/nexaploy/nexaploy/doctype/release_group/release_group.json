@@ -12,6 +12,8 @@
   "column_break_1",
   "team",
   "build_server",
+  "auto_update",
+  "update_window",
   "section_break_apps",
   "apps"
  ],
@@ -59,6 +61,20 @@
    "options": "Server"
   },
   {
+   "default": "0",
+   "description": "Roll benches of this group to every new successful build (inside the update window).",
+   "fieldname": "auto_update",
+   "fieldtype": "Check",
+   "label": "Auto Update"
+  },
+  {
+   "depends_on": "auto_update",
+   "description": "Server-local time, e.g. 02:00-05:00. Empty = any time.",
+   "fieldname": "update_window",
+   "fieldtype": "Data",
+   "label": "Update Window"
+  },
+  {
    "fieldname": "section_break_apps",
    "fieldtype": "Section Break",
    "label": "Apps"
@@ -73,7 +89,7 @@
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-03 12:00:00.000000",
+ "modified": "2026-11-10 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Release Group",

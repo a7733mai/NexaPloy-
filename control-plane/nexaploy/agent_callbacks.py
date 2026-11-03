@@ -9,7 +9,9 @@ dispatcher only calls them on a status change, and terminal statuses are recorde
 import json
 
 import frappe
+import frappe.utils
 
+from nexaploy import ops_utils
 from nexaploy.utils import TERMINAL_JOB_STATUSES, extract_backup_info
 
 HANDLERS = {}
@@ -75,6 +77,12 @@ def _save(doc):
 	doc.save()
 
 
+def _sync_billing(doc):
+	from nexaploy.ops import sync_billing
+
+	sync_billing(doc)
+
+
 # --------------------------------------------------------------------------- images
 
 
@@ -93,6 +101,13 @@ def on_image_build(job):
 		dc.build_log = _job_log(job)
 	_save(dc)
 
+	# auto updates: roll Active benches of the group to the new image (inside update_window;
+	# outside it nexaploy.tasks.apply_auto_updates picks them up later)
+	if job.status == "Success" and frappe.db.get_value("Release Group", dc.release_group, "auto_update"):
+		from nexaploy.ops import apply_auto_updates
+
+		apply_auto_updates(dc.release_group)
+
 
 # --------------------------------------------------------------------------- benches
 
@@ -106,6 +121,11 @@ def on_bench_job(job):
 		if job.kind == "bench.update":
 			params = _json(job.params, {}) or {}
 			bench.image_tag = params.get("image") or bench.image_tag
+			dc = frappe.db.get_value(
+				"Deploy Candidate", {"image_tag": bench.image_tag, "release_group": bench.release_group}, "name"
+			)
+			if dc:
+				bench.deploy_candidate = dc
 		bench.status = "Active"
 	else:
 		bench.status = "Broken"
@@ -179,6 +199,7 @@ def on_site_drop(job):
 		for row in site.domains:
 			row.status = "Removing"
 		_save(site)
+		_sync_billing(site)
 
 
 @handles("site.install_app", "site.uninstall_app")
@@ -195,6 +216,7 @@ def on_site_app(job):
 	elif ok:
 		site.apps = [row for row in site.apps if row.app != app]
 	_save(site)
+	_sync_billing(site)
 
 
 @handles("site.add_domain", "site.remove_domain")
@@ -234,6 +256,11 @@ def on_site_backup(job):
 		if info["size"] is not None:
 			backup.size = info["size"]
 		backup.created_at = info["created_at"] or job.ended_at or backup.created_at
+		# system-time clock (created_at from the agent is UTC); compared with now_datetime()
+		frappe.db.set_value(
+			"Site", backup.site, "last_backup_at", job.ended_at or frappe.utils.now_datetime(),
+			update_modified=False,
+		)
 	else:
 		backup.status = "Failure"
 	_save(backup)
@@ -242,3 +269,45 @@ def on_site_backup(job):
 	site = frappe.get_doc("Site", backup.site)
 	if site.status == "Moving" and site.move_backup == backup.name and _in_move(site, job):
 		site.move_step_finished(job)
+
+
+@handles("backup.prune_remote")
+def on_prune_remote(job):
+	"""Mark Site Backups whose remote dir was purged as Deleted."""
+	if job.status != "Success":
+		if job.status == "Failure":
+			frappe.log_error(title=f"Nexaploy: remote backup prune failed for {job.reference_name}",
+				message=job.error or "")
+		return
+	pruned = ops_utils.pruned_remote_paths(_json(job.result, {}))
+	if not pruned:
+		return
+	for row in frappe.get_all(
+		"Site Backup",
+		filters={"site": job.reference_name, "status": "Success"},
+		fields=["name", "remote_path"],
+	):
+		if ops_utils.backup_was_pruned(row.remote_path, pruned):
+			frappe.db.set_value("Site Backup", row.name, "status", "Deleted")
+
+
+# --------------------------------------------------------------------------- servers
+
+
+@handles("server.configure_backups")
+def on_configure_backups(job):
+	if job.status == "Failure":
+		frappe.log_error(title=f"Nexaploy: configure_backups failed on {job.server}", message=job.error or "")
+
+
+@handles("server.health")
+def on_server_health(job):
+	if job.status != "Success":
+		return
+	facts = _json(job.result, {}) or {}
+	if not isinstance(facts, dict):
+		return
+	frappe.db.set_value("Server", job.server, "facts", frappe.as_json(facts), update_modified=False)
+	from nexaploy.ops import record_heartbeat_metrics
+
+	record_heartbeat_metrics(job.server, facts)

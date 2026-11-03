@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import configparser
+import io
 import json
 import shutil
 from dataclasses import dataclass
@@ -63,6 +65,53 @@ def select_prunable(timestamps: Iterable[str], retention_days: int, keep_min: in
     return sorted(t for i, (dt, t) in enumerate(dated) if i >= keep_min and dt < cutoff)
 
 
+def rclone_sections(remote: str, *, provider: str, endpoint: str | None, region: str | None,
+                    bucket: str, access_key_id: str, secret_access_key: str) -> dict[str, dict[str, str]]:
+    """rclone.conf sections for an S3 backup target.
+
+    ``<remote>-s3`` holds the S3 credentials; ``<remote>`` is an ``alias`` of
+    ``<remote>-s3:<bucket>`` so every path stays ``<remote>:<prefix>/<bench>/<site>/<ts>``
+    (§5.5) regardless of the bucket.
+    """
+    s3: dict[str, str] = {
+        "type": "s3",
+        "provider": provider,
+        "env_auth": "false",
+        "access_key_id": access_key_id,
+        "secret_access_key": secret_access_key,
+    }
+    if region:
+        s3["region"] = region
+    if endpoint:
+        s3["endpoint"] = endpoint
+    s3["acl"] = "private"
+    s3["no_check_bucket"] = "true"
+    return {
+        f"{remote}-s3": s3,
+        remote: {"type": "alias", "remote": f"{remote}-s3:{bucket}"},
+    }
+
+
+def merge_rclone_conf(existing: str, sections: dict[str, dict[str, str]]) -> str:
+    """Replace ``sections`` in an rclone.conf text, keeping every other remote."""
+    cp = configparser.RawConfigParser(interpolation=None, strict=False, default_section="\0none")
+    cp.optionxform = str  # keep key case
+    try:
+        cp.read_string(existing or "")
+    except configparser.Error:
+        cp = configparser.RawConfigParser(interpolation=None, default_section="\0none")
+        cp.optionxform = str
+    for name, values in sections.items():
+        if cp.has_section(name):
+            cp.remove_section(name)
+        cp.add_section(name)
+        for k, val in values.items():
+            cp.set(name, k, val)
+    buf = io.StringIO()
+    cp.write(buf)
+    return buf.getvalue().rstrip("\n") + "\n"
+
+
 @dataclass
 class BackupLocation:
     bench: str
@@ -83,8 +132,9 @@ class BackupManager:
     def backup_dir(self, bench: str, site: str, ts: str) -> Path:
         return self.site_root(bench, site) / v.backup_id(ts)
 
-    def remote_dir(self, bench: str, site: str, ts: str | None = None) -> str:
-        parts = [self.settings.backup_prefix, v.bench_name(bench), v.site_name(site)]
+    def remote_dir(self, bench: str, site: str, ts: str | None = None, prefix: str | None = None) -> str:
+        base = v.remote_path(prefix) if prefix else self.settings.backup_prefix
+        parts = [base, v.bench_name(bench), v.site_name(site)]
         if ts:
             parts.append(v.backup_id(ts))
         return f"{self.settings.backup.remote}:{'/'.join(p for p in parts if p)}"
@@ -186,6 +236,23 @@ class BackupManager:
                     "remote_path": self.remote_dir(bench, site, ts),
                 })
         return out
+
+    def remote_ids(self, bench: str, site: str, prefix: str | None = None) -> list[str]:
+        """Dated backup dirs (``YYYYmmddTHHMMSSZ``) under the site's remote dir.
+
+        Raises :class:`BackupError` when rclone fails (a missing dir lists as empty).
+        """
+        res = self.rclone("lsf", "--dirs-only", self.remote_dir(bench, site, prefix=prefix), timeout=300)
+        if not res.ok:
+            err = (res.stderr or res.stdout).lower()
+            if "directory not found" in err or "not found" in err:
+                return []
+            raise BackupError(f"rclone lsf failed (exit {res.returncode}): {(res.stderr or '').strip()[-300:]}")
+        ids = (line.strip().rstrip("/") for line in res.stdout.splitlines())
+        return sorted(i for i in ids if v.BACKUP_ID_RE.match(i))
+
+    def purge_remote(self, bench: str, site: str, ts: str, prefix: str | None = None):
+        return self.rclone("purge", self.remote_dir(bench, site, ts, prefix=prefix))
 
     # ---- local listing / retention ---------------------------------------------------
     def local_timestamps(self, bench: str, site: str) -> list[str]:

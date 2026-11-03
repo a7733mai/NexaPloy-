@@ -1,0 +1,116 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-11-03 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "server",
+  "timestamp",
+  "load_1",
+  "column_break_1",
+  "memory_used_mb",
+  "memory_total_mb",
+  "disk_used_gb",
+  "disk_total_gb",
+  "unhealthy_containers",
+  "section_break_raw",
+  "raw"
+ ],
+ "fields": [
+  {
+   "fieldname": "server",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Server",
+   "options": "Server",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "timestamp",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Timestamp",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "load_1",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Load (1 min)"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "memory_used_mb",
+   "fieldtype": "Int",
+   "label": "Memory Used (MB)"
+  },
+  {
+   "fieldname": "memory_total_mb",
+   "fieldtype": "Int",
+   "label": "Memory Total (MB)"
+  },
+  {
+   "fieldname": "disk_used_gb",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Disk Used (GB)"
+  },
+  {
+   "fieldname": "disk_total_gb",
+   "fieldtype": "Float",
+   "label": "Disk Total (GB)"
+  },
+  {
+   "fieldname": "unhealthy_containers",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Unhealthy Containers"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_raw",
+   "fieldtype": "Section Break",
+   "label": "Raw"
+  },
+  {
+   "fieldname": "raw",
+   "fieldtype": "JSON",
+   "label": "Raw Facts"
+  }
+ ],
+ "in_create": 1,
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-10 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Server Metric",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 0,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 0
+  }
+ ],
+ "sort_field": "timestamp",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

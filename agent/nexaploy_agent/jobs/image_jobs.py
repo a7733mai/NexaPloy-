@@ -8,6 +8,7 @@ from pydantic import field_validator
 
 from .. import validation as v
 from ..runtime.image import normalise_apps_json
+from ..runtime.registry import Registry, docker_login
 from .base import BaseParams, Job
 
 BUILD_EXIT_CODES = {
@@ -26,6 +27,8 @@ class ImageBuildParams(BaseParams):
     python: str | None = None
     node: str | None = None
     push: bool = False
+    # Optional registry credentials: ``docker login --password-stdin`` before pushing.
+    registry: Registry | None = None
 
     @field_validator("tag")
     @classmethod
@@ -55,10 +58,24 @@ class ImageBuild(Job):
         self.result.update({"tag": self.p.tag, "build_dir": str(d), "log": str(d / "build.log")})
         self.log(f"apps.json written to {d / 'apps.json'}")
 
+    def login(self) -> None:
+        reg = self.p.registry
+        if not reg or not reg.has_credentials:
+            return
+        self.secret(reg.password)
+        self.log(f"logging in to registry {reg.host or 'docker.io'} as {reg.username}")
+        self.check(docker_login(self.ctx.docker, reg), "docker login")
+
     def step_build(self) -> None:
+        if self.p.push:
+            self.login()
         if self.ctx.docker.image_exists(self.p.tag):
             self.skip(f"image {self.p.tag} already exists")
             self.result["built"] = False
+            if self.p.push and not self.result.get("pushed"):
+                # A previous run may have built the image but failed to push it.
+                self.check(self.ctx.docker.run(["push", self.p.tag], timeout=3600), f"docker push {self.p.tag}")
+                self.result["pushed"] = True
             return
         res = self.ctx.images.build(
             self.p.major, self.p.tag, frappe_branch=self.p.frappe_branch,
@@ -74,7 +91,7 @@ class ImageBuild(Job):
         built = lines[-1] if lines else self.p.tag
         if built != self.p.tag:
             self.log(f"warning: build.sh reported tag {built!r}, expected {self.p.tag!r}")
-        self.result.update({"built": True, "tag": built})
+        self.result.update({"built": True, "tag": built, "pushed": bool(self.p.push)})
 
     def _log_tail(self, n: int = 60) -> str:
         try:

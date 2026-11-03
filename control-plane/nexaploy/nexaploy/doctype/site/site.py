@@ -36,6 +36,8 @@ class Site(Document):
 			if "System Manager" not in frappe.get_roles() and bench_team and bench_team != self.team:
 				raise frappe.PermissionError(_("Bench {0} belongs to another team").format(self.bench))
 			self.validate_apps_in_release_group(self.bench, [row.app for row in self.apps])
+		if (self.backup_retention_days or 0) < 0:
+			frappe.throw(_("Backup retention must be 0 (keep forever) or more days"))
 		if self.plan and frappe.db.get_value("Nexaploy Plan", self.plan, "plan_type") != "Site":
 			frappe.throw(_("Plan {0} is not a Site plan").format(self.plan))
 		seen = set()

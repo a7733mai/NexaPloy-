@@ -19,6 +19,15 @@
   "last_heartbeat",
   "column_break_2",
   "token_hash",
+  "section_break_monitoring",
+  "cpu_count",
+  "memory_total_mb",
+  "disk_total_gb",
+  "column_break_monitoring",
+  "disk_used_percent",
+  "unhealthy_containers",
+  "last_alert_at",
+  "alert_state",
   "section_break_facts",
   "facts",
   "benches_report"
@@ -113,6 +122,60 @@
    "read_only": 1
   },
   {
+   "fieldname": "section_break_monitoring",
+   "fieldtype": "Section Break",
+   "label": "Monitoring"
+  },
+  {
+   "fieldname": "cpu_count",
+   "fieldtype": "Int",
+   "label": "CPU Count",
+   "read_only": 1
+  },
+  {
+   "fieldname": "memory_total_mb",
+   "fieldtype": "Int",
+   "label": "Memory Total (MB)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "disk_total_gb",
+   "fieldtype": "Float",
+   "label": "Disk Total (GB)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_monitoring",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "disk_used_percent",
+   "fieldtype": "Float",
+   "in_list_view": 0,
+   "label": "Disk Used (%)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "unhealthy_containers",
+   "fieldtype": "Int",
+   "label": "Unhealthy Containers",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_alert_at",
+   "fieldtype": "Datetime",
+   "label": "Last Alert At",
+   "read_only": 1
+  },
+  {
+   "description": "Last alert time per kind (rate limit: 1 per 6 h per kind).",
+   "fieldname": "alert_state",
+   "fieldtype": "JSON",
+   "hidden": 1,
+   "label": "Alert State",
+   "read_only": 1
+  },
+  {
    "collapsible": 1,
    "fieldname": "section_break_facts",
    "fieldtype": "Section Break",
@@ -134,7 +197,7 @@
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-03 12:00:00.000000",
+ "modified": "2026-11-10 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Server",

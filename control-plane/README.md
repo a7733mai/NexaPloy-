@@ -48,6 +48,15 @@ location = /install.sh { alias /srv/nexaploy/agent/install/install.sh; default_t
 | Site Backup | hash | `remote_path`, `with_files`, `purpose` Manual/Scheduled/Move, `status`, `size`, `created_at` |
 | Agent Job | hash (sent to the agent as `job_id`) | `server`, `kind`, `params` (JSON), `status` Pending/Queued/Running/Success/Failure, `reference_doctype/name`, `error`, `result`, child **Agent Job Step** (`step_idx`, `step_name`, `status`, `output`, `started_at`, `ended_at`) |
 | Nexaploy Plan | `title` | `plan_type` Server Hosted/Server BYOS/Site, `price_monthly`, `currency`, `max_sites` |
+| Nexaploy Settings | single | registry (`registry_url`, `registry_username`, `registry_password`), `root_domain` (`nexaploy.cloud`), `default_build_server`, `alert_email`, backup storage (`backup_remote_type` s3, `backup_provider`, `backup_endpoint`, `backup_region`, `backup_bucket`, `backup_prefix`, `backup_access_key`, `backup_secret_key`) |
+| Server Metric | hash | `server`, `timestamp`, `load_1`, `memory_used_mb/total_mb`, `disk_used_gb/total_gb`, `unhealthy_containers`, `raw` |
+
+Operations fields: **Server** `cpu_count`, `memory_total_mb`, `disk_total_gb`, `disk_used_percent`,
+`unhealthy_containers`, `last_alert_at` (+ hidden `alert_state`), methods `health_check`,
+`configure_backups`; **Site** `backup_frequency` (Daily/Every 12 hours/Weekly/Off),
+`backup_retention_days` (14, 0 = forever), `backup_with_files`, `last_backup_at`, `is_up`,
+`last_uptime_check`, hidden `suspended_for_billing` (set by billing only); **Site Backup** status
+`Deleted`; **Release Group** `auto_update`, `update_window`, method `deploy_latest`.
 
 `team` is a Link to **User** (the customer account). Users with the *Nexaploy Customer* role
 only see rows whose `team` is themselves (`nexaploy/permissions.py`).
@@ -61,7 +70,9 @@ only see rows whose `team` is themselves (`nexaploy/permissions.py`).
 | `nexaploy/agent_job.py` | `create_agent_job(server, kind, params, reference_doctype, reference_name)` |
 | `nexaploy/agent_callbacks.py` | per-kind callbacks run by `job_update` |
 | `nexaploy/utils.py` | pure logic (no frappe import): name regexes, token hashing, status mapping, compatibility, apps.json, move plan |
-| `nexaploy/tasks.py` | scheduler: mark servers Offline after 5 min without heartbeat (every minute), prune expired unused registration tokens (hourly) |
+| `nexaploy/tasks.py` | scheduler: mark servers Offline after 5 min without heartbeat (every minute), prune expired unused registration tokens (hourly), operations tasks (see *Operations*) |
+| `nexaploy/ops.py` | operations glue: registry params, backup config push, heartbeat metrics, alert emails, auto updates |
+| `nexaploy/ops_utils.py` | pure operations logic (no frappe import): registry tags, backup due, retention, metrics, alert rate limit, update windows |
 | `tests/` | plain pytest, runs without a bench: `python -m pytest control-plane/tests` |
 
 ## Agent protocol
@@ -89,10 +100,10 @@ Params are the agent REST body (§5.2) plus the path parameters of that endpoint
 
 | kind | params | created by |
 |---|---|---|
-| `image.build` | `{major, apps_json:[{url,branch}], tag, frappe_branch}` | Deploy Candidate insert (on Release Group `build_server`) |
-| `bench.create` | `{name, image, apps_json}` | Bench insert |
+| `image.build` | `{major, apps_json:[{url,branch}], tag, frappe_branch[, push: true, registry]}` | Deploy Candidate insert (on Release Group `build_server`, else Settings `default_build_server`) |
+| `bench.create` | `{name, image, apps_json[, registry]}` | Bench insert |
 | `bench.start/stop/restart/remove` | `{bench[, force]}` | Bench methods |
-| `bench.update` | `{bench, image}` | `Bench.update_image` |
+| `bench.update` | `{bench, image[, registry]}` | `Bench.update_image`, auto updates |
 | `site.create` | `{bench, name, admin_password, apps:[app_name]}` | Site insert, move |
 | `site.install_app` / `site.uninstall_app` | `{site, app}` | Site methods |
 | `site.add_domain` / `site.remove_domain` | `{site, domain}` | Site methods |
@@ -100,6 +111,13 @@ Params are the agent REST body (§5.2) plus the path parameters of that endpoint
 | `site.restore` | `{site, remote_path}` | move |
 | `site.migrate` | `{site}` | `Site.migrate` |
 | `site.drop` | `{site, skip_backup}` | `Site.drop`, move |
+| `server.configure_backups` | `{remote, type, provider, endpoint, region, bucket, access_key_id, secret_access_key, prefix}` | Server becomes Active (register / first heartbeat), Settings backup change, `Server.configure_backups` |
+| `server.health` | `{}` | `Server.health_check` |
+| `backup.prune_remote` | `{site, bench, prefix, keep_days, keep_min: 3}` | `tasks.prune_remote_backups` (daily) |
+
+`registry` is `{url, username, password}` and is only sent when the image lives on the configured
+registry. `registry.password` and `secret_access_key` are stored as secret placeholders
+(`__secret__:Nexaploy Settings:Nexaploy Settings:<field>`) and resolved only in `poll`.
 
 `admin_password` is stored in Agent Job params as a placeholder
 (`__secret__:Site:<site>:admin_password`) and replaced with the decrypted Password field only
@@ -118,6 +136,15 @@ in the `poll` response, so plaintext secrets never land in the Agent Job table.
 | `site.backup` | Site Backup Success, `remote_path`/`size`/`created_at` from `result` | Failure |
 | `site.restore`, `site.migrate` | Site Active | Broken |
 | `site.drop` | Site Archived | — |
+| `image.build` (auto update) | if the group has `auto_update`: `bench.update` for Active benches inside `update_window` | — |
+| `bench.update` | also `deploy_candidate` = the build with that `image_tag` | — |
+| `site.backup` | also `Site.last_backup_at` | — |
+| `backup.prune_remote` | Site Backups whose `remote_path` was purged → Deleted | error log |
+| `server.health` | Server `facts` + monitoring fields / Server Metric | — |
+| `server.configure_backups` | — | error log |
+
+Site app and drop callbacks and `Server.archive` call `nexaploy.billing.subscriptions.sync_subscription`
+(errors are logged, never raised).
 
 ## Flows
 
@@ -157,6 +184,52 @@ enqueues the next one:
 A failed backup aborts the move (site stays Active where it was). A later failure marks the
 site **Broken**; the move backup is linked in `move_backup` for manual recovery. Restoring on
 another server requires the target agent's rclone remote to reach the same bucket/prefix.
+
+## Operations
+
+**Registry.** Set `Nexaploy Settings.registry_url` (e.g. `ghcr.io/org`, `registry.example.com`) and
+credentials: new builds are tagged `<registry_url>/nexaploy/bench:<group>-<build_id>`, the build
+server logs in (`docker login --password-stdin`) and pushes, and `bench.create`/`bench.update` on any
+server log in before pulling. Without a registry, images stay local to the build server.
+
+**Backup storage.** Fill the backup section of Nexaploy Settings (S3-compatible: endpoint, region,
+bucket, keys). On save, a fingerprint of the fields (incl. the secret) is compared with the last
+pushed one and, if different, `server.configure_backups` is queued for every Active/Offline server;
+newly Active servers get it too. Each server writes to `<backup_prefix>/<server_id>/<bench>/<site>/<ts>`
+in the shared bucket (rclone remote `nexaploy-backups`), so moves across servers can restore.
+
+**Scheduled backups & retention.** `schedule_backups` (hourly) creates a *Scheduled* Site Backup for
+each Active site on an Active server when `backup_frequency` has elapsed since `last_backup_at`
+(10 min slack) and no backup is Pending/Running. `prune_remote_backups` (daily) queues
+`backup.prune_remote` for each `(prefix, bench)` the site's backups live in, keeping
+`backup_retention_days` and always the newest 3; purged Site Backups become *Deleted*. Archived
+sites and retention 0 are never pruned.
+
+**Monitoring.** Each heartbeat updates the Server monitoring fields and inserts a Server Metric at
+most every 5 minutes (pruned after 30 days by `prune_server_metrics`). `check_alerts` (every 5 min)
+emails the server's team and `alert_email` for disk > 85 %, Offline and unhealthy containers, at
+most once per 6 h per server and kind. `check_sites_uptime` (every 5 min) requests
+`https://<site>/api/method/ping` (10 s timeout, 16 in parallel) for Active sites, stores `is_up` /
+`last_uptime_check` and emails on down/up transitions.
+
+**Auto updates.** `Release Group.deploy_latest()` builds a new image. When it succeeds and the
+group has `auto_update`, Active benches not on that image get `bench.update` if their server's local
+time (agent `utc_offset_minutes`) is within `update_window` (`HH:MM-HH:MM`, may wrap midnight, empty =
+any time); `apply_auto_updates` (every 15 min) catches benches outside the window later.
+
+Scheduler entries (hooks.py):
+
+```python
+scheduler_events = {
+	"cron": {
+		"* * * * *": ["nexaploy.tasks.mark_offline_servers"],
+		"*/5 * * * *": ["nexaploy.tasks.check_alerts", "nexaploy.tasks.check_sites_uptime"],
+		"*/15 * * * *": ["nexaploy.tasks.apply_auto_updates"],
+	},
+	"hourly": ["nexaploy.tasks.prune_registration_tokens", "nexaploy.tasks.schedule_backups"],
+	"daily": ["nexaploy.tasks.prune_remote_backups", "nexaploy.tasks.prune_server_metrics"],
+}
+```
 
 ## Billing notes (Phase 3, not implemented)
 

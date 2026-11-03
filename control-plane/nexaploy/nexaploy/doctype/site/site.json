@@ -13,11 +13,20 @@
   "status",
   "team",
   "plan",
+  "suspended_for_billing",
   "admin_password",
   "section_break_apps",
   "apps",
   "section_break_domains",
   "domains",
+  "section_break_backups",
+  "backup_frequency",
+  "backup_retention_days",
+  "backup_with_files",
+  "last_backup_at",
+  "column_break_monitoring",
+  "is_up",
+  "last_uptime_check",
   "section_break_move",
   "move_target_bench",
   "move_backup",
@@ -80,6 +89,15 @@
    "options": "Nexaploy Plan"
   },
   {
+   "default": "0",
+   "description": "Set only by billing (nexaploy.billing) when the site is suspended for non-payment.",
+   "fieldname": "suspended_for_billing",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Suspended For Billing",
+   "read_only": 1
+  },
+  {
    "fieldname": "admin_password",
    "fieldtype": "Password",
    "label": "Administrator Password",
@@ -106,6 +124,54 @@
    "fieldtype": "Table",
    "label": "Domains",
    "options": "Site Domain"
+  },
+  {
+   "fieldname": "section_break_backups",
+   "fieldtype": "Section Break",
+   "label": "Backups & Monitoring"
+  },
+  {
+   "default": "Daily",
+   "fieldname": "backup_frequency",
+   "fieldtype": "Select",
+   "label": "Backup Frequency",
+   "options": "Daily\nEvery 12 hours\nWeekly\nOff"
+  },
+  {
+   "default": "14",
+   "description": "Remote backups older than this are deleted (the newest 3 are always kept). 0 = keep forever.",
+   "fieldname": "backup_retention_days",
+   "fieldtype": "Int",
+   "label": "Backup Retention (days)"
+  },
+  {
+   "default": "1",
+   "fieldname": "backup_with_files",
+   "fieldtype": "Check",
+   "label": "Back Up Files"
+  },
+  {
+   "fieldname": "last_backup_at",
+   "fieldtype": "Datetime",
+   "label": "Last Backup At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_monitoring",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_up",
+   "fieldtype": "Check",
+   "label": "Is Up",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_uptime_check",
+   "fieldtype": "Datetime",
+   "label": "Last Uptime Check",
+   "read_only": 1
   },
   {
    "collapsible": 1,
@@ -148,7 +214,7 @@
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-03 12:00:00.000000",
+ "modified": "2026-11-10 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Site",

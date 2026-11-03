@@ -20,6 +20,8 @@ EXPECTED = {
 	# billing
 	"Billing Settings", "Nexaploy Subscription", "Nexaploy Invoice", "Nexaploy Invoice Item",
 	"Nexaploy Payment",
+	# operations
+	"Nexaploy Settings", "Server Metric",
 }
 CHILD_TABLES = {
 	"Marketplace App Release", "Release Group App", "Site Domain", "Site App", "Agent Job Step",

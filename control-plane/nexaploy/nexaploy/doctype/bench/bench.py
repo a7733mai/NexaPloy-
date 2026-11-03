@@ -5,6 +5,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from nexaploy import ops
 from nexaploy.agent_job import create_agent_job
 from nexaploy.utils import is_valid_bench_name
 
@@ -34,12 +35,16 @@ class Bench(Document):
 			frappe.throw(_("Server {0} is not active").format(self.server))
 
 	def after_insert(self):
-		"""Enqueue bench.create {name, image, apps_json}."""
+		"""Enqueue bench.create {name, image, apps_json[, registry]}."""
 		apps_json = frappe.db.get_value("Deploy Candidate", self.deploy_candidate, "apps_json")
+		params = {"name": self.bench_name, "image": self.image_tag, "apps_json": frappe.parse_json(apps_json)}
+		registry = ops.registry_params(self.image_tag)
+		if registry:
+			params["registry"] = registry  # agent logs in before pulling
 		create_agent_job(
 			self.server,
 			"bench.create",
-			{"name": self.bench_name, "image": self.image_tag, "apps_json": frappe.parse_json(apps_json)},
+			params,
 			reference_doctype=self.doctype,
 			reference_name=self.name,
 		)
@@ -75,7 +80,11 @@ class Bench(Document):
 		if not dc or dc.release_group != self.release_group or dc.status != "Success":
 			frappe.throw(_("No successful Deploy Candidate for {0}").format(self.release_group))
 		self.db_set("deploy_candidate", dc_name)
-		return self._job("bench.update", {"image": dc.image_tag})
+		params = {"image": dc.image_tag}
+		registry = ops.registry_params(dc.image_tag)
+		if registry:
+			params["registry"] = registry
+		return self._job("bench.update", params)
 
 	@frappe.whitelist()
 	def remove(self, force=False):

@@ -98,6 +98,14 @@ def create_app(ctx: AgentContext | None = None, settings: Settings | None = None
     def server():
         return server_info(ctx.docker, ctx.benches, ctx.settings.agent.server_id)
 
+    @app.post("/v1/server/health", dependencies=auth, status_code=202)
+    def server_health():
+        return accepted("server.health", {})
+
+    @app.post("/v1/server/backup-config", dependencies=auth, status_code=202)
+    def configure_backups(body: dict[str, Any] = Body(...)):
+        return accepted("server.configure_backups", body)
+
     @app.get("/v1/jobs", dependencies=auth)
     def list_jobs(status: str | None = Query(None), kind: str | None = Query(None),
                   limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0)):
@@ -209,6 +217,13 @@ def create_app(ctx: AgentContext | None = None, settings: Settings | None = None
             for bench in sorted(benches):
                 remote_list += ctx.backups.list_remote(bench, site)
         return {"local": local, "remote": remote_list}
+
+    @app.post("/v1/sites/{site}/backups/prune-remote", dependencies=auth, status_code=202)
+    def prune_remote_backups(site: str, body: dict[str, Any] | None = Body(None)):
+        params = body_with(body, site=site)
+        if not params.get("bench"):
+            params["bench"] = require_site(site)
+        return accepted("backup.prune_remote", params)
 
     @app.post("/v1/sites/{site}/restore", dependencies=auth, status_code=202)
     def restore_site(site: str, body: dict[str, Any] = Body(...)):

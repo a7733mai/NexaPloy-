@@ -356,6 +356,9 @@ register() {
     fi
     log "registering with $CONTROL_PLANE"
     "$VENV/bin/nexaploy-agent" register --control-plane "$CONTROL_PLANE" --token "$TOKEN" --config "$CONFIG"
+    # The server is now Active on the control plane, which queues server.configure_backups
+    # (rclone.conf + [backup] in agent.toml); the worker picks it up on its first poll.
+    log "backup storage will be configured by the control plane (job server.configure_backups)"
 }
 
 # --------------------------------------------------------------------------- 7. services

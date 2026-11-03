@@ -12,6 +12,7 @@ from ..fsutil import ensure_dir
 from ..runtime.backup import new_ts
 from ..runtime.bench import BenchManager
 from ..runtime.image import normalise_apps_json
+from ..runtime.registry import Registry, docker_login
 from .base import BaseParams, BenchParams, Conflict, Job, NotFound
 
 NETWORKS = ("proxy-network", "nexaploy-db")
@@ -42,6 +43,11 @@ class _BenchJob(Job):
         if self.ctx.docker.image_exists(image):
             self.skip(f"image {image} present locally")
             return
+        reg: Registry | None = getattr(self.p, "registry", None)
+        if reg and reg.has_credentials:
+            self.secret(reg.password)
+            self.log(f"logging in to registry {reg.host or 'docker.io'} as {reg.username}")
+            self.check(docker_login(self.ctx.docker, reg), "docker login")
         self.log(f"image {image} not present locally; pulling")
         self.check(self.ctx.docker.pull(image), f"docker pull {image}")
 
@@ -59,6 +65,7 @@ class BenchCreateParams(BaseParams):
     image: str
     env: dict[str, Any] = {}
     apps_json: Any = None
+    registry: Registry | None = None  # credentials to pull a private image
 
     @field_validator("name")
     @classmethod
@@ -161,6 +168,7 @@ class BenchRestart(_BenchJob):
 # --------------------------------------------------------------------------- update
 class BenchUpdateParams(BenchParams):
     image: str
+    registry: Registry | None = None  # credentials to pull a private image
 
     @field_validator("image")
     @classmethod

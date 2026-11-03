@@ -38,6 +38,9 @@ permission_query_conditions = {
 	"Site": "nexaploy.permissions.team_query",
 	"Site Backup": "nexaploy.permissions.team_query",
 	"Server Registration Token": "nexaploy.permissions.team_query",
+	"Nexaploy Invoice": "nexaploy.permissions.team_query",
+	"Nexaploy Subscription": "nexaploy.permissions.team_query",
+	"Nexaploy Payment": "nexaploy.permissions.team_query",
 	"Deploy Candidate": "nexaploy.permissions.deploy_candidate_query",
 	"Agent Job": "nexaploy.permissions.agent_job_query",
 }
@@ -49,6 +52,25 @@ has_permission = {
 	"Site": "nexaploy.permissions.has_team_permission",
 	"Site Backup": "nexaploy.permissions.has_team_permission",
 	"Server Registration Token": "nexaploy.permissions.has_team_permission",
+	"Nexaploy Invoice": "nexaploy.permissions.has_team_permission",
+	"Nexaploy Subscription": "nexaploy.permissions.has_team_permission",
+	"Nexaploy Payment": "nexaploy.permissions.has_team_permission",
+}
+
+# Document Events
+# ---------------
+# Billing: keep subscriptions in sync with servers/sites (and paid apps on sites).
+doc_events = {
+	"Server": {
+		"after_insert": "nexaploy.billing.subscriptions.sync_subscription",
+		"on_update": "nexaploy.billing.subscriptions.sync_subscription",
+		"on_trash": "nexaploy.billing.subscriptions.cancel_document_subscriptions",
+	},
+	"Site": {
+		"after_insert": "nexaploy.billing.subscriptions.sync_subscription",
+		"on_update": "nexaploy.billing.subscriptions.sync_subscription",
+		"on_trash": "nexaploy.billing.subscriptions.cancel_document_subscriptions",
+	},
 }
 
 # Scheduled Tasks
@@ -57,6 +79,15 @@ scheduler_events = {
 	"cron": {
 		# mark servers Offline when no heartbeat for 5 minutes
 		"* * * * *": ["nexaploy.tasks.mark_offline_servers"],
+		"*/5 * * * *": ["nexaploy.tasks.check_alerts", "nexaploy.tasks.check_sites_uptime"],
+		"*/15 * * * *": ["nexaploy.tasks.apply_auto_updates"],
 	},
-	"hourly": ["nexaploy.tasks.prune_registration_tokens"],
+	"hourly": ["nexaploy.tasks.prune_registration_tokens", "nexaploy.tasks.schedule_backups"],
+	"daily": [
+		"nexaploy.tasks.prune_remote_backups",
+		"nexaploy.tasks.prune_server_metrics",
+		"nexaploy.billing.subscriptions.reconcile_subscriptions",
+		"nexaploy.billing.invoicing.generate_monthly_invoices",
+		"nexaploy.billing.invoicing.mark_overdue_and_suspend",
+	],
 }

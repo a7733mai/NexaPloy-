@@ -26,6 +26,10 @@ JOB_KINDS = (
 	"site.migrate",
 	"site.set_config",
 	"site.drop",
+	# operations
+	"server.configure_backups",
+	"server.health",
+	"backup.prune_remote",
 )
 
 

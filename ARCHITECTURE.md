@@ -85,6 +85,9 @@ Naming:
 - Container names: `<bench>-backend`, `<bench>-frontend`, `<bench>-websocket`, `<bench>-scheduler`, `<bench>-queue-short`, `<bench>-queue-long`, `<bench>-queue-default`, `<bench>-redis-cache`, `<bench>-redis-queue`.
 - Shared containers: `nexaploy-db`, `nexaploy-traefik`, `nexaploy-socket-proxy`.
 - Image tag: `nexaploy/bench:<release_group>-<build_id>` (e.g. `nexaploy/bench:erp-v15-main-20261103T2130`).
+  With a registry configured on the control plane (`Nexaploy Settings.registry_url`, e.g. `ghcr.io/org`)
+  the tag is `<registry_url>/nexaploy/bench:<release_group>-<build_id>`; the build server pushes it and
+  every other server pulls it (`docker login --password-stdin` first).
 
 ## 3. Bench template (component A)
 
@@ -255,11 +258,13 @@ retention_days = 14
 | GET | `/v1/ping` | `{ok, version, server_id}` |
 | GET | `/v1/server` | host facts |
 | GET | `/v1/jobs`, `/v1/jobs/{id}` | job with steps + output |
-| POST | `/v1/images/build` | `{major, apps_json, tag, frappe_branch?}` → job `image.build` |
+| POST | `/v1/server/health` | job `server.health` (result = host facts, same as the heartbeat) |
+| POST | `/v1/server/backup-config` | `{remote, type: s3, provider, endpoint, region, bucket, access_key_id, secret_access_key, prefix}` → job `server.configure_backups` (writes `config/rclone.conf` mode 600 + `[backup]` in agent.toml; idempotent) |
+| POST | `/v1/images/build` | `{major, apps_json, tag, frappe_branch?, push?, registry?: {url, username, password}}` → job `image.build` (`docker login --password-stdin` before pushing) |
 | GET | `/v1/benches` | list |
-| POST | `/v1/benches` | `{name, image, env?, apps_json?}` → job `bench.create` (render compose, up, run configurator) |
+| POST | `/v1/benches` | `{name, image, env?, apps_json?, registry?}` → job `bench.create` (render compose, login + pull if needed, up, run configurator) |
 | POST | `/v1/benches/{b}/start` / `stop` / `restart` | job `bench.start` / `bench.stop` / `bench.restart` |
-| POST | `/v1/benches/{b}/update` | `{image}` → job `bench.update` (up with new image, migrate all sites) |
+| POST | `/v1/benches/{b}/update` | `{image, registry?}` → job `bench.update` (up with new image, migrate all sites) |
 | DELETE | `/v1/benches/{b}` | job `bench.remove` (refuses if sites exist unless `force`) |
 | GET | `/v1/benches/{b}/sites` | list |
 | POST | `/v1/benches/{b}/sites` | `{name, admin_password, apps:[...]}` → job `site.create` (new-site, install apps, write route) |
@@ -269,6 +274,7 @@ retention_days = 14
 | DELETE | `/v1/sites/{s}/domains/{d}` | job `site.remove_domain` |
 | POST | `/v1/sites/{s}/backup` | `{with_files: true, upload: true}` → job `site.backup` |
 | GET | `/v1/sites/{s}/backups` | list local + remote |
+| POST | `/v1/sites/{s}/backups/prune-remote` | `{bench?, keep_days=14, keep_min=3, prefix?}` → job `backup.prune_remote` (`rclone lsf` the dated dirs, `rclone purge` those older than `keep_days`, never the newest `keep_min`) |
 | POST | `/v1/sites/{s}/restore` | `{backup_id}` or `{remote_path}` → job `site.restore` |
 | POST | `/v1/sites/{s}/migrate` | job `site.migrate` |
 | POST | `/v1/sites/{s}/config` | `{key, value}` → job `site.set_config` |
@@ -289,7 +295,8 @@ Step: job_id, idx, name, status: pending|running|success|failure|skipped,
 
 Each job class declares an ordered list of steps; each step is idempotent (check-then-act).
 On failure the job stops, remaining steps are skipped, and the API exposes the full output.
-Params keys matching `password|secret|token|key` are redacted in API output and logs.
+Params keys matching `password|secret|token|key` are redacted in API output and logs (at any
+depth, e.g. `registry.password`). Registry passwords only ever reach `docker login` via stdin.
 
 ### 5.4 Site operations are executed inside the bench
 
@@ -311,6 +318,11 @@ lists (no `shell=True`); names are validated against §2 regexes first.
 Outbound only. If `control_plane.url` is set the agent (header `Authorization: token <control_plane.token>`):
 
 - `POST {url}/api/method/nexaploy.api.agent.heartbeat` body `{server_id, facts, benches, agent_version}` every `heartbeat_seconds`.
+  `facts` include `cpu_count`, `load_avg`, `mem_total/mem_available/mem_used`, `mounts`
+  (`[{path, total, used, free, used_percent}]` for `/` and `/opt/nexaploy`), `containers`
+  (Nexaploy containers: `{name, project, service, state, health}`), `bench_health`
+  (`{bench: {total, running, unhealthy:[names], healthy}}`), `unhealthy_containers` and
+  `utc_offset_minutes` (server-local time for update windows).
 - `GET {url}/api/method/nexaploy.api.agent.poll?server_id=` every `poll_seconds` → `{"message": [{job_id, kind, params}, ...]}`; each item is enqueued locally (`origin=control_plane`, `remote_id=job_id`).
 - `POST {url}/api/method/nexaploy.api.agent.job_update` body `{server_id, job_id, status, steps:[{idx,name,status,output,started_at,ended_at}], error, result}` on every status/step change.
 - Registration (BYOS): `POST {url}/api/method/nexaploy.api.agent.register` body `{registration_token, hostname, facts, agent_version}` → `{"message": {server_id, server_token}}`. Called once by `install.sh` when `--token` is a registration token.
@@ -339,7 +351,9 @@ monitoring dashboards. These live in the control plane (Phase 2+).
 
 ## 7. Testing expectations (no Docker on dev machines)
 
-- Agent: pytest with the docker runner mocked; cover job store, step idempotency, compose rendering, route rendering, backup path logic, API auth.
+- Agent: pytest with the docker runner mocked; cover job store, step idempotency, compose rendering, route rendering, backup path logic, API auth,
+  registry login via stdin + redaction, `rclone.conf` rendering (mode 600, idempotent), remote retention selection, container health facts.
+- Control plane: pure logic in `nexaploy/utils.py` and `nexaploy/ops_utils.py` (no frappe import) with plain pytest; DocType JSON checked statically.
 - Templates: render with Jinja2 in tests and parse YAML to assert structure (service names, networks, mounts, UIDs).
 - Shell scripts: `bash -n`; keep them simple.
 
@@ -361,8 +375,26 @@ Compatible with Frappe v15+. DocTypes (module "Nexaploy"):
 | Site Backup | `site`, `remote_path`, `with_files`, `status`, `size`, `created_at` |
 | Agent Job | `server`, `kind`, `params` (JSON), `status` (Pending/Queued/Running/Success/Failure), `reference_doctype`, `reference_name`, `error`, `result`, child `Agent Job Step` |
 | Nexaploy Plan | `title`, `plan_type` (Server Hosted/Server BYOS/Site), `price_monthly`, `currency`, `max_sites` |
+| Nexaploy Settings (single) | `registry_url`, `registry_username`, `registry_password` (Password), `root_domain` (default `nexaploy.cloud`), `default_build_server`, `alert_email`, backup storage `backup_remote_type` (s3), `backup_provider`, `backup_endpoint`, `backup_region`, `backup_bucket`, `backup_prefix`, `backup_access_key`, `backup_secret_key` (Password) |
+| Server Metric | `server`, `timestamp`, `load_1`, `memory_used_mb`, `memory_total_mb`, `disk_used_gb`, `disk_total_gb`, `unhealthy_containers`, `raw` (JSON) — one per heartbeat at most every 5 min, pruned after 30 days |
+
+Operations fields: Server `cpu_count`, `memory_total_mb`, `disk_total_gb`, `disk_used_percent`,
+`unhealthy_containers`, `last_alert_at`; Site `backup_frequency` (Daily/Every 12 hours/Weekly/Off),
+`backup_retention_days` (14), `backup_with_files`, `last_backup_at`, `is_up`, `last_uptime_check`;
+Site Backup status adds `Deleted`; Release Group `auto_update`, `update_window` (`HH:MM-HH:MM`,
+server-local). Agent Job kinds add `server.configure_backups`, `server.health`, `backup.prune_remote`.
 
 Rules: creating Site/Bench/Backup docs enqueues `Agent Job` rows; `poll` hands Pending jobs to
 the matching server (→ Queued); `job_update` maps agent statuses (queued/running/success/failure
 → Queued/Running/Success/Failure) and runs callbacks that update the referenced doc. Server
 tokens stored as sha256 only. BYOS default plan: $10/server/month.
+
+Operations (scheduler, `nexaploy/tasks.py`): `schedule_backups` (hourly; due per `backup_frequency`,
+skipped while a backup is in flight), `prune_remote_backups` (daily; `backup.prune_remote` per
+remote location, Site Backups purged → `Deleted`), `check_alerts` (5 min; disk > 85 %, Offline,
+unhealthy containers → email team, max 1 per 6 h per server and kind), `check_sites_uptime`
+(5 min; `GET https://<site>/api/method/ping`, 10 s timeout, alert on transitions),
+`apply_auto_updates` (15 min; `bench.update` inside the update window), `prune_server_metrics`
+(daily). A Server that becomes Active (register / first heartbeat) and every change of the backup
+storage settings enqueue `server.configure_backups`; all servers share one bucket under
+`<backup_prefix>/<server_id>` so a backup taken on one server restores on another.

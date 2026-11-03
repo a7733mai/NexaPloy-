@@ -7,6 +7,7 @@ from typing import Any
 from .base import Job
 from .bench_jobs import BenchCreate, BenchRemove, BenchRestart, BenchStart, BenchStop, BenchUpdate
 from .image_jobs import ImageBuild
+from .server_jobs import BackupPruneRemote, ServerConfigureBackups, ServerHealth
 from .site_jobs import (
     SiteAddDomain, SiteBackup, SiteCreate, SiteDrop, SiteInstallApp, SiteMigrate,
     SiteRemoveDomain, SiteRestore, SiteSetConfig, SiteUninstallApp,
@@ -17,6 +18,7 @@ JOB_CLASSES: tuple[type[Job], ...] = (
     BenchCreate, BenchStart, BenchStop, BenchRestart, BenchUpdate, BenchRemove,
     SiteCreate, SiteInstallApp, SiteUninstallApp, SiteAddDomain, SiteRemoveDomain,
     SiteBackup, SiteRestore, SiteMigrate, SiteSetConfig, SiteDrop,
+    ServerConfigureBackups, ServerHealth, BackupPruneRemote,
 )
 REGISTRY: dict[str, type[Job]] = {cls.kind: cls for cls in JOB_CLASSES}
 

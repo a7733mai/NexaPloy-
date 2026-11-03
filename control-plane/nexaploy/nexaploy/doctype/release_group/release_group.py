@@ -5,6 +5,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from nexaploy.ops_utils import parse_update_window
 from nexaploy.utils import (
 	build_apps_json,
 	check_compatibility,
@@ -26,6 +27,12 @@ class ReleaseGroup(Document):
 			)
 		self.frappe_branch = frappe_branch_for(self.frappe_major, self.frappe_branch)
 		self.validate_apps()
+		if self.update_window:
+			try:
+				parse_update_window(self.update_window)
+			except ValueError as e:
+				frappe.throw(str(e))
+			self.update_window = self.update_window.replace(" ", "")
 		if self.build_server:
 			status = frappe.db.get_value("Server", self.build_server, "status")
 			if status == "Archived":
@@ -61,6 +68,18 @@ class ReleaseGroup(Document):
 	@frappe.whitelist()
 	def create_deploy_candidate(self):
 		"""Start an image build (Deploy Candidate -> image.build job on build_server)."""
+		self.check_permission("write")
+		dc = frappe.get_doc({"doctype": "Deploy Candidate", "release_group": self.name})
+		dc.insert(ignore_permissions=True)
+		return dc.name
+
+	@frappe.whitelist()
+	def deploy_latest(self):
+		"""Build a new image from the current app branches (Deploy Candidate -> image.build).
+
+		When the build succeeds and `auto_update` is set, every Active bench of this group is
+		rolled to it (bench.update) inside `update_window` (see nexaploy.ops.apply_auto_updates).
+		"""
 		self.check_permission("write")
 		dc = frappe.get_doc({"doctype": "Deploy Candidate", "release_group": self.name})
 		dc.insert(ignore_permissions=True)

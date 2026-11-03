@@ -79,6 +79,20 @@ build_script = "/opt/nexaploy/images/build.sh"
 
 Backups upload with `rclone --config /opt/nexaploy/config/rclone.conf` to the remote named by
 `backup.remote`; until that section exists in `rclone.conf` backups stay local (the job logs a warning).
+With a control plane the remote is pushed by the `server.configure_backups` job (queued as soon as
+the server is Active and whenever the storage settings change): it writes `[<remote>-s3]` (S3
+credentials) and `[<remote>]` (an `alias` of `<remote>-s3:<bucket>`) into `rclone.conf` (mode 600,
+other remotes kept, unchanged file not rewritten) and `remote`/`prefix` into agent.toml `[backup]`.
+The worker applies it immediately; restart `nexaploy-agent-api` for `GET /v1/sites/{s}/backups` to
+use a changed prefix.
+
+### Private registry
+
+`image.build`, `bench.create` and `bench.update` accept `registry: {url, username, password}`.
+`image.build` with `push: true` runs `docker login <host> --username U --password-stdin` (the
+password is written to stdin only — never argv, logs or `jobs.db`) and then `build.sh --push`
+(an image already present locally is `docker push`ed instead). Bench jobs log in only when the image
+has to be pulled. Credentials are stored in root's `~/.docker/config.json` by `docker login`.
 
 ## CLI
 
@@ -100,10 +114,10 @@ URL/token come from `agent.toml` (or `--url/--token`, `NEXAPLOY_URL/NEXAPLOY_TOK
 
 | Kind | Params | Steps |
 |---|---|---|
-| `image.build` | `major, apps_json, tag, frappe_branch?, python?, node?, push?` | prepare, build (skipped if the image exists) |
-| `bench.create` | `name, image, env?, apps_json?` | prepare (dirs, networks, `.env`, compose), ensure_image, configure, start |
+| `image.build` | `major, apps_json, tag, frappe_branch?, python?, node?, push?, registry?` | prepare, build (login if pushing; skipped if the image exists, then only pushed) |
+| `bench.create` | `name, image, env?, apps_json?, registry?` | prepare (dirs, networks, `.env`, compose), ensure_image (login + pull), configure, start |
 | `bench.start/stop/restart` | `bench` | one step |
-| `bench.update` | `bench, image` | ensure_image, write_config, configure, start, migrate_sites |
+| `bench.update` | `bench, image, registry?` | ensure_image, write_config, configure, start, migrate_sites |
 | `bench.remove` | `bench, force?` | check, down, remove_routes, remove_files (archived to `benches/.archived/` when forced with sites) |
 | `site.create` | `bench, name, admin_password, apps?` | check, new_site, install_apps, write_route |
 | `site.install_app` / `site.uninstall_app` | `site, app` | install / uninstall |
@@ -113,6 +127,9 @@ URL/token come from `agent.toml` (or `--url/--token`, `NEXAPLOY_URL/NEXAPLOY_TOK
 | `site.migrate` | `site` | migrate |
 | `site.set_config` | `site, key, value` | set_config |
 | `site.drop` | `site, skip_backup?` | backup, drop, remove_route |
+| `server.configure_backups` | `remote, type=s3, provider, endpoint?, region?, bucket, access_key_id, secret_access_key, prefix?, retention_days?` | write_rclone_conf, update_agent_config |
+| `server.health` | — | collect (result = host facts incl. containers / bench health) |
+| `backup.prune_remote` | `site, bench, keep_days=14, keep_min=3, prefix?` | list (`rclone lsf --dirs-only`, select dated dirs older than keep_days, newest keep_min kept), prune (`rclone purge` each) |
 
 Params are the REST body plus path parameters, identical for jobs sent by the control plane.
 Every step is check-then-act, so a job interrupted by a crash is re-queued at startup and resumes:
@@ -125,7 +142,17 @@ All `bench …` commands run inside the bench (`docker compose -p <bench> --proj
 is an argument list and every name is validated against the §2 regexes first.
 
 `site.backup` results carry `{backup_id, path, remote_path, size, created_at, manifest}`;
-`image.build` results carry `{tag}`.
+`image.build` results carry `{tag, built, pushed}`; `backup.prune_remote` results carry
+`{site, bench, remote_ids, doomed, pruned:[{ts, remote_path}], kept}`.
+
+## Monitoring facts
+
+`GET /v1/server`, the heartbeat and `server.health` report, besides OS/Docker versions:
+`cpu_count`, `load_avg`, `mem_total/mem_available/mem_used`, `mounts` (usage of `/` and
+`/opt/nexaploy`), `containers` (Nexaploy containers from `docker ps --all`: shared `nexaploy-*`
+plus every bench compose project, with `state` and healthcheck `health`), `bench_health`
+(per bench: total, running, unhealthy container names), `unhealthy_containers` (not running or
+healthcheck unhealthy; one-shot `configurator` ignored) and `utc_offset_minutes`.
 
 ## Templates
 

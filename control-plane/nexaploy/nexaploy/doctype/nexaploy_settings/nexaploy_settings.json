@@ -1,0 +1,163 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-03 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_registry",
+  "registry_url",
+  "registry_username",
+  "registry_password",
+  "column_break_general",
+  "root_domain",
+  "default_build_server",
+  "alert_email",
+  "section_break_backups",
+  "backup_remote_type",
+  "backup_provider",
+  "backup_endpoint",
+  "backup_region",
+  "column_break_backups",
+  "backup_bucket",
+  "backup_prefix",
+  "backup_access_key",
+  "backup_secret_key",
+  "backup_config_hash"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_registry",
+   "fieldtype": "Section Break",
+   "label": "Image Registry"
+  },
+  {
+   "description": "e.g. ghcr.io/org or registry.example.com. When set, images are tagged <registry_url>/nexaploy/bench:<group>-<build_id>, pushed after build and pulled by benches on other servers.",
+   "fieldname": "registry_url",
+   "fieldtype": "Data",
+   "label": "Registry URL"
+  },
+  {
+   "fieldname": "registry_username",
+   "fieldtype": "Data",
+   "label": "Registry Username"
+  },
+  {
+   "fieldname": "registry_password",
+   "fieldtype": "Password",
+   "label": "Registry Password / Token"
+  },
+  {
+   "fieldname": "column_break_general",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "nexaploy.cloud",
+   "fieldname": "root_domain",
+   "fieldtype": "Data",
+   "label": "Root Domain"
+  },
+  {
+   "description": "Used by Release Groups without a Build Server.",
+   "fieldname": "default_build_server",
+   "fieldtype": "Link",
+   "label": "Default Build Server",
+   "options": "Server"
+  },
+  {
+   "description": "Always copied on server and site alerts.",
+   "fieldname": "alert_email",
+   "fieldtype": "Data",
+   "label": "Operations Alert Email",
+   "options": "Email"
+  },
+  {
+   "description": "Pushed to every Active server as rclone remote \"nexaploy-backups\" (server.configure_backups) whenever these fields change.",
+   "fieldname": "section_break_backups",
+   "fieldtype": "Section Break",
+   "label": "Backup Storage (rclone)"
+  },
+  {
+   "default": "s3",
+   "fieldname": "backup_remote_type",
+   "fieldtype": "Select",
+   "label": "Remote Type",
+   "options": "s3"
+  },
+  {
+   "default": "Other",
+   "description": "rclone S3 provider: AWS, Cloudflare, DigitalOcean, Minio, Wasabi, Other, ...",
+   "fieldname": "backup_provider",
+   "fieldtype": "Data",
+   "label": "S3 Provider"
+  },
+  {
+   "fieldname": "backup_endpoint",
+   "fieldtype": "Data",
+   "label": "Endpoint"
+  },
+  {
+   "fieldname": "backup_region",
+   "fieldtype": "Data",
+   "label": "Region"
+  },
+  {
+   "fieldname": "column_break_backups",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "backup_bucket",
+   "fieldtype": "Data",
+   "label": "Bucket"
+  },
+  {
+   "description": "Optional path inside the bucket; each server writes under <prefix>/<server_id>.",
+   "fieldname": "backup_prefix",
+   "fieldtype": "Data",
+   "label": "Path Prefix"
+  },
+  {
+   "fieldname": "backup_access_key",
+   "fieldtype": "Data",
+   "label": "Access Key ID"
+  },
+  {
+   "fieldname": "backup_secret_key",
+   "fieldtype": "Password",
+   "label": "Secret Access Key"
+  },
+  {
+   "description": "sha256 of the last backup configuration pushed to servers.",
+   "fieldname": "backup_config_hash",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Backup Config Hash",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-10 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Nexaploy Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

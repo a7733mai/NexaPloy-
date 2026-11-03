@@ -179,6 +179,10 @@ def register(registration_token=None, hostname=None, facts=None, agent_version=N
 	frappe.db.set_value(
 		"Server Registration Token", row.name, {"used": 1, "server": server.name}, update_modified=True
 	)
+	# Server is Active: push the backup storage config (polled once the worker starts).
+	from nexaploy.ops import on_server_activated
+
+	on_server_activated(server.name)
 	return {"server_id": server_id, "server_token": server_token}
 
 
@@ -195,9 +199,20 @@ def heartbeat(server_id=None, facts=None, benches=None, agent_version=None, **kw
 		values["benches_report"] = frappe.as_json(_load_json(benches, []))
 	if agent_version:
 		values["agent_version"] = agent_version
-	if frappe.db.get_value("Server", server, "status") in ("Offline", "Pending"):
+	previous_status = frappe.db.get_value("Server", server, "status")
+	if previous_status in ("Offline", "Pending"):
 		values["status"] = "Active"
 	frappe.db.set_value("Server", server, values, update_modified=False)
+
+	from nexaploy import ops
+
+	if previous_status == "Pending":
+		# first heartbeat of a Hosted server (created manually, installed with --server-id)
+		ops.on_server_activated(server)
+	try:
+		ops.record_heartbeat_metrics(server, _load_json(facts, None))
+	except Exception:
+		frappe.log_error(title=f"Nexaploy: heartbeat metrics failed for {server}")
 	pending = frappe.db.count("Agent Job", {"server": server, "status": "Pending"})
 	return {"ok": True, "pending_jobs": pending}
 
