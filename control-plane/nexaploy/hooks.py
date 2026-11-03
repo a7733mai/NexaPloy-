@@ -49,6 +49,8 @@ permission_query_conditions = {
 	"Nexaploy Subscription": "nexaploy.permissions.team_query",
 	"Nexaploy Payment": "nexaploy.permissions.team_query",
 	"Site Usage": "nexaploy.permissions.team_query",
+	"Custom App": "nexaploy.permissions.team_query",
+	"GitHub Installation": "nexaploy.permissions.team_query",
 	"Team": "nexaploy.permissions.team_doc_query",
 	"Team Invitation": "nexaploy.permissions.team_invitation_query",
 	"Deploy Candidate": "nexaploy.permissions.deploy_candidate_query",
@@ -66,6 +68,8 @@ has_permission = {
 	"Nexaploy Subscription": "nexaploy.permissions.has_team_permission",
 	"Nexaploy Payment": "nexaploy.permissions.has_team_permission",
 	"Site Usage": "nexaploy.permissions.has_team_permission",
+	"Custom App": "nexaploy.permissions.has_team_permission",
+	"GitHub Installation": "nexaploy.permissions.has_team_permission",
 	"Team": "nexaploy.permissions.has_team_doc_permission",
 	"Team Invitation": "nexaploy.permissions.has_team_permission",
 }

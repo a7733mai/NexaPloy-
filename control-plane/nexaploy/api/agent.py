@@ -253,6 +253,11 @@ def poll(server_id=None, **kwargs):
 
 
 def _resolve_secret(doctype, name, fieldname):
+	if doctype == "github":
+		# __secret__:github:<deploy candidate>:apps_json — fresh GitHub App tokens
+		from nexaploy.github_secrets import resolve
+
+		return resolve(name, fieldname)
 	from frappe.utils.password import get_decrypted_password
 
 	return get_decrypted_password(doctype, name, fieldname, raise_exception=False)

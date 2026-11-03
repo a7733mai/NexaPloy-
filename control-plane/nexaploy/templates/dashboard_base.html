@@ -12,6 +12,8 @@
 		window.NX_BOOT = {{ (boot or {}) | tojson }};
 	</script>
 	<script defer src="/assets/nexaploy/js/dashboard.js"></script>
+	<script defer src="/assets/nexaploy/js/benches.js"></script>
+	<script defer src="/assets/nexaploy/js/site_tools.js"></script>
 	<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 	{% block head %}{% endblock %}
 </head>
@@ -38,6 +40,10 @@
 			<a href="/dashboard/servers" class="{{ 'active' if page in ('servers', 'server') else '' }}">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></svg>
 				<span>{{ _("Servers") }}</span>
+			</a>
+			<a href="/dashboard/benches" class="{{ 'active' if page in ('benches', 'bench') else '' }}">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></svg>
+				<span>{{ _("Bench Groups") }}</span>
 			</a>
 			<a href="/dashboard/marketplace" class="{{ 'active' if page == 'marketplace' else '' }}">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16l-1.5 12h-13z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>

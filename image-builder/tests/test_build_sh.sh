@@ -98,6 +98,38 @@ expect_ok "private repo accepted" --major 15 --apps-json "$TMP/private.json" --t
 not_contains "token redacted in dry-run" "$OUT" "$(base64 <"$TMP/private.json" | tr -d '\n')"
 contains "redaction marker" "$OUT" "redacted"
 
+# GitHub App installation tokens: https://x-access-token:<token>@github.com/owner/repo
+GH_TOKEN="ghs_TESTTOKEN0123456789abcdefABCDEF"
+printf '[{"url": "https://x-access-token:%s@github.com/acme/private_app", "branch": "main"},\n {"url": "https://github.com/frappe/erpnext", "branch": "version-15"}]\n' "$GH_TOKEN" >"$TMP/ghapp.json"
+expect_ok "x-access-token url accepted" --major 15 --apps-json "$TMP/ghapp.json" --tag "$GOOD_TAG" --context "$TMP/fd" --dry-run
+not_contains "x-access-token: token not printed" "$OUT" "$GH_TOKEN"
+not_contains "x-access-token: base64 not printed" "$OUT" "$(base64 <"$TMP/ghapp.json" | tr -d '\n')"
+contains "x-access-token: redaction marker" "$OUT" "redacted"
+
+# real (non dry-run) build with a fake docker that echoes the clone command like
+# `bench init --verbose` does: stderr, the log and the apps.json copy must be redacted
+mkdir -p "$TMP/fakebin" "$TMP/logs"
+{
+  echo '#!/usr/bin/env bash'
+  echo '[[ "$1" == buildx && "$2" == version ]] && exit 0'
+  echo "echo '\$ git clone https://x-access-token:$GH_TOKEN@github.com/acme/private_app --branch main'"
+  echo "echo 'fatal: could not read from https://x-access-token:$GH_TOKEN@github.com/acme/private_app' >&2"
+  echo "echo 'token $GH_TOKEN in output'"
+  echo 'exit 0'
+} >"$TMP/fakebin/docker"
+chmod +x "$TMP/fakebin/docker"
+OUT="$(PATH="$TMP/fakebin:$PATH" "$BUILD" --major 15 --apps-json "$TMP/ghapp.json" --tag "$GOOD_TAG" \
+  --context "$TMP/fd" --log "$TMP/logs/build.log" 2>"$TMP/build.err")"; rc=$?
+if [[ $rc -eq 0 && "$(tail -n1 <<<"$OUT")" == "$GOOD_TAG" ]]; then ok "fake build ok"; else fail "fake build ok (rc=$rc)" "$(cat "$TMP/build.err")"; fi
+ERR="$(cat "$TMP/build.err")"; LOGTXT="$(cat "$TMP/logs/build.log" 2>/dev/null)"
+not_contains "build stderr redacts token" "$ERR" "$GH_TOKEN"
+not_contains "build log redacts token" "$LOGTXT" "$GH_TOKEN"
+contains "build log keeps redacted url" "$LOGTXT" "https://***@github.com/acme/private_app"
+not_contains "apps.json copy redacts token" "$(cat "$TMP/logs/apps.json" 2>/dev/null)" "$GH_TOKEN"
+contains "apps.json copy keeps repo" "$(cat "$TMP/logs/apps.json" 2>/dev/null)" "github.com/acme/private_app"
+perm="$(stat -c %a "$TMP/logs/apps.json" 2>/dev/null || stat -f %Lp "$TMP/logs/apps.json" 2>/dev/null)"
+if [[ "$perm" == 600 ]]; then ok "apps.json copy mode 600"; else fail "apps.json copy mode 600" "$perm"; fi
+
 # python3 fallback for JSON handling (hide jq from PATH)
 mkdir -p "$TMP/nojq"
 for t in bash base64 tr date dirname cat grep python3 env sed; do

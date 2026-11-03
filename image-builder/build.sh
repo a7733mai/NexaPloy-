@@ -168,6 +168,15 @@ PY
 
 apps_json_has_credentials() { grep -Eq '://[^/"[:space:]]+@' "$1"; }
 
+# redact_stream: strip credentials from clone URLs (https://x-access-token:T@github.com/...)
+# and bare GitHub tokens in build output; `bench init --verbose` echoes git commands.
+if sed -u '' </dev/null >/dev/null 2>&1; then SED_UNBUF=(sed -u); else SED_UNBUF=(sed); fi
+redact_stream() {
+  "${SED_UNBUF[@]}" -E \
+    -e 's#([A-Za-z][A-Za-z0-9+.-]*://)[^/@[:space:]"'"'"']+@#\1***@#g' \
+    -e 's#(gh[pousr]_|github_pat_)[A-Za-z0-9_]{20,}#***#g'
+}
+
 # ---------------------------------------------------------------- validation
 [[ -f "$VERSIONS_JSON" ]] || die "versions file not found: $VERSIONS_JSON"
 [[ "$MAJOR" =~ ^[0-9]+$ ]] || die "--major must be a number, got '$MAJOR'"
@@ -300,14 +309,15 @@ if [[ -n "$LOG" ]]; then
   ( umask 077; : >>"$LOG" )
   log_dir="$(cd "$(dirname "$LOG")" && pwd)"
   if [[ "$(cd "$(dirname "$APPS_JSON")" && pwd)/$(basename "$APPS_JSON")" != "$log_dir/apps.json" ]]; then
-    ( umask 077; cp "$APPS_JSON" "$log_dir/apps.json" )
+    # the copy next to the log never keeps clone credentials
+    ( umask 077; redact_stream <"$APPS_JSON" >"$log_dir/apps.json" )
   fi
 fi
 
-# run_logged CMD... : output to stderr and (if set) the log file
+# run_logged CMD... : output (redacted) to stderr and (if set) the log file
 run_logged() {
-  if [[ -n "$LOG" ]]; then "$@" 2>&1 | tee -a "$LOG" >&2
-  else "$@" >&2; fi
+  if [[ -n "$LOG" ]]; then "$@" 2>&1 | redact_stream | tee -a "$LOG" >&2
+  else "$@" 2>&1 | redact_stream >&2; fi
 }
 
 info "major=$MAJOR frappe_branch=$FRAPPE_BRANCH python=$PYTHON_VERSION node=$NODE_VERSION debian=$DEBIAN_BASE"

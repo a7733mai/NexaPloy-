@@ -5,10 +5,13 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from nexaploy.github_utils import is_valid_branch
 from nexaploy.ops_utils import parse_update_window
 from nexaploy.utils import (
-	build_apps_json,
-	check_compatibility,
+	CUSTOM_SOURCE,
+	MARKETPLACE_SOURCE,
+	build_group_apps_json,
+	check_group_apps,
 	frappe_branch_for,
 	is_valid_release_group_name,
 	release_for_major,
@@ -18,7 +21,10 @@ from nexaploy.utils import (
 class ReleaseGroup(Document):
 	def before_insert(self):
 		if not self.team and "Nexaploy Customer" in frappe.get_roles():
-			self.team = frappe.session.user
+			from nexaploy.teams import get_current_team, is_platform_admin
+
+			if not is_platform_admin():
+				self.team = get_current_team()
 
 	def validate(self):
 		if not is_valid_release_group_name(self.title):
@@ -38,27 +44,75 @@ class ReleaseGroup(Document):
 			if status == "Archived":
 				frappe.throw(_("Build server {0} is archived").format(self.build_server))
 
-	def _compat_apps(self):
-		apps = []
+	def _app_rows(self):
+		"""Pure row dicts (see nexaploy.utils.check_group_apps) for every Release Group App."""
+		from nexaploy.nexaploy.doctype.custom_app.custom_app import custom_app_row
+
+		rows = []
 		for row in self.apps:
-			app = frappe.get_cached_doc("Marketplace App", row.app)
-			apps.append(app.as_compat_dict(branch=row.branch))
-		return apps
+			if row.source_type == CUSTOM_SOURCE:
+				if not row.custom_app or not frappe.db.exists("Custom App", row.custom_app):
+					rows.append({"source_type": CUSTOM_SOURCE, "custom_app": row.custom_app, "app_name": row.app_name})
+					continue
+				app = frappe.get_cached_doc("Custom App", row.custom_app)
+				rows.append(custom_app_row(app.as_dict(), row.branch))
+			else:
+				row.source_type = MARKETPLACE_SOURCE
+				app = frappe.get_cached_doc("Marketplace App", row.app)
+				item = app.as_compat_dict(branch=row.branch)
+				item["source_type"] = MARKETPLACE_SOURCE
+				rows.append(item)
+		return rows
 
 	def validate_apps(self):
-		"""Every app must be approved and have a Marketplace App Release for frappe_major."""
-		apps = self._compat_apps()
-		errors = check_compatibility(self.frappe_major, apps)
+		"""Marketplace apps: approved + a Marketplace App Release for frappe_major.
+		Custom apps: same team as this group, Active, compatible major (if declared)."""
+		for row in self.apps:
+			if row.source_type == CUSTOM_SOURCE:
+				row.app = None
+			else:
+				row.custom_app = None
+				if not row.app:
+					frappe.throw(_("Row {0}: select a marketplace app").format(row.idx))
+		rows = self._app_rows()
+		errors = check_group_apps(self.frappe_major, self.team, rows)
 		if errors:
 			frappe.throw("<br>".join(errors), title=_("Incompatible apps"))
-		# default branch from the release for this major
-		for row, app in zip(self.apps, apps):
+		for row, item in zip(self.apps, rows):
+			row.app_name = item.get("app_name")
+			row.repo_url = item.get("repo_url")
 			if not row.branch:
-				row.branch = release_for_major(app["releases"], self.frappe_major)["branch"]
+				if row.source_type == CUSTOM_SOURCE:
+					row.branch = item.get("branch")
+				else:
+					row.branch = release_for_major(item["releases"], self.frappe_major)["branch"]
+			if not is_valid_branch(row.branch):
+				frappe.throw(_("Row {0}: invalid branch {1}").format(row.idx, row.branch))
 
 	def get_apps_json(self):
-		"""apps.json for image-builder (§4): [{url, branch}, ...] (frappe itself excluded)."""
-		return build_apps_json(self._compat_apps(), self.frappe_major)
+		"""apps.json for image-builder (§4): [{url, branch}, ...] (frappe itself excluded).
+
+		Never contains credentials: private custom repos are listed by their plain URL and get
+		a short-lived token only in the image.build job handed to the agent at poll time.
+		"""
+		return build_group_apps_json(self._app_rows(), self.frappe_major)[0]
+
+	def get_app_sources(self):
+		"""(apps_json, app_sources) - see nexaploy.utils.build_group_apps_json."""
+		return build_group_apps_json(self._app_rows(), self.frappe_major)
+
+	def custom_commits(self):
+		"""{custom_app: last_commit} of the custom apps in this group."""
+		names = [row.custom_app for row in self.apps if row.source_type == CUSTOM_SOURCE and row.custom_app]
+		if not names:
+			return {}
+		return {
+			r.name: r.last_commit
+			for r in frappe.get_all("Custom App", filters={"name": ["in", names]}, fields=["name", "last_commit"])
+		}
+
+	def has_custom_apps(self):
+		return any(row.source_type == CUSTOM_SOURCE for row in self.apps)
 
 	@frappe.whitelist()
 	def build_apps_json(self):
@@ -97,4 +151,5 @@ class ReleaseGroup(Document):
 		return (row.name, row.image_tag) if row else (None, None)
 
 	def app_names(self):
-		return [row.app for row in self.apps]
+		"""Python app names (what sites install), marketplace and custom."""
+		return [row.app_name or row.app for row in self.apps]

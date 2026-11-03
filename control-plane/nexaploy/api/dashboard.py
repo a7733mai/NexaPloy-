@@ -136,12 +136,12 @@ def _group_apps(groups):
 	rows = frappe.get_all(
 		"Release Group App",
 		filters={"parenttype": "Release Group", "parent": ["in", list(groups)]},
-		fields=["parent", "app"],
+		fields=["parent", "app", "app_name"],
 		order_by="idx asc",
 	)
 	result = {}
 	for row in rows:
-		result.setdefault(row.parent, []).append(row.app)
+		result.setdefault(row.parent, []).append(row.app_name or row.app)
 	return result
 
 

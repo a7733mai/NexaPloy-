@@ -298,3 +298,215 @@ Team name must have at most 140 characters,يجب ألا يتجاوز اسم ا�
 Enter a valid email address,أدخل عنوان بريد إلكتروني صالحًا
 {0} is listed twice in the team,{0} مُدرج مرتين في الفريق
 "Team name {0} must be lowercase letters, digits and '-'",يجب أن يتكون اسم الفريق {0} من أحرف صغيرة وأرقام و'-'
+A bench group is a Frappe version plus a list of apps. Each deploy builds one image that you can run on your servers.,مجموعة البنش هي إصدار من Frappe مع قائمة تطبيقات. كل نشر يبني صورة واحدة يمكنك تشغيلها على خوادمك.
+A build of {0} is already in progress,يوجد بناء قيد التنفيذ لـ {0} بالفعل
+Access token (read-only),رمز الوصول (قراءة فقط)
+Add an app from GitHub,إضافة تطبيق من GitHub
+Add app,إضافة تطبيق
+"Add from another git provider (GitLab, Gitea, …)",إضافة من مزوّد git آخر (GitLab، Gitea، …)
+Add one of your servers first; it builds the images.,أضف أحد خوادمك أولاً؛ فهو يبني الصور.
+Add your own server to deploy this group.,أضف خادمك الخاص لنشر هذه المجموعة.
+App,التطبيق
+App added. Deploy to include it in a new image.,تمت إضافة التطبيق. انشر لتضمينه في صورة جديدة.
+App name,اسم التطبيق
+App name (optional),اسم التطبيق (اختياري)
+"App name must be a python package name, e.g. acme_erp",يجب أن يكون اسم التطبيق اسم حزمة بايثون، مثل acme_erp
+App removed,تمت إزالة التطبيق
+App {0} is not in release group {1},التطبيق {0} ليس ضمن مجموعة الإصدار {1}
+Auto update,التحديث التلقائي
+Bench Group,مجموعة البنش
+Bench Groups,مجموعات البنش
+Bench group,مجموعة البنش
+Bench group {0} created,تم إنشاء مجموعة البنش {0}
+Bench {0} already runs the latest image,البنش {0} يعمل بالفعل بأحدث صورة
+Benches on your servers,البنشات على خوادمك
+Branch,الفرع
+Branch (optional),الفرع (اختياري)
+Build server,خادم البناء
+Build server {0} is archived,خادم البناء {0} مؤرشف
+Build started,بدأ البناء
+Building…,جارٍ البناء…
+Cancel,إلغاء
+Choose a server…,اختر خادماً…
+Choose one of your servers as the build server,اختر أحد خوادمك كخادم بناء
+Connect GitHub,ربط GitHub
+Connect another GitHub account,ربط حساب GitHub آخر
+Could not detect the Frappe app in {0}@{1} (no <app>/hooks.py). Enter the app name.,تعذّر اكتشاف تطبيق Frappe في {0}@{1} (لا يوجد <app>/hooks.py). أدخل اسم التطبيق.
+Could not reach GitHub: {0},تعذّر الوصول إلى GitHub: {0}
+Could not verify that you can access this GitHub installation.,تعذّر التحقق من صلاحيتك للوصول إلى تثبيت GitHub هذا.
+Create bench group,إنشاء مجموعة بنش
+Creating bench {0},جارٍ إنشاء البنش {0}
+Custom,مخصص
+Custom Apps,التطبيقات المخصصة
+Custom app is used by release groups {0},التطبيق المخصص مستخدم في مجموعات الإصدار {0}
+Custom app {0} added,تمت إضافة التطبيق المخصص {0}
+Custom app {0} belongs to another team,التطبيق المخصص {0} يتبع فريقاً آخر
+Custom apps still use installation {0}; disable them first,ما زالت تطبيقات مخصصة تستخدم التثبيت {0}؛ عطّلها أولاً
+Default branch,الفرع الافتراضي
+Deploy,نشر
+Deploy Candidate {0} not found,مرشح النشر {0} غير موجود
+Deploy now,انشر الآن
+Deploy the group first to build an image.,انشر المجموعة أولاً لبناء صورة.
+Deploy to server,نشر على خادم
+Deploys,عمليات النشر
+Disable,تعطيل
+Do not put credentials in the repository URL; use the access token field,لا تضع بيانات الاعتماد في رابط المستودع؛ استخدم حقل رمز الوصول
+"Each app must be an object {source_type, app, branch}","يجب أن يكون كل تطبيق كائناً {source_type, app, branch}"
+Enable,تفعيل
+"Frappe majors must be a comma separated list of 14, 15, 16",يجب أن تكون إصدارات Frappe قائمة مفصولة بفواصل من 14، 15، 16
+Frappe versions,إصدارات Frappe
+GitHub API error {0}: {1},خطأ في واجهة GitHub البرمجية {0}: {1}
+GitHub account,حساب GitHub
+GitHub account connected. You can now add apps from its repositories.,تم ربط حساب GitHub. يمكنك الآن إضافة تطبيقات من مستودعاته.
+GitHub apps need a github.com repository; use provider Other for {0},تطبيقات GitHub تتطلب مستودعاً على github.com؛ استخدم المزوّد «آخر» لـ {0}
+GitHub did not return an installation token,لم يُرجع GitHub رمز تثبيت
+GitHub did not return an installation. Try again.,لم يُرجع GitHub أي تثبيت. حاول مرة أخرى.
+GitHub installation {0} belongs to another team,تثبيت GitHub {0} يتبع فريقاً آخر
+GitHub installation {0} is {1},تثبيت GitHub {0} في حالة {1}
+GitHub installation {0} not found,تثبيت GitHub {0} غير موجود
+GitHub integration is not configured (GitHub Settings),تكامل GitHub غير مُعدّ (إعدادات GitHub)
+GitHub is not configured on this control plane yet. You can still add apps from other git providers with an access token.,لم يُعدّ GitHub على لوحة التحكم هذه بعد. لا يزال بإمكانك إضافة تطبيقات من مزوّدي git آخرين باستخدام رمز وصول.
+Incompatible apps,تطبيقات غير متوافقة
+Installation ID must be numeric,يجب أن يكون معرّف التثبيت رقمياً
+Invalid branch name {0},اسم فرع غير صالح {0}
+Invalid status,حالة غير صالحة
+Last commit,آخر إيداع
+Last deploy,آخر نشر
+Latest image,أحدث صورة
+"Lowercase letters, digits and dashes (3-31 characters). Used in image names.",أحرف صغيرة وأرقام وشرطات (3-31 حرفاً). يُستخدم في أسماء الصور.
+Manage custom apps,إدارة التطبيقات المخصصة
+Marketplace apps,تطبيقات المتجر
+Name,الاسم
+"Name must match ^[a-z][a-z0-9-]{2,30}$ (it is used in image tags), e.g. acme-v15","يجب أن يطابق الاسم ^[a-z][a-z0-9-]{2,30}$ (يُستخدم في وسوم الصور)، مثل acme-v15"
+Never,أبداً
+New Bench Group,مجموعة بنش جديدة
+New commits were pushed to the custom apps of this group. Deploy to build a new image.,تم دفع إيداعات جديدة إلى التطبيقات المخصصة لهذه المجموعة. انشر لبناء صورة جديدة.
+Nexaploy build server,خادم البناء من Nexaploy
+No bench group selected,لم يتم اختيار مجموعة بنش
+No custom apps yet. Add one from GitHub below.,لا توجد تطبيقات مخصصة بعد. أضف واحداً من GitHub أدناه.
+No deploys yet.,لا توجد عمليات نشر بعد.
+No image registry is configured: images can only run on the server that built them.,لا يوجد سجل صور مُعدّ: لا يمكن تشغيل الصور إلا على الخادم الذي بناها.
+No marketplace apps for this version.,لا توجد تطبيقات في المتجر لهذا الإصدار.
+Not compatible with this Frappe version,غير متوافق مع إصدار Frappe هذا
+Off,متوقف
+On,مفعّل
+Only the Frappe framework. Add apps to include them in the next deploy.,إطار Frappe فقط. أضف تطبيقات لتضمينها في النشر القادم.
+Private Key must be the PEM file contents (-----BEGIN RSA PRIVATE KEY-----),يجب أن يكون المفتاح الخاص محتوى ملف PEM (-----BEGIN RSA PRIVATE KEY-----)
+Release Group {0} belongs to another team,مجموعة الإصدار {0} تتبع فريقاً آخر
+Release Group {0} has no successful build yet; deploy it first,مجموعة الإصدار {0} ليس لها بناء ناجح بعد؛ انشرها أولاً
+Release Group {0} not found,مجموعة الإصدار {0} غير موجودة
+Remove {0} from this bench group?,إزالة {0} من مجموعة البنش هذه؟
+Repository,المستودع
+Repository URL,رابط المستودع
+Row {0}: invalid branch {1},الصف {0}: فرع غير صالح {1}
+Row {0}: select a marketplace app,الصف {0}: اختر تطبيقاً من المتجر
+Select the GitHub installation that can access {0},اختر تثبيت GitHub الذي يمكنه الوصول إلى {0}
+Select…,اختر…
+Server {0} belongs to another team,الخادم {0} يتبع فريقاً آخر
+Server {0} is {1}; it cannot be used as {2},الخادم {0} في حالة {1}؛ لا يمكن استخدامه كـ {2}
+Server {0} not found,الخادم {0} غير موجود
+Source,المصدر
+The GitHub connection link expired or was started by another user. Try again.,انتهت صلاحية رابط ربط GitHub أو بدأه مستخدم آخر. حاول مرة أخرى.
+The name {0} is already taken,الاسم {0} مستخدم بالفعل
+This GitHub account is already connected to another team.,حساب GitHub هذا مرتبط بالفعل بفريق آخر.
+This group does not run on any server yet.,هذه المجموعة لا تعمل على أي خادم بعد.
+"Title must match ^[a-z][a-z0-9-]{2,30}$ (it is used in image tags), e.g. erp-v15-main","يجب أن يطابق العنوان ^[a-z][a-z0-9-]{2,30}$ (يُستخدم في وسوم الصور)، مثل erp-v15-main"
+Token username,اسم مستخدم الرمز
+Uninstall {0} from the sites of this group first,ألغِ تثبيت {0} من مواقع هذه المجموعة أولاً
+Unknown app source {0},مصدر تطبيق غير معروف {0}
+Update available,يتوفر تحديث
+Updating bench {0},جارٍ تحديث البنش {0}
+Versions,الإصدارات
+Waiting for the build server to pick up this job…,بانتظار أن يستلم خادم البناء هذه المهمة…
+You have no bench groups yet. Create one to run your own apps on your servers.,ليست لديك مجموعات بنش بعد. أنشئ واحدة لتشغيل تطبيقاتك على خوادمك.
+Your custom apps,تطبيقاتك المخصصة
+Your request to install the GitHub app was sent to the organization owners.,تم إرسال طلب تثبيت تطبيق GitHub إلى مالكي المؤسسة.
+Your team already has an active custom app named {0},لدى فريقك بالفعل تطبيق مخصص نشط باسم {0}
+app is required,التطبيق مطلوب
+apps must be a JSON list,يجب أن تكون التطبيقات قائمة JSON
+build server,خادم بناء
+default,افتراضي
+deploy target,هدف نشر
+detected from the repository,يُكتشف من المستودع
+frappe itself cannot be a custom app,لا يمكن أن يكون frappe نفسه تطبيقاً مخصصاً
+not compatible,غير متوافق
+private,خاص
+Disabled,معطّل
+Deleted,محذوف
+Add key,إضافة مفتاح
+CPU time per day,وقت المعالج يوميًا
+Config,الإعدادات
+Current plan,الخطة الحالية
+Download,تنزيل
+Key,المفتاح
+Last 30 days,آخر 30 يومًا
+No plans available.,لا توجد خطط متاحة.
+"Only team owners, admins and billing members can change the plan.",يمكن لمالكي الفريق والمسؤولين وأعضاء الفوترة فقط تغيير الخطة.
+Over plan limit,تجاوز حد الخطة
+Read-only,للقراءة فقط
+Reading the config from the server…,جارٍ قراءة الإعدادات من الخادم…
+Reload,إعادة التحميل
+Requests today: {0},الطلبات اليوم: {0}
+Save changes,حفظ التغييرات
+Site config,إعدادات الموقع
+Switch,تبديل
+This site is close to its plan limits.,هذا الموقع قريب من حدود خطته.
+This site is in maintenance mode because it is over its plan limits. Upgrade the plan or reduce usage to bring it back.,هذا الموقع في وضع الصيانة لأنه تجاوز حدود خطته. قم بترقية الخطة أو قلّل الاستخدام لإعادته.
+This site is over its daily CPU budget and requests are rate limited until midnight UTC. Upgrade the plan to lift the limit now.,تجاوز هذا الموقع حصته اليومية من وقت المعالج، والطلبات محدودة حتى منتصف الليل بالتوقيت العالمي. قم بترقية الخطة لرفع الحد الآن.
+This site is over its plan limits.,هذا الموقع تجاوز حدود خطته.
+Throttled,محدود السرعة
+UTC day; CPU resets at midnight UTC,يوم بالتوقيت العالمي؛ يُعاد ضبط المعالج عند منتصف الليل UTC
+Undo,تراجع
+Updated {0},آخر تحديث {0}
+Upgrade plan,ترقية الخطة
+Usage,الاستخدام
+Usage today,الاستخدام اليوم
+Value,القيمة
+"Values are JSON: numbers, true/false, lists and objects are typed; text values stay text. Secrets are hidden; type a new value to replace one. Database, encryption and Nexaploy-managed keys are read-only.",القيم بصيغة JSON: الأرقام وtrue/false والقوائم والكائنات لها أنواعها، والقيم النصية تبقى نصًا. الأسرار مخفية؛ اكتب قيمة جديدة لاستبدالها. مفاتيح قاعدة البيانات والتشفير والمفاتيح التي يديرها Nexaploy للقراءة فقط.
+requests,طلبات
+secret,سري
+CPU time today,وقت المعالج اليوم
+s,ث
+Database,قاعدة البيانات
+File storage,تخزين الملفات
+Unlimited,غير محدود
+{0} CPU s/day,{0} ثانية معالج/يوم
+Unlimited CPU,معالج غير محدود
+{0} MB database,{0} ميغابايت لقاعدة البيانات
+Unlimited database,قاعدة بيانات غير محدودة
+{0} MB storage,{0} ميغابايت للتخزين
+Unlimited storage,تخزين غير محدود
+Change the plan of {0} to {1}?,تغيير خطة {0} إلى {1}؟
+Plan changed to {0},تم تغيير الخطة إلى {0}
+Public files,الملفات العامة
+Private files,الملفات الخاصة
+Could not read the site config,تعذّرت قراءة إعدادات الموقع
+The server agent did not answer. Try again later.,لم يستجب وكيل الخادم. حاول مرة أخرى لاحقًا.
+Invalid config key,مفتاح إعداد غير صالح
+{0} already exists,{0} موجود بالفعل
+Invalid JSON value: {0},قيمة JSON غير صالحة: {0}
+Nothing to change,لا يوجد ما يتغير
+Apply config changes to {0}? ({1}),تطبيق تغييرات الإعدادات على {0}؟ ({1})
+Update config,تحديث الإعدادات
+Site config updated,تم تحديث إعدادات الموقع
+Config update failed,فشل تحديث الإعدادات
+Site is required,الموقع مطلوب
+Site {0} not found,الموقع {0} غير موجود
+Site {0} is {1},الموقع {0} في حالة {1}
+Unknown backup file type {0},نوع ملف نسخ احتياطي غير معروف {0}
+Backup {0} not found,النسخة الاحتياطية {0} غير موجودة
+{0} downloaded the {1} file,قام {0} بتنزيل ملف {1}
+Plan changed from {0} to {1} by {2},تم تغيير الخطة من {0} إلى {1} بواسطة {2}
+{0} changed site config: set {1}; removed {2},قام {0} بتغيير إعدادات الموقع: تعيين {1}؛ حذف {2}
+{0} cannot be negative (0 = unlimited),{0} لا يمكن أن يكون سالبًا (0 = غير محدود)
+"Overage Action must be Notify, Throttle or Suspend",يجب أن يكون إجراء التجاوز: إشعار أو تحديد السرعة أو إيقاف
+Site Usage,استخدام الموقع
+Site Backup File,ملف النسخة الاحتياطية
+CPU Seconds per Day,ثواني المعالج يوميًا
+Max Storage (MB),الحد الأقصى للتخزين (ميغابايت)
+Max Database (MB),الحد الأقصى لقاعدة البيانات (ميغابايت)
+Overage Action,إجراء التجاوز
+Plan Order,ترتيب الخطة
+Notify,إشعار
+Throttle,تحديد السرعة
+Suspend,إيقاف

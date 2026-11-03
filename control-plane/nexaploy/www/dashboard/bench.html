@@ -1,0 +1,188 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block head %}
+<!-- synchronous on purpose: registers its alpine:init listener before Alpine (deferred) starts -->
+<script src="/assets/nexaploy/js/benches.js"></script>
+{% endblock %}
+
+{% block page_title %}<a href="/dashboard/benches" class="muted">{{ _("Bench Groups") }}</a> <span class="muted">/</span> <span class="ltr" id="nx-bench-title"></span>{% endblock %}
+
+{% block content %}
+<div class="stack" x-data="nxBench" x-cloak x-effect="if (group) document.getElementById('nx-bench-title').textContent = group.title">
+	<template x-if="loading && !group"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+	<template x-if="error && !group"><div class="alert danger" x-text="error"></div></template>
+
+	<template x-if="group">
+		<div class="stack">
+			<template x-if="group.update_available">
+				<div class="alert warning row">
+					<span>{{ _("New commits were pushed to the custom apps of this group. Deploy to build a new image.") }}</span>
+					<span class="spacer"></span>
+					<button class="btn sm primary" type="button" x-show="nx.can('write')" :disabled="deploying || building" @click="deploy()">{{ _("Deploy now") }}</button>
+				</div>
+			</template>
+
+			<section class="card">
+				<div class="card-head">
+					<h2 class="ltr" x-text="group.title"></h2>
+					<template x-if="group.update_available"><span class="badge warning">{{ _("Update available") }}</span></template>
+					<span class="spacer"></span>
+					<button class="btn primary" type="button" x-show="nx.can('write')" :disabled="deploying || building" @click="deploy()">
+						<span class="spinner" x-show="deploying || building"></span>
+						<span x-text="building ? __('Building…') : __('Deploy')"></span>
+					</button>
+				</div>
+				<div class="card-body">
+					<dl class="kv">
+						<dt>{{ _("Frappe version") }}</dt><dd><span x-text="'v' + group.frappe_major"></span> <span class="small muted mono" x-text="group.frappe_branch"></span></dd>
+						<dt>{{ _("Build server") }}</dt><dd class="ltr" x-text="serverLabel(group.build_server) || __('Nexaploy build server')"></dd>
+						<dt>{{ _("Latest image") }}</dt><dd class="mono small ellipsis" x-text="group.latest_image ? group.latest_image.image_tag : '—'"></dd>
+						<dt>{{ _("Auto update") }}</dt><dd x-text="group.auto_update ? __('On') + (group.update_window ? ' · ' + group.update_window : '') : __('Off')"></dd>
+					</dl>
+				</div>
+			</section>
+
+			<!-- Apps -->
+			<section class="card">
+				<div class="card-head">
+					<h2>{{ _("Apps") }}</h2>
+					<button class="btn sm" type="button" x-show="!addingApp && nx.can('write')" @click="openAddApp()">{{ _("Add app") }}</button>
+				</div>
+				<div class="card-body flush table-wrap">
+					<template x-if="!group.apps.length"><div class="empty">{{ _("Only the Frappe framework. Add apps to include them in the next deploy.") }}</div></template>
+					<table class="nx-table" x-show="group.apps.length">
+						<thead><tr><th>{{ _("App") }}</th><th>{{ _("Source") }}</th><th>{{ _("Branch") }}</th><th>{{ _("Last commit") }}</th><th></th></tr></thead>
+						<tbody>
+							<template x-for="a in group.apps" :key="a.source_type + a.app">
+								<tr>
+									<td><div x-text="a.title"></div><div class="small muted mono" x-text="a.app_name"></div></td>
+									<td>
+										<span class="chip" x-text="a.source_type === 'Custom' ? __('Custom') : __('Marketplace')"></span>
+										<div class="small muted ltr" x-show="a.repo" x-text="a.repo"></div>
+									</td>
+									<td class="mono small" x-text="a.branch"></td>
+									<td class="small"><span class="mono" x-text="a.last_commit ? a.last_commit.slice(0, 7) : ''"></span> <span class="muted" x-text="a.last_commit_message || ''"></span></td>
+									<td><button class="btn sm ghost" type="button" x-show="nx.can('write')" :disabled="busy" @click="removeApp(a)">{{ _("Remove") }}</button></td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+				<template x-if="addingApp">
+					<form class="card-body form-grid" @submit.prevent="addApp()">
+						<div class="grid cols-2">
+							<label class="field">
+								<span>{{ _("Source") }}</span>
+								<select class="input" x-model="newApp.source_type">
+									<option value="Marketplace">{{ _("Marketplace") }}</option>
+									<option value="Custom">{{ _("Custom") }}</option>
+								</select>
+							</label>
+							<label class="field">
+								<span>{{ _("App") }}</span>
+								<select class="input" x-model="newApp.app" required>
+									<option value="">{{ _("Select…") }}</option>
+									<template x-for="o in appChoices" :key="o.value"><option :value="o.value" :disabled="o.disabled" x-text="o.label"></option></template>
+								</select>
+							</label>
+							<label class="field">
+								<span>{{ _("Branch (optional)") }}</span>
+								<input class="input ltr" type="text" x-model="newApp.branch" placeholder="{{ _('default') }}" autocomplete="off" spellcheck="false">
+							</label>
+						</div>
+						<div class="row">
+							<button class="btn primary" type="submit" :disabled="busy || !newApp.app">{{ _("Add app") }}</button>
+							<button class="btn ghost" type="button" @click="addingApp = false">{{ _("Cancel") }}</button>
+							<a class="small" href="/dashboard/benches">{{ _("Manage custom apps") }}</a>
+						</div>
+					</form>
+				</template>
+			</section>
+
+			<!-- Benches on servers -->
+			<section class="card">
+				<div class="card-head"><h2>{{ _("Benches on your servers") }}</h2></div>
+				<div class="card-body flush table-wrap">
+					<template x-if="!group.benches.length"><div class="empty">{{ _("This group does not run on any server yet.") }}</div></template>
+					<table class="nx-table" x-show="group.benches.length">
+						<thead><tr><th>{{ _("Bench") }}</th><th>{{ _("Server") }}</th><th>{{ _("Image") }}</th><th>{{ _("Sites") }}</th><th>{{ _("Status") }}</th></tr></thead>
+						<tbody>
+							<template x-for="b in group.benches" :key="b.name">
+								<tr>
+									<td class="ltr" x-text="b.bench_name"></td>
+									<td class="ltr"><a :href="'/dashboard/server?name=' + encodeURIComponent(b.server)" x-text="b.server_hostname || b.server"></a></td>
+									<td class="mono small ellipsis" style="max-width: 320px" x-text="b.image_tag"></td>
+									<td x-text="b.sites"></td>
+									<td>
+										<span :class="nx.statusClass(b.status)" x-text="__(b.status)"></span>
+										<template x-if="group.latest_image && b.image_tag !== group.latest_image.image_tag && b.status === 'Active'"><span class="badge warning">{{ _("Update available") }}</span></template>
+									</td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+				<div class="card-body">
+					<template x-if="!group.servers.length"><div class="muted small">{{ _("Add your own server to deploy this group.") }} <a href="/dashboard/servers?add=1">{{ _("Add your own server") }}</a></div></template>
+					<template x-if="group.servers.length && nx.can('write')">
+						<form class="row" @submit.prevent="deployToServer()">
+							<select class="input" style="max-width: 320px" x-model="target" required>
+								<option value="">{{ _("Choose a server…") }}</option>
+								<template x-for="s in group.servers" :key="s.name"><option :value="s.name" x-text="s.hostname || s.name"></option></template>
+							</select>
+							<button class="btn primary" type="submit" :disabled="busy || !target || !group.latest_image">{{ _("Deploy to server") }}</button>
+							<span class="small muted" x-show="!group.latest_image">{{ _("Deploy the group first to build an image.") }}</span>
+						</form>
+					</template>
+					<template x-if="!group.registry_configured && group.servers.length > 1">
+						<div class="small muted" style="margin-block-start: 8px">{{ _("No image registry is configured: images can only run on the server that built them.") }}</div>
+					</template>
+				</div>
+			</section>
+
+			<!-- Deploys -->
+			<section class="card">
+				<div class="card-head"><h2>{{ _("Deploys") }}</h2></div>
+				<div class="card-body flush">
+					<template x-if="!group.deploys.length"><div class="empty">{{ _("No deploys yet.") }}</div></template>
+					<template x-for="d in group.deploys" :key="d.name">
+						<div style="border-block-end: 1px solid var(--nx-border)">
+							<div class="row" style="padding: 10px 18px; cursor: pointer" @click="toggleDeploy(d.name)">
+								<span class="mono small" x-text="d.build_id"></span>
+								<span class="small muted mono ellipsis" style="max-width: 360px" x-text="d.image_tag"></span>
+								<span class="spacer"></span>
+								<span class="small muted nowrap" x-text="nx.fmtDate(d.creation)"></span>
+								<span :class="nx.statusClass(d.status)" x-text="__(d.status)"></span>
+							</div>
+							<template x-if="openDeploy === d.name">
+								<div style="padding: 0 18px 14px">
+									<template x-if="!deployDetail"><div class="loading"><span class="spinner"></span></div></template>
+									<template x-if="deployDetail">
+										<div class="stack">
+											<template x-if="deployDetail.error"><pre class="log" x-text="deployDetail.error"></pre></template>
+											<template x-if="!deployDetail.steps.length && deployDetail.active"><div class="small muted">{{ _("Waiting for the build server to pick up this job…") }}</div></template>
+											<ul class="steps" x-show="deployDetail.steps.length">
+												<template x-for="s in deployDetail.steps" :key="s.idx">
+													<li>
+														<div class="step-head" @click="openSteps[s.idx] = !openSteps[s.idx]">
+															<span class="small muted" x-text="s.idx"></span>
+															<span class="name" x-text="s.name"></span>
+															<span :class="nx.statusClass(s.status)" x-text="__(s.status)"></span>
+														</div>
+														<template x-if="openSteps[s.idx] && s.output"><pre class="log" x-text="s.output"></pre></template>
+													</li>
+												</template>
+											</ul>
+											<template x-if="!deployDetail.steps.length && deployDetail.build_log"><pre class="log" x-text="deployDetail.build_log"></pre></template>
+										</div>
+									</template>
+								</div>
+							</template>
+						</div>
+					</template>
+				</div>
+			</section>
+		</div>
+	</template>
+</div>
+{% endblock %}

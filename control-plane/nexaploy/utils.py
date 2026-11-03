@@ -360,3 +360,130 @@ def resolve_secrets(params: Any, resolver) -> Any:
 	if ref:
 		return resolver(*ref)
 	return params
+
+
+# --------------------------------------------------------------------------- release groups with custom apps
+# Release Group App rows are either a Marketplace App (unchanged rules, see check_compatibility)
+# or a team's Custom App (private GitHub/other repo). Row dicts used below:
+#   {source_type: "Marketplace"|"Custom", app_name, repo_url, branch, approved, releases,   # marketplace
+#    custom_app, team, status, frappe_majors, provider, installation, repo, access_username}  # custom
+
+MARKETPLACE_SOURCE = "Marketplace"
+CUSTOM_SOURCE = "Custom"
+APP_SOURCE_TYPES = (MARKETPLACE_SOURCE, CUSTOM_SOURCE)
+
+
+def parse_frappe_majors(value: Any) -> list[str]:
+	"""Custom App.frappe_majors ('14,15,16', '15 16', ['15']) -> sorted supported majors."""
+	if value is None or value == "":
+		return []
+	items = value if isinstance(value, (list, tuple)) else re.split(r"[\s,;]+", str(value))
+	result = {str(i).strip().lstrip("v") for i in items if str(i).strip()}
+	return sorted((m for m in result if m in SUPPORTED_MAJORS), key=int)
+
+
+def check_group_apps(major: str | int, group_team: str | None, rows: Sequence[Mapping[str, Any]]) -> list[str]:
+	"""Validate a Release Group's mixed app list. Returns error strings (empty == ok).
+
+	- Marketplace rows: check_compatibility (approved + release for the major).
+	- Custom rows: the Custom App must belong to the group's team (so a shared/teamless
+	  group can never use one), be Active, and - when it declares frappe_majors - support
+	  the major. Names must be unique across both kinds and never be frappe.
+	"""
+	errors: list[str] = []
+	market = [r for r in rows if (r.get("source_type") or MARKETPLACE_SOURCE) == MARKETPLACE_SOURCE]
+	custom = [r for r in rows if r.get("source_type") == CUSTOM_SOURCE]
+	unknown = [r for r in rows if (r.get("source_type") or MARKETPLACE_SOURCE) not in APP_SOURCE_TYPES]
+	for r in unknown:
+		errors.append(f"Unknown app source {r.get('source_type')!r}")
+	errors.extend(check_compatibility(major, market))
+	seen = {r.get("app_name") for r in market}
+	major = str(major)
+	for r in custom:
+		name = r.get("app_name") or r.get("custom_app") or "?"
+		if not r.get("custom_app"):
+			errors.append(f"App {name}: select a custom app")
+			continue
+		if name in seen:
+			errors.append(f"App {name} is listed more than once")
+			continue
+		seen.add(name)
+		if name == "frappe":
+			errors.append("Do not add frappe as an app; it is selected by frappe_major/frappe_branch")
+			continue
+		if not is_valid_app_name(r.get("app_name")):
+			errors.append(f"Custom app {r.get('custom_app')} has no valid app name")
+		if not group_team or r.get("team") != group_team:
+			errors.append(f"Custom app {name} belongs to another team")
+		if (r.get("status") or "Active") != "Active":
+			errors.append(f"Custom app {name} is disabled")
+		majors = parse_frappe_majors(r.get("frappe_majors"))
+		if majors and major not in majors:
+			errors.append(f"Custom app {name} does not support Frappe {major} (supports {', '.join(majors)})")
+		if not r.get("repo_url"):
+			errors.append(f"Custom app {name} has no repository URL")
+		if not (r.get("branch")):
+			errors.append(f"Custom app {name} has no branch")
+	return errors
+
+
+def build_group_apps_json(rows: Sequence[Mapping[str, Any]], major: str | int) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
+	"""(apps_json, app_sources) for a Deploy Candidate.
+
+	apps_json never contains credentials (custom repos use their plain https URL) and is
+	what gets stored on the Deploy Candidate / sent with bench.create. app_sources carries
+	the non-secret metadata nexaploy.github_secrets needs to mint tokens at poll time.
+	"""
+	apps_json: list[dict[str, str]] = []
+	sources: list[dict[str, Any]] = []
+	for r in rows:
+		if r.get("source_type") == CUSTOM_SOURCE:
+			url, branch = r.get("repo_url"), r.get("branch")
+			if not url or not branch:
+				raise ValueError(f"custom app {r.get('app_name')!r} needs repo_url and branch")
+			item = {"url": url, "branch": branch}
+			src = {
+				"source_type": CUSTOM_SOURCE,
+				"app_name": r.get("app_name"),
+				"custom_app": r.get("custom_app"),
+				"provider": r.get("provider") or "GitHub",
+				"installation": r.get("installation"),
+				"repo": r.get("repo"),
+				"access_username": r.get("access_username"),
+			}
+		else:
+			item = build_apps_json([r], major)[0] if r.get("app_name") != "frappe" else None
+			if item is None:
+				continue
+			src = {"source_type": MARKETPLACE_SOURCE, "app_name": r.get("app_name")}
+		apps_json.append(item)
+		src.update(item)
+		sources.append(src)
+	return apps_json, sources
+
+
+def custom_app_needs_update(rows: Iterable[Mapping[str, Any]], repo: str, branch: str) -> list[str]:
+	"""Release Group names whose Custom App rows track `repo`@`branch` (push webhook).
+
+	rows: {parent, branch, repo} (Release Group App joined with Custom App.repo_full_name).
+	"""
+	repo = (repo or "").lower()
+	groups = []
+	for r in rows:
+		if (r.get("repo") or "").lower() == repo and r.get("branch") == branch and r.get("parent") not in groups:
+			groups.append(r.get("parent"))
+	return groups
+
+
+def unique_bench_name(release_group: str, existing: Iterable[str], suffix: str) -> str:
+	"""<group>-<suffix> trimmed to the bench regex (^[a-z][a-z0-9-]{2,30}$), unique in existing."""
+	suffix = re.sub(r"[^a-z0-9]", "", suffix.lower())[:6] or "1"
+	base = release_group[: 31 - len(suffix) - 1].rstrip("-")
+	name = f"{base}-{suffix}"
+	existing = set(existing)
+	n = 2
+	while name in existing:
+		tail = f"{suffix[: max(1, 6 - len(str(n)))]}{n}"
+		name = f"{release_group[: 31 - len(tail) - 1].rstrip('-')}-{tail}"
+		n += 1
+	return name

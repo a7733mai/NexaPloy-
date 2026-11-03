@@ -15,6 +15,8 @@
   "agent_job",
   "section_break_apps",
   "apps_json",
+  "app_sources",
+  "commits",
   "section_break_log",
   "build_log"
  ],
@@ -81,6 +83,21 @@
    "read_only": 1
   },
   {
+   "description": "Non-secret source metadata (custom app, installation) used to mint clone tokens when the build server polls. apps_json never contains credentials.",
+   "fieldname": "app_sources",
+   "fieldtype": "JSON",
+   "label": "App Sources",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "commits",
+   "fieldtype": "JSON",
+   "label": "Custom App Commits",
+   "read_only": 1,
+   "description": "{custom_app: commit} known when the build was created."
+  },
+  {
    "collapsible": 1,
    "fieldname": "section_break_log",
    "fieldtype": "Section Break",
@@ -96,7 +113,7 @@
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-03 12:00:00.000000",
+ "modified": "2026-11-20 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Deploy Candidate",

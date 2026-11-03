@@ -33,6 +33,9 @@ def redact_params(value: Any) -> Any:
         return out
     if isinstance(value, list):
         return [redact_params(v) for v in value]
+    if isinstance(value, str) and "@" in value and "://" in value:
+        # e.g. tokenised git URLs inside apps_json
+        return _URL_CRED_RE.sub(r"\1" + MASK + "@", value)
     return value
 
 

@@ -80,7 +80,12 @@ class Site(Document):
 	@staticmethod
 	def validate_apps_in_release_group(bench, apps):
 		group = frappe.db.get_value("Bench", bench, "release_group")
-		allowed = set(frappe.get_all("Release Group App", filters={"parent": group, "parenttype": "Release Group"}, pluck="app"))
+		rows = frappe.get_all(
+			"Release Group App",
+			filters={"parent": group, "parenttype": "Release Group"},
+			fields=["app", "app_name"],
+		)
+		allowed = {r.app_name or r.app for r in rows}
 		missing = [a for a in apps if a not in allowed]
 		if missing:
 			frappe.throw(

@@ -12,11 +12,11 @@
  "fields": [
   {
    "fieldname": "app",
-   "fieldtype": "Link",
+   "fieldtype": "Data",
    "in_list_view": 1,
    "label": "App",
-   "options": "Marketplace App",
-   "reqd": 1
+   "reqd": 1,
+   "description": "Python app name (marketplace or custom app)"
   },
   {
    "default": "Pending",
