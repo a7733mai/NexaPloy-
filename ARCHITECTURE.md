@@ -398,3 +398,40 @@ unhealthy containers → email team, max 1 per 6 h per server and kind), `check_
 (daily). A Server that becomes Active (register / first heartbeat) and every change of the backup
 storage settings enqueue `server.configure_backups`; all servers share one bucket under
 `<backup_prefix>/<server_id>` so a backup taken on one server restores on another.
+
+## 9. Teams (Phase 3 — shared contract for all later features)
+
+A **Team** owns servers, release groups, benches, sites, backups, subscriptions and invoices.
+Every `team` field in every DocType is a **Link → Team** (previously Link → User).
+
+| DocType | Key fields |
+|---|---|
+| Team | `team_name` (autoname, slug, unique), `title`, `owner_user` (Link User), `billing_email`, `currency`, `enabled`, `two_factor_required` (Check), child `Team Member` |
+| Team Member (child) | `user` (Link User), `role` (Owner/Admin/Developer/Billing) |
+| Team Invitation | `team`, `email`, `role`, `token_hash`, `expires_on`, `status` (Pending/Accepted/Expired/Revoked) |
+
+Role matrix (actions used by every API):
+
+| Action | Owner | Admin | Developer | Billing |
+|---|---|---|---|---|
+| `read` | ✅ | ✅ | ✅ | ✅ |
+| `write` (sites, benches, apps, backups, domains, config) | ✅ | ✅ | ✅ | ❌ |
+| `billing` (invoices, payments, plans) | ✅ | ✅ | ❌ | ✅ |
+| `admin` (members, invitations, servers, API keys, delete team) | ✅ | ✅ | ❌ | ❌ |
+
+Python API — `nexaploy/teams.py` (the only place membership is checked):
+
+```python
+is_platform_admin(user=None) -> bool                 # System Manager / Administrator
+get_user_teams(user=None) -> list[dict]             # [{name, title, role}]
+get_current_team(user=None) -> str                  # header X-Nexaploy-Team, else cookie
+                                                    # nexaploy_team, else user's first team;
+                                                    # creates a personal team if none
+check_team_access(team, action="read", user=None)   # raises frappe.PermissionError
+get_team_role(team, user=None) -> str | None
+team_notification_emails(team, kind="ops"|"billing") -> list[str]
+```
+
+Pure helpers (no frappe import) live in `nexaploy/team_utils.py`: `role_allows(role, action)`,
+slug generation, invitation token hashing. Platform admins pass every check.
+Portal JS sends `X-Nexaploy-Team` on every call (team switcher in the sidebar).
