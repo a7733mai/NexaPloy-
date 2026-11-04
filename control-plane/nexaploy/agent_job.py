@@ -43,6 +43,9 @@ JOB_KINDS = (
 	"site.slow_queries",
 	"site.sql",
 	"site.console",
+	# point-in-time recovery
+	"site.restore_pitr",
+	"server.archive_binlogs",
 )
 
 

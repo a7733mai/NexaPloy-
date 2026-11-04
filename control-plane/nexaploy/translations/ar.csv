@@ -1015,3 +1015,37 @@ Revenue share must be a number,يجب أن تكون حصة الإيرادات ر
 Revenue share must be between 0 and 100 percent,يجب أن تكون حصة الإيرادات بين 0 و100 بالمئة
 Please enter a subject,يرجى إدخال موضوع
 Get help,احصل على مساعدة
+Restore to a point in time,الاستعادة إلى نقطة زمنية
+"Bring the database back to how it was at any minute of the window below: the nearest earlier backup is restored and the database changes recorded since then are replayed up to that time.",أعد قاعدة البيانات إلى حالتها في أي دقيقة ضمن النافذة أدناه: تُستعاد أقرب نسخة احتياطية سابقة ثم تُعاد تغييرات قاعدة البيانات المسجّلة بعدها حتى ذلك الوقت.
+Available from,متاح من
+to,إلى
+"(last {0} days, up to {1} minutes ago)",(آخر {0} أيام، حتى ما قبل {1} دقائق)
+Restore to,الاستعادة إلى
+Choose a time inside the available window.,اختر وقتًا ضمن النافذة المتاحة.
+Restore into a new site to inspect it first (recommended),الاستعادة إلى موقع جديد لفحصه أولًا (موصى به)
+New site,الموقع الجديد
+Outgoing emails are muted and the scheduler is paused on the copy. It is billed like any site until you drop it.,الرسائل الصادرة مكتومة والمجدول متوقف على النسخة. تُحتسب تكلفتها مثل أي موقع حتى تحذفها.
+Overwrite this site,الكتابة فوق هذا الموقع
+All changes made after the chosen time are lost. A backup of the current state is taken first and the site is in maintenance mode during the restore.,ستُفقد كل التغييرات التي أُجريت بعد الوقت المختار. تؤخذ أولًا نسخة احتياطية من الحالة الحالية ويكون الموقع في وضع الصيانة أثناء الاستعادة.
+The copy is being restored:,تجري استعادة النسخة:
+Uploaded files come from the backup; files uploaded after it are kept from the current site.,تأتي الملفات المرفوعة من النسخة الاحتياطية؛ وتُحفظ الملفات المرفوعة بعدها من الموقع الحالي.
+"Replace ALL current data of {0} with its state at {1}? A backup of the current state is taken first.",استبدال كل البيانات الحالية للموقع {0} بحالتها في {1}؟ تؤخذ أولًا نسخة احتياطية من الحالة الحالية.
+Restore {0} as it was at {1} into a new site? The current site is not changed.,استعادة {0} كما كان في {1} إلى موقع جديد؟ لن يتغير الموقع الحالي.
+Point-in-time restore started,بدأت الاستعادة إلى نقطة زمنية
+Restoring into {0},جارٍ الاستعادة إلى {0}
+Point-in-time restore failed. Check the jobs log.,فشلت الاستعادة إلى نقطة زمنية. راجع سجل المهام.
+Unknown restore mode {0},وضع استعادة غير معروف {0}
+Type the site name to confirm that its current data will be replaced,اكتب اسم الموقع لتأكيد استبدال بياناته الحالية
+The server of this site is not active,خادم هذا الموقع غير نشط
+A point-in-time restore of this site is already running,هناك استعادة إلى نقطة زمنية قيد التنفيذ لهذا الموقع بالفعل
+No backup can be used for this time,لا توجد نسخة احتياطية يمكن استخدامها لهذا الوقت
+Choose a valid date and time,اختر تاريخًا ووقتًا صالحين
+No backup with a binlog position yet. Point-in-time recovery starts with the next backup.,لا توجد بعد نسخة احتياطية تحمل موضع سجل ثنائي. تبدأ الاستعادة إلى نقطة زمنية مع النسخة الاحتياطية التالية.
+The first restorable point is only a few minutes old. Try again shortly.,أول نقطة قابلة للاستعادة عمرها دقائق قليلة فقط. حاول مرة أخرى بعد قليل.
+Point-in-time recovery is not available for this site,الاستعادة إلى نقطة زمنية غير متاحة لهذا الموقع
+The earliest time you can restore to is {0} (UTC),أقدم وقت يمكنك الاستعادة إليه هو {0} (UTC)
+The latest time you can restore to is {0} (UTC),أحدث وقت يمكنك الاستعادة إليه هو {0} (UTC)
+Cannot build a site name for the restored copy,تعذّر إنشاء اسم موقع للنسخة المستعادة
+This backup cannot be restored,لا يمكن استعادة هذه النسخة الاحتياطية
+A restored copy needs its own name,تحتاج النسخة المستعادة إلى اسم خاص بها
+Point-in-time restore to {0} failed: {1},فشلت الاستعادة إلى النقطة الزمنية {0}: {1}

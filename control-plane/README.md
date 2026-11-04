@@ -148,13 +148,15 @@ Params are the agent REST body (§5.2) plus the path parameters of that endpoint
 | `site.create` | `{bench, name, admin_password, apps:[app_name]}` | Site insert |
 | `site.install_app` / `site.uninstall_app` | `{site, app}` | Site methods |
 | `site.add_domain` / `site.remove_domain` | `{site, domain}` | Site methods |
-| `site.backup` | `{site, with_files, upload: true}` | Site Backup insert |
+| `site.backup` | `{site, with_files, upload: true, pitr: true}` | Site Backup insert |
 | `site.restore` | `{site, remote_path}` (restore) or `{site, bench, backup_id\|remote_path, with_files}` (move target) | restore, move |
 | `site.migrate` | `{site}` | `Site.migrate` |
 | `site.drop` | `{site, skip_backup}` | `Site.drop`, move |
 | `server.configure_backups` | `{remote, type, provider, endpoint, region, bucket, access_key_id, secret_access_key, prefix}` | Server becomes Active (register / first heartbeat), Settings backup change, `Server.configure_backups` |
 | `server.health` | `{}` | `Server.health_check` |
 | `backup.prune_remote` | `{site, bench, prefix, keep_days, keep_min: 3}` | `tasks.prune_remote_backups` (daily) |
+| `site.restore_pitr` | `{site, bench, backup_id\|remote_path, target_time, target_site \| in_place + confirm, with_files}` | `api.pitr.restore_to_point` (ARCHITECTURE.md §11) |
+| `server.archive_binlogs` | `{rotate: true, keep_days: 7}` | `pitr.schedule_binlog_archiving` (every 15 min) |
 
 `registry` is `{url, username, password}` and is only sent when the image lives on the configured
 registry. `registry.password` and `secret_access_key` are stored as secret placeholders
@@ -183,6 +185,9 @@ in the `poll` response, so plaintext secrets never land in the Agent Job table.
 | `backup.prune_remote` | Site Backups whose `remote_path` was purged → Deleted | error log |
 | `server.health` | Server `facts` + monitoring fields / Server Metric | — |
 | `server.configure_backups` | — | error log |
+| `site.backup` (PITR) | Site Backup `binlog_*` fields from `result.binlog` (`pitr.backup_finished`) | — |
+| `site.restore_pitr` | restored Site (the copy, or the site in place) Active, pending apps Installed | copy Broken; in place unchanged if it failed before touching the site, else Broken |
+| `server.archive_binlogs` | — | error log |
 
 Site app and drop callbacks and `Server.archive` call `nexaploy.billing.subscriptions.sync_subscription`
 (errors are logged, never raised).

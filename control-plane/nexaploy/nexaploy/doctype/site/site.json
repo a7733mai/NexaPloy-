@@ -49,6 +49,7 @@
   "column_break_lifecycle",
   "staging_site",
   "move_options",
+  "pitr_of",
   "section_break_trial",
   "saas_product",
   "trial_end_date",
@@ -347,6 +348,14 @@
    "description": "In-flight move state: backup_id, allow_upgrade, source bench/server, cross_server."
   },
   {
+   "fieldname": "pitr_of",
+   "fieldtype": "Link",
+   "label": "Point-in-time Copy Of",
+   "options": "Site",
+   "read_only": 1,
+   "description": "Set on a site restored to a point in time of another site (site.restore_pitr)"
+  },
+  {
    "fieldname": "section_break_trial",
    "fieldtype": "Section Break",
    "label": "Trial",
@@ -381,7 +390,7 @@
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-28 12:00:00.000000",
+ "modified": "2026-12-01 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Site",

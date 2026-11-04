@@ -285,6 +285,13 @@ def test_db(db):
     assert "--slow-query-log=1" in cmd
     assert "--slow-query-log-file=/var/lib/mysql/slow.log" in cmd
     assert "--long-query-time=${DB_LONG_QUERY_TIME:-1}" in cmd
+    # binary log for point-in-time recovery (agent: site.backup / site.restore_pitr)
+    assert "--log-bin=mysql-bin" in cmd  # files in the data dir, never a sub-directory
+    assert "--binlog-format=ROW" in cmd
+    assert "--server-id=${DB_SERVER_ID:-1}" in cmd
+    assert "--binlog-expire-logs-seconds=${DB_BINLOG_EXPIRE_SECONDS:-604800}" in cmd
+    assert "--max-binlog-size=${DB_MAX_BINLOG_SIZE:-100M}" in cmd
+    assert "--sync-binlog=${DB_SYNC_BINLOG:-1}" in cmd
     assert m["volumes"] == ["./data:/var/lib/mysql"]
     assert m["networks"] == ["nexaploy-db"]
     assert db["networks"]["nexaploy-db"] == {"name": "nexaploy-db", "external": True}
@@ -358,6 +365,9 @@ def test_env_examples_parse():
         assert parse_env(ROOT / rel)
     assert "ACME_EMAIL" in parse_env(ROOT / "proxy/env.example")
     assert "DB_BUFFER_POOL" in parse_env(ROOT / "db/env.example")
+    db_env = parse_env(ROOT / "db/env.example")
+    assert db_env["DB_BINLOG_EXPIRE_SECONDS"] == "604800"
+    assert {"DB_MAX_BINLOG_SIZE", "DB_SYNC_BINLOG", "DB_SERVER_ID"} <= set(db_env)
 
 
 # --------------------------------------------------------------------------

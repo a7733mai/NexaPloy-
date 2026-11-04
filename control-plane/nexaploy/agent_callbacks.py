@@ -297,6 +297,9 @@ def on_site_backup(job):
 		backup.set("files", [])
 		for row in ops_utils.backup_files_from_result(_json(job.result, {})):
 			backup.append("files", row)
+		from nexaploy.pitr import backup_finished
+
+		backup_finished(backup, job)  # binlog position (point-in-time recovery)
 		# system-time clock (created_at from the agent is UTC); compared with now_datetime()
 		frappe.db.set_value(
 			"Site", backup.site, "last_backup_at", job.ended_at or frappe.utils.now_datetime(),
@@ -406,3 +409,21 @@ def on_site_rename(job):
 	if job.status not in TERMINAL_JOB_STATUSES:
 		return
 	_ref(job).rename_finished(job)
+
+
+# --------------------------------------------------------------------------- point-in-time recovery (§11)
+
+
+@handles("site.restore_pitr")
+def on_site_restore_pitr(job):
+	if job.status in TERMINAL_JOB_STATUSES:
+		from nexaploy.pitr import restore_finished
+
+		restore_finished(job)
+
+
+@handles("server.archive_binlogs")
+def on_archive_binlogs(job):
+	from nexaploy.pitr import archive_finished
+
+	archive_finished(job)

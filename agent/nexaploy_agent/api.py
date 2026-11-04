@@ -106,6 +106,10 @@ def create_app(ctx: AgentContext | None = None, settings: Settings | None = None
     def configure_backups(body: dict[str, Any] = Body(...)):
         return accepted("server.configure_backups", body)
 
+    @app.post("/v1/server/archive-binlogs", dependencies=auth, status_code=202)
+    def archive_binlogs(body: dict[str, Any] | None = Body(None)):
+        return accepted("server.archive_binlogs", dict(body or {}))
+
     @app.get("/v1/jobs", dependencies=auth)
     def list_jobs(status: str | None = Query(None), kind: str | None = Query(None),
                   limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0)):
@@ -239,6 +243,10 @@ def create_app(ctx: AgentContext | None = None, settings: Settings | None = None
     @app.post("/v1/sites/{site}/restore", dependencies=auth, status_code=202)
     def restore_site(site: str, body: dict[str, Any] = Body(...)):
         return accepted("site.restore", body_with(body, site=site))
+
+    @app.post("/v1/sites/{site}/restore-pitr", dependencies=auth, status_code=202)
+    def restore_site_pitr(site: str, body: dict[str, Any] = Body(...)):
+        return accepted("site.restore_pitr", body_with(body, site=site))
 
     @app.post("/v1/sites/{site}/migrate", dependencies=auth, status_code=202)
     def migrate_site(site: str):

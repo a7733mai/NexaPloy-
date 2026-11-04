@@ -18,7 +18,9 @@ class SiteBackup(Document):
 		create_agent_job(
 			server,
 			"site.backup",
-			{"site": self.site, "with_files": bool(self.with_files), "upload": True},
+			# pitr: the dump carries its binlog position (point-in-time recovery, §11); the
+			# agent skips it when binary logging is off on the server
+			{"site": self.site, "with_files": bool(self.with_files), "upload": True, "pitr": True},
 			reference_doctype=self.doctype,
 			reference_name=self.name,
 		)

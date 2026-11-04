@@ -68,6 +68,10 @@ class Site(Document):
 		if self.flags.clone_from:
 			self.enqueue_clone(self.flags.clone_from)
 			return
+		if self.flags.pitr_params:
+			# point-in-time copy (nexaploy.api.pitr.restore_to_point): restore, not new-site
+			create_agent_job(self.server, "site.restore_pitr", self.flags.pitr_params, self.doctype, self.name)
+			return
 		create_agent_job(
 			self.server,
 			"site.create",

@@ -151,11 +151,12 @@ class BackupManager:
         return {p.name for p in directory.iterdir() if p.is_file()}
 
     def stage(self, bench: str, site: str, ts: str, source_dir: Path, names: Iterable[str],
-              image: str | None) -> dict[str, Any]:
+              image: str | None, extra: dict[str, Any] | None = None) -> dict[str, Any]:
         """Move ``names`` from ``source_dir`` into the staging dir and write the manifest.
 
         Idempotent: files already moved are kept; the manifest is rewritten
-        from what is present in the staging dir.
+        from what is present in the staging dir. ``extra`` keys (e.g. ``binlog``: the
+        PITR coordinates of the database dump) are added to the manifest.
         """
         dest = self.backup_dir(bench, site, ts)
         ensure_dir(dest, FRAPPE_UID, FRAPPE_UID, 0o750)
@@ -181,6 +182,9 @@ class BackupManager:
                 for p in files
             ],
         }
+        for key, value in (extra or {}).items():
+            if value is not None and key not in manifest:
+                manifest[key] = value
         atomic_write(dest / MANIFEST, json.dumps(manifest, indent=2) + "\n", mode=0o640)
         return manifest
 

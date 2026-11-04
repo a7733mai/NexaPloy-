@@ -115,7 +115,11 @@ scheduler_events = {
 			"nexaploy.provisioning.jobs.check_provisioning",
 			"nexaploy.agent_callbacks.retry_failed_callbacks",
 		],
-		"*/15 * * * *": ["nexaploy.tasks.apply_auto_updates", "nexaploy.tasks.enforce_plan_limits"],
+		"*/15 * * * *": [
+			"nexaploy.tasks.apply_auto_updates",
+			"nexaploy.tasks.enforce_plan_limits",
+			"nexaploy.pitr.schedule_binlog_archiving",
+		],
 	},
 	"hourly": [
 		"nexaploy.tasks.prune_registration_tokens",

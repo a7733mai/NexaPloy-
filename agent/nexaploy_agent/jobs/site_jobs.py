@@ -106,7 +106,8 @@ class _SiteJob(Job):
         src = self.ctx.backups.frappe_backup_dir(self.ctx.sites.site_dir(bench, self.site))
         try:
             manifest = self.ctx.backups.stage(
-                bench, self.site, ts, src, self.result.get("files", []), self.ctx.benches.image(bench)
+                bench, self.site, ts, src, self.result.get("files", []), self.ctx.benches.image(bench),
+                extra={"binlog": self.result.get("binlog")},
             )
         except BackupError as exc:
             self.fail(str(exc))
@@ -374,15 +375,23 @@ class SiteRemoveDomain(_SiteJob):
 class SiteBackupParams(SiteParams):
     with_files: bool = True
     upload: bool = True
+    # Replace bench's database dump with one carrying binlog coordinates (PITR, §11).
+    # Skipped (backup still succeeds, without coordinates) when binary logging is off.
+    pitr: bool = False
 
 
 class SiteBackup(_SiteJob):
     kind = "site.backup"
-    steps = ("backup", "stage", "upload", "prune")
+    steps = ("backup", "pitr_dump", "stage", "upload", "prune")
     Params = SiteBackupParams
 
     def step_backup(self) -> None:
         self.take_backup(self.bench_for_site(), self.p.with_files)
+
+    def step_pitr_dump(self) -> None:
+        from .pitr_jobs import pitr_dump
+
+        pitr_dump(self, self.bench_for_site())
 
     def step_stage(self) -> None:
         self.stage_backup(self.bench_for_site())

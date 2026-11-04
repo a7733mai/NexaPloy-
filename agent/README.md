@@ -122,7 +122,7 @@ URL/token come from `agent.toml` (or `--url/--token`, `NEXAPLOY_URL/NEXAPLOY_TOK
 | `site.create` | `bench, name, admin_password, apps?` | check, new_site, install_apps, enable_monitor, write_route |
 | `site.install_app` / `site.uninstall_app` | `site, app` | install / uninstall |
 | `site.add_domain` / `site.remove_domain` | `site, domain` | add/remove domain in site_config, write_route |
-| `site.backup` | `site, with_files=true, upload=true` | backup, stage (manifest + sha256), upload, prune |
+| `site.backup` | `site, with_files=true, upload=true, pitr=false` | backup, pitr_dump (with `pitr`: replace bench's dump with one carrying binlog coordinates, see below), stage (manifest + sha256), upload, prune |
 | `site.restore` | `site, backup_id \| remote_path, bench?, with_files?` | locate, fetch, verify, restore, restore_config (encryption_key), migrate, write_route |
 | `site.migrate` | `site` | migrate |
 | `site.set_config` | `site, key, value` | set_config |
@@ -142,6 +142,32 @@ URL/token come from `agent.toml` (or `--url/--token`, `NEXAPLOY_URL/NEXAPLOY_TOK
 source (re-running it refreshes a staging copy). Database name and files stay the same on rename.
 Moves between servers need no extra kind: `site.backup` → `site.restore {bench, remote_path}` on the
 target (restore creates the site) → `site.drop` on the source.
+
+### Point-in-time recovery (`jobs/pitr_jobs.py`, `runtime/pitr.py`, ARCHITECTURE.md §11)
+
+| Kind | Params | Steps |
+|---|---|---|
+| `server.archive_binlogs` (`POST /v1/server/archive-binlogs`) | `rotate=true, keep_days=7, prefix?` | status (`SELECT @@log_bin, @@binlog_format`; off/not ROW → success with `enabled: false`), rotate (`FLUSH BINARY LOGS`), upload (closed files of `db/data/mysql-bin.index` → `rclone copy --immutable --files-from` to `<remote>:<prefix>/_binlogs/`), prune (`rclone delete --min-age <keep_days>d`) |
+| `site.restore_pitr` (`POST /v1/sites/{s}/restore-pitr`) | `site, backup_id \| remote_path, target_time (UTC ISO), target_site?, bench?, in_place=false, confirm?, with_files=true, scrub=true, binlog_prefix?` | new copy: check, locate, fetch, verify (manifest `binlog`, `ready_at <= target`), collect_binlogs, ensure_site, restore, restore_config, scrub, sync_files, decode, apply, migrate, write_route, cleanup. In place (`confirm` = site name): check, locate, fetch, verify, collect_binlogs, safety_backup, maintenance_on, restore, restore_config, decode, apply, migrate, maintenance_off, write_route, cleanup |
+
+- `pitr_dump` runs `mariadb-dump --single-transaction --master-data=2 --gtid` (one-shot `docker run` of the
+  bench image, so `bench restore` reads it like bench's own dump) into a temp file renamed over bench's
+  database dump, then parses `-- CHANGE MASTER TO MASTER_LOG_FILE=…, MASTER_LOG_POS=…` / `gtid_slave_pos`
+  from the header. Result and manifest: `binlog: {file, position, gtid, db_name, ready_at, server_id}`;
+  `ready_at` (dump finished) is the earliest restorable time. Binlog off or dump failure: the backup still
+  succeeds with `binlog: null` and `pitr_error`.
+- `collect_binlogs` flushes the binlog (every event before the target is then in a closed file), lists
+  `db/data/mysql-bin.index` and the archive (`rclone lsjson`), selects the consecutive files from the
+  backup's file (a gap fails the job before anything is touched) and copies / fetches them to
+  `backups/.pitr/<job>/binlogs` (uid 3101).
+- `decode` runs `mariadb-binlog --disable-log-bin --start-position=<pos> --stop-datetime=<target>
+  [--rewrite-db=<src>-><dst>] --database=<dst>` in a one-shot container of the DB server's image (`TZ=UTC`)
+  into `work/replay.sql` and reports `{bytes, row_events, commits}`; `apply` pipes it into
+  `mariadb --binary-mode` as root. `apply` is the one step that cannot run twice: an interrupted apply
+  restores the base backup again before replaying.
+- The copy (default `<first label>-pitr-<YYYYmmddHHMM>.<rest>`) is marked `nexaploy_pitr_of` /
+  `nexaploy_pitr_target` with `mute_emails=1, pause_scheduler=1` (scrub); files uploaded after the backup
+  are copied from the live site (`sync_files`, nothing overwritten).
 
 Params are the REST body plus path parameters, identical for jobs sent by the control plane.
 Every step is check-then-act, so a job interrupted by a crash is re-queued at startup and resumes:
