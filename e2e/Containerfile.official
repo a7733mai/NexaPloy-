@@ -1,0 +1,51 @@
+# syntax=docker/dockerfile:1.7
+# Test-only image: adapts the official frappe/erpnext image to the Nexaploy image
+# contract (ARCHITECTURE.md §4) WITHOUT network access during the build
+# (UID 3113, assets/apps.txt baked outside sites/, nexaploy-entrypoint.sh).
+# Production images come from image-builder/.
+ARG BASE=mirror.gcr.io/frappe/erpnext:v15.89.0
+FROM ${BASE}
+USER root
+RUN set -eux; \
+    # v15 images: frappe 1000:1000; v16 images: frappe 1000:0 (group-writable, OpenShift style)
+    if getent group frappe >/dev/null; then groupmod -g 3113 frappe; else groupadd -g 3113 frappe; fi; \
+    usermod -u 3113 -g 3113 frappe; \
+    chown -R 3113:3113 /home/frappe; \
+    touch /run/nginx.pid; \
+    chown -R 3113:3113 /etc/nginx/conf.d /var/log/nginx /var/lib/nginx /run/nginx.pid; \
+    cd /home/frappe/frappe-bench; \
+    mkdir -p .nexaploy; cp sites/apps.txt .nexaploy/apps.txt; \
+    if [ -f sites/apps.json ]; then cp sites/apps.json .nexaploy/apps.json; fi; \
+    # v15: assets live in sites/assets; v16 already bakes them in ./assets
+    if [ -d sites/assets ] && [ ! -L sites/assets ]; then rm -rf assets; mv sites/assets assets; fi; \
+    chown -R 3113:3113 .nexaploy assets
+COPY --chmod=755 <<'EOF' /usr/local/bin/nexaploy-entrypoint.sh
+#!/bin/bash
+set -e
+umask 0002
+BENCH=/home/frappe/frappe-bench
+SITES="$BENCH/sites"
+if [ -d "$SITES" ] && [ -w "$SITES" ]; then
+  if [ "$(readlink "$SITES/assets" 2>/dev/null || true)" != "$BENCH/assets" ]; then
+    # sites/assets may be a mount point (e.g. a VOLUME inherited from a base image):
+    # never let that stop the container, just warn.
+    if rm -rf "$SITES/assets" 2>/dev/null; then
+      ln -sfn "$BENCH/assets" "$SITES/assets" 2>/dev/null || true
+    else
+      echo "nexaploy-entrypoint: warning: cannot replace $SITES/assets (mount point?)" >&2
+    fi
+  fi
+  for f in apps.txt apps.json; do
+    if [ -f "$BENCH/.nexaploy/$f" ] && ! cmp -s "$BENCH/.nexaploy/$f" "$SITES/$f"; then
+      tmp="$(mktemp "$SITES/.$f.XXXXXX")" && cp "$BENCH/.nexaploy/$f" "$tmp" && mv -f "$tmp" "$SITES/$f" || true
+    fi
+  done
+  [ -f "$SITES/common_site_config.json" ] || echo "{}" > "$SITES/common_site_config.json" || true
+fi
+exec "$@"
+EOF
+
+USER frappe
+WORKDIR /home/frappe/frappe-bench
+ENTRYPOINT ["/usr/local/bin/nexaploy-entrypoint.sh"]
+CMD ["/home/frappe/frappe-bench/env/bin/gunicorn", "--chdir=/home/frappe/frappe-bench/sites", "--bind=0.0.0.0:8000", "--threads=4", "--workers=2", "--worker-class=gthread", "--worker-tmp-dir=/dev/shm", "--timeout=120", "--preload", "frappe.app:application"]

@@ -1,0 +1,208 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-12 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_relay",
+  "enabled",
+  "provider",
+  "region",
+  "smtp_host",
+  "smtp_port",
+  "tls_mode",
+  "column_break_relay",
+  "username",
+  "password",
+  "verify_smtp",
+  "default_from_domain",
+  "daily_send_limit",
+  "section_break_dns",
+  "spf_include",
+  "dkim_selector",
+  "dkim_record_type",
+  "dkim_value",
+  "column_break_dns",
+  "dmarc_policy",
+  "dmarc_rua",
+  "return_path_host",
+  "return_path_value",
+  "relay_config_hash"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_relay",
+   "fieldtype": "Section Break",
+   "label": "SMTP relay"
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enable managed e-mail",
+   "default": "0",
+   "description": "Lets teams turn on Managed e-mail per site: the site's default outgoing Email Account \"Nexaploy Relay\" is pointed at this relay."
+  },
+  {
+   "fieldname": "provider",
+   "fieldtype": "Select",
+   "label": "Provider",
+   "options": "Generic SMTP\nAmazon SES\nPostmark\nMailgun\nBrevo",
+   "default": "Generic SMTP"
+  },
+  {
+   "fieldname": "region",
+   "fieldtype": "Data",
+   "label": "Region",
+   "depends_on": "eval:doc.provider=='Amazon SES'",
+   "description": "Amazon SES region, e.g. eu-west-1 (default us-east-1)."
+  },
+  {
+   "fieldname": "smtp_host",
+   "fieldtype": "Data",
+   "label": "SMTP host",
+   "description": "Empty = the provider's default host."
+  },
+  {
+   "fieldname": "smtp_port",
+   "fieldtype": "Int",
+   "label": "SMTP port",
+   "description": "Empty = 587 (STARTTLS), 465 (SSL/TLS) or 25."
+  },
+  {
+   "fieldname": "tls_mode",
+   "fieldtype": "Select",
+   "label": "TLS mode",
+   "options": "STARTTLS\nSSL/TLS\nNone",
+   "default": "STARTTLS"
+  },
+  {
+   "fieldname": "column_break_relay",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "username",
+   "fieldtype": "Data",
+   "label": "Username",
+   "description": "SMTP user (SES SMTP credentials, Postmark server token, Mailgun SMTP login, Brevo login). Empty = no authentication."
+  },
+  {
+   "fieldname": "password",
+   "fieldtype": "Password",
+   "label": "Password",
+   "length": 1000
+  },
+  {
+   "fieldname": "verify_smtp",
+   "fieldtype": "Check",
+   "label": "Verify SMTP login on each site",
+   "default": "1",
+   "description": "Frappe logs in to the relay when the Email Account is saved; a wrong password fails the job."
+  },
+  {
+   "fieldname": "default_from_domain",
+   "fieldtype": "Data",
+   "label": "Default from-domain",
+   "description": "Sender domain for sites without a verified custom domain (noreply@<domain>). Empty = the site's own name. It must be authenticated (SPF/DKIM) with the provider."
+  },
+  {
+   "fieldname": "daily_send_limit",
+   "fieldtype": "Int",
+   "label": "Per-site daily send limit",
+   "default": "0",
+   "description": "0 = unlimited. Written to each site's config as nexaploy_email_daily_limit; enforce it at the relay (Frappe core has no daily limit)."
+  },
+  {
+   "fieldname": "section_break_dns",
+   "fieldtype": "Section Break",
+   "label": "Domain authentication (custom sending domains)",
+   "description": "Records shown to customers for their own sending domain. {domain} is replaced by the customer's domain."
+  },
+  {
+   "fieldname": "spf_include",
+   "fieldtype": "Data",
+   "label": "SPF include",
+   "description": "e.g. include:amazonses.com. Empty = the provider default."
+  },
+  {
+   "fieldname": "dkim_selector",
+   "fieldtype": "Data",
+   "label": "DKIM selector",
+   "description": "e.g. mail, k1, pm, or the token the provider shows."
+  },
+  {
+   "fieldname": "dkim_record_type",
+   "fieldtype": "Select",
+   "label": "DKIM record type",
+   "options": "TXT\nCNAME",
+   "default": "TXT"
+  },
+  {
+   "fieldname": "dkim_value",
+   "fieldtype": "Small Text",
+   "label": "DKIM value",
+   "description": "Public key (TXT, v=DKIM1; k=rsa; p=...) or CNAME target, e.g. {domain_dashed}.dkim.example.net."
+  },
+  {
+   "fieldname": "column_break_dns",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "dmarc_policy",
+   "fieldtype": "Select",
+   "label": "DMARC policy",
+   "options": "none\nquarantine\nreject",
+   "default": "none"
+  },
+  {
+   "fieldname": "dmarc_rua",
+   "fieldtype": "Data",
+   "label": "DMARC report address",
+   "options": "Email"
+  },
+  {
+   "fieldname": "return_path_host",
+   "fieldtype": "Data",
+   "label": "Return-Path host",
+   "description": "Label under the customer domain, e.g. pm-bounces. Empty = the provider default."
+  },
+  {
+   "fieldname": "return_path_value",
+   "fieldtype": "Data",
+   "label": "Return-Path target",
+   "description": "CNAME target, e.g. pm.mtasv.net."
+  },
+  {
+   "fieldname": "relay_config_hash",
+   "fieldtype": "Data",
+   "label": "Relay config hash",
+   "hidden": 1,
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-12 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Email Relay Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "issingle": 1
+}

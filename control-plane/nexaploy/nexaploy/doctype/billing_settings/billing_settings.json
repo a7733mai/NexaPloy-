@@ -1,0 +1,276 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-03 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled",
+  "currency",
+  "tax_percent",
+  "column_break_1",
+  "invoice_day",
+  "grace_days",
+  "suspend_after_days",
+  "section_break_plans",
+  "default_byos_plan",
+  "column_break_2",
+  "default_site_plan",
+  "section_break_gateways",
+  "enable_stripe",
+  "enable_paymob",
+  "column_break_3",
+  "return_url",
+  "section_break_stripe",
+  "stripe_publishable_key",
+  "stripe_secret_key",
+  "column_break_4",
+  "stripe_webhook_secret",
+  "section_break_paymob",
+  "paymob_api_key",
+  "paymob_integration_id",
+  "paymob_iframe_id",
+  "paymob_hmac_secret",
+  "column_break_5",
+  "paymob_currency",
+  "paymob_exchange_rate",
+  "paymob_base_url",
+  "section_break_credits",
+  "signup_credits",
+  "column_break_6",
+  "min_topup",
+  "max_topup"
+ ],
+ "fields": [
+  {
+   "default": "1",
+   "description": "When off, no invoices are generated and nobody is suspended.",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Billing Enabled"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Default Currency",
+   "options": "Currency",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "tax_percent",
+   "fieldtype": "Float",
+   "label": "Tax %"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "description": "Day of the month on which the previous month is invoiced (1-28; larger values mean the last day).",
+   "fieldname": "invoice_day",
+   "fieldtype": "Int",
+   "label": "Invoice Day"
+  },
+  {
+   "default": "7",
+   "description": "Invoice due date = issue date + grace days.",
+   "fieldname": "grace_days",
+   "fieldtype": "Int",
+   "label": "Grace Days"
+  },
+  {
+   "default": "14",
+   "description": "Suspend the team's sites when an invoice is overdue for more than this many days.",
+   "fieldname": "suspend_after_days",
+   "fieldtype": "Int",
+   "label": "Suspend After Days"
+  },
+  {
+   "fieldname": "section_break_plans",
+   "fieldtype": "Section Break",
+   "label": "Default Plans"
+  },
+  {
+   "fieldname": "default_byos_plan",
+   "fieldtype": "Link",
+   "label": "Default BYOS Server Plan",
+   "options": "Nexaploy Plan"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_site_plan",
+   "fieldtype": "Link",
+   "label": "Default Site Plan",
+   "options": "Nexaploy Plan"
+  },
+  {
+   "fieldname": "section_break_gateways",
+   "fieldtype": "Section Break",
+   "label": "Payment Gateways"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_stripe",
+   "fieldtype": "Check",
+   "label": "Enable Stripe"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_paymob",
+   "fieldtype": "Check",
+   "label": "Enable Paymob (Egypt)"
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Where customers land after paying. Default: <site URL>/dashboard/billing",
+   "fieldname": "return_url",
+   "fieldtype": "Data",
+   "label": "Return URL",
+   "length": 1000
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_stripe",
+   "fieldtype": "Section Break",
+   "label": "Stripe"
+  },
+  {
+   "fieldname": "stripe_publishable_key",
+   "fieldtype": "Data",
+   "label": "Publishable Key",
+   "length": 1000
+  },
+  {
+   "fieldname": "stripe_secret_key",
+   "fieldtype": "Password",
+   "label": "Secret Key"
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Endpoint: /api/method/nexaploy.api.billing.stripe_webhook (event checkout.session.completed)",
+   "fieldname": "stripe_webhook_secret",
+   "fieldtype": "Password",
+   "label": "Webhook Signing Secret"
+  },
+  {
+   "collapsible": 1,
+   "description": "For Egyptian customers. Callback URL: /api/method/nexaploy.api.billing.paymob_webhook",
+   "fieldname": "section_break_paymob",
+   "fieldtype": "Section Break",
+   "label": "Paymob Accept"
+  },
+  {
+   "fieldname": "paymob_api_key",
+   "fieldtype": "Password",
+   "label": "API Key"
+  },
+  {
+   "fieldname": "paymob_integration_id",
+   "fieldtype": "Data",
+   "label": "Integration ID"
+  },
+  {
+   "fieldname": "paymob_iframe_id",
+   "fieldtype": "Data",
+   "label": "iFrame ID"
+  },
+  {
+   "fieldname": "paymob_hmac_secret",
+   "fieldtype": "Password",
+   "label": "HMAC Secret"
+  },
+  {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "paymob_currency",
+   "fieldtype": "Link",
+   "label": "Paymob Currency",
+   "options": "Currency"
+  },
+  {
+   "default": "1",
+   "description": "Multiplier from the invoice currency to the Paymob currency (e.g. USD -> EGP).",
+   "fieldname": "paymob_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate"
+  },
+  {
+   "default": "https://accept.paymob.com",
+   "fieldname": "paymob_base_url",
+   "fieldtype": "Data",
+   "label": "API Base URL",
+   "length": 1000
+  },
+  {
+   "fieldname": "section_break_credits",
+   "fieldtype": "Section Break",
+   "label": "Prepaid Credits"
+  },
+  {
+   "default": "0",
+   "description": "Promo credits granted once to every new team (and at most once per owner). 0 = off.",
+   "fieldname": "signup_credits",
+   "fieldtype": "Currency",
+   "label": "Signup Credits",
+   "options": "currency"
+  },
+  {
+   "fieldname": "column_break_6",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "5",
+   "fieldname": "min_topup",
+   "fieldtype": "Currency",
+   "label": "Minimum Top-up",
+   "options": "currency"
+  },
+  {
+   "default": "10000",
+   "fieldname": "max_topup",
+   "fieldtype": "Currency",
+   "label": "Maximum Top-up",
+   "options": "currency"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-03 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Billing Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

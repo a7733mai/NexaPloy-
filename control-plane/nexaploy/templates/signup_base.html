@@ -1,0 +1,33 @@
+{%- set nxb = nx_brand if (nx_brand is defined and nx_brand) else {} -%}
+<!doctype html>
+<html lang="{{ lang or 'en' }}" dir="{{ dir or 'ltr' }}">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>{{ title or _("Sign up") }} · {{ (nxb.get("title") or "Nexaploy") | e }}</title>
+	<link rel="stylesheet" href="/assets/nexaploy/css/dashboard.css">
+	{% if nxb.get("favicon") %}<link rel="icon" href="{{ nxb.get("favicon") }}">{% endif %}
+	{% if nxb.get("css") %}<style id="nx-brand-css">{{ nxb.get("css") }}</style>{% endif %}
+	<style>
+		.nx-signup { max-width: 520px; margin: 48px auto; padding: 0 16px; }
+		.nx-signup h1 { font-size: 24px; margin: 0 0 6px; }
+		.nx-signup .avail { min-height: 18px; }
+		.nx-signup .avail.ok { color: var(--nx-success); }
+		.nx-signup .avail.bad { color: var(--nx-danger); }
+		.nx-signup [hidden] { display: none !important; }
+	</style>
+	<script>
+		window.frappe = window.frappe || {};
+		window.frappe.csrf_token = {{ (csrf_token or "") | tojson }};
+		window.NX_SIGNUP = {{ (signup_boot or {}) | tojson }};
+	</script>
+	{% block head %}{% endblock %}
+</head>
+<body class="nx">
+	<main class="nx-signup">
+		{% if nxb.get("logo") %}<img class="nx-brand-logo" src="{{ nxb.get("logo") }}" alt="{{ nxb.get("title") | e }}" style="max-height: 40px; margin-block-end: 16px">{% endif %}
+		{% block content %}{% endblock %}
+	</main>
+	<script src="/assets/nexaploy/js/signup.js"></script>
+</body>
+</html>

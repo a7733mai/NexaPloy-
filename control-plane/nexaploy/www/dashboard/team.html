@@ -1,0 +1,163 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block content %}
+<div class="stack" x-data="nxTeam" x-cloak>
+
+	<!-- Accept an invitation (/dashboard/team?invite=<token>) -->
+	<template x-if="inviteToken">
+		<section class="card">
+			<div class="card-head"><h2>{{ _("Team invitation") }}</h2></div>
+			<div class="card-body stack">
+				<template x-if="inviteLoading"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+				<template x-if="inviteError"><div class="alert danger" x-text="inviteError"></div></template>
+				<template x-if="invite && invite.status === 'Pending' && invite.matches">
+					<div class="stack">
+						<p style="margin: 0">{{ _("You are invited to join") }} <b x-text="invite.team_title"></b> {{ _("as") }} <span class="badge plain" x-text="__(invite.role)"></span>.</p>
+						<div class="row">
+							<button class="btn primary" type="button" :disabled="busy.accept" @click="accept()">
+								<span class="spinner" x-show="busy.accept"></span> {{ _("Accept invitation") }}
+							</button>
+						</div>
+					</div>
+				</template>
+				<template x-if="invite && invite.status === 'Pending' && !invite.matches">
+					<div class="alert warning">{{ _("This invitation was sent to another email address. Log in with it to accept:") }} <span class="ltr" x-text="invite.email"></span></div>
+				</template>
+				<template x-if="invite && invite.status !== 'Pending'">
+					<div class="alert warning">{{ _("This invitation is no longer valid.") }} <span class="badge plain" x-text="__(invite.status)"></span></div>
+				</template>
+			</div>
+		</section>
+	</template>
+
+	<template x-if="loading && !team"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+	<template x-if="error"><div class="alert danger" x-text="error"></div></template>
+
+	<template x-if="team">
+		<div class="stack">
+			<!-- Team details -->
+			<section class="card">
+				<div class="card-head">
+					<h2 x-text="team.title"></h2>
+					<span class="badge info" x-text="__(team.role)"></span>
+					<button class="btn sm" type="button" @click="showCreate = !showCreate">{{ _("New team") }}</button>
+				</div>
+				<div class="card-body stack">
+					<dl class="kv">
+						<dt>{{ _("Team ID") }}</dt><dd class="mono" x-text="team.name"></dd>
+						<template x-if="team.billing_email !== null"><dt>{{ _("Billing email") }}</dt></template>
+						<template x-if="team.billing_email !== null"><dd class="ltr" x-text="team.billing_email || '—'"></dd></template>
+					</dl>
+					<template x-if="team.permissions.admin">
+						<form class="form-grid" @submit.prevent="saveTeam()">
+							<label class="field">{{ _("Team name") }}
+								<input class="input" type="text" maxlength="140" x-model="edit.title" required>
+							</label>
+							<label class="field">{{ _("Billing email") }}
+								<span class="hint">{{ _("Invoices are sent here and to Owners and Billing members.") }}</span>
+								<input class="input ltr" type="email" x-model="edit.billing_email">
+							</label>
+							<div class="row">
+								<button class="btn primary" type="submit" :disabled="busy.save"><span class="spinner" x-show="busy.save"></span> {{ _("Save") }}</button>
+							</div>
+						</form>
+					</template>
+					<form class="row" x-show="showCreate" @submit.prevent="createTeam()">
+						<input class="input" style="max-width: 320px" type="text" maxlength="140" x-model="newTitle" placeholder="{{ _('Team name') }}" required>
+						<button class="btn primary" type="submit" :disabled="busy.create"><span class="spinner" x-show="busy.create"></span> {{ _("Create team") }}</button>
+					</form>
+				</div>
+			</section>
+
+			<!-- Members -->
+			<section class="card">
+				<div class="card-head"><h2>{{ _("Members") }}</h2></div>
+				<div class="card-body flush table-wrap">
+					<table class="nx-table">
+						<thead><tr><th>{{ _("Member") }}</th><th>{{ _("Role") }}</th><th></th></tr></thead>
+						<tbody>
+							<template x-for="m in team.members" :key="m.user">
+								<tr>
+									<td>
+										<div><span x-text="m.full_name"></span> <span class="small muted" x-show="m.is_you">({{ _("you") }})</span></div>
+										<div class="small muted ltr" x-text="m.email || m.user"></div>
+									</td>
+									<td>
+										<template x-if="canEdit(m)">
+											<select class="input" style="width: auto" :value="m.role" @change="changeRole(m, $event.target.value)">
+												<template x-for="r in assignableRoles" :key="r"><option :value="r" :selected="r === m.role" x-text="__(r)"></option></template>
+											</select>
+										</template>
+										<template x-if="!canEdit(m)"><span class="badge plain" x-text="__(m.role)"></span></template>
+									</td>
+									<td class="actions">
+										<button class="btn sm danger" type="button" x-show="canEdit(m) && !m.is_you" :disabled="busy['rm-' + m.user]" @click="remove(m)">{{ _("Remove") }}</button>
+										<button class="btn sm danger" type="button" x-show="m.is_you" :disabled="busy.leave" @click="leave()">{{ _("Leave team") }}</button>
+									</td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<!-- Invitations (admins) -->
+			<template x-if="team.permissions.admin">
+				<section class="card">
+					<div class="card-head"><h2>{{ _("Invitations") }}</h2></div>
+					<div class="card-body stack">
+						<form class="row" @submit.prevent="inviteMember()">
+							<input class="input ltr" style="max-width: 320px" type="email" x-model="form.email" placeholder="{{ _('Email address') }}" required>
+							<select class="input" style="width: auto" x-model="form.role">
+								<template x-for="r in assignableRoles" :key="r"><option :value="r" x-text="__(r)"></option></template>
+							</select>
+							<button class="btn primary" type="submit" :disabled="busy.invite"><span class="spinner" x-show="busy.invite"></span> {{ _("Invite") }}</button>
+						</form>
+						<p class="small muted" style="margin: 0">{{ _("Owner and Admin manage members and servers; Developer manages sites, benches and backups; Billing manages invoices and payments. Everyone can view.") }}</p>
+						<template x-if="lastInvite">
+							<div class="stack">
+								<div class="alert success" x-show="lastInvite.email_sent">{{ _("Invitation sent.") }}</div>
+								<div class="alert warning" x-show="!lastInvite.email_sent">{{ _("The email could not be sent. Share this link with the invitee:") }}</div>
+								<div class="codebox mono"><span x-text="lastInvite.invite_url"></span><button class="btn sm" type="button" @click="nx.copy(lastInvite.invite_url)">{{ _("Copy") }}</button></div>
+							</div>
+						</template>
+					</div>
+					<div class="card-body flush table-wrap" x-show="team.invitations.length">
+						<table class="nx-table">
+							<thead><tr><th>{{ _("Email") }}</th><th>{{ _("Role") }}</th><th>{{ _("Expires") }}</th><th></th></tr></thead>
+							<tbody>
+								<template x-for="i in team.invitations" :key="i.name">
+									<tr>
+										<td class="ltr" x-text="i.email"></td>
+										<td><span class="badge plain" x-text="__(i.role)"></span></td>
+										<td class="small nowrap" x-text="nx.fmtDate(i.expires_on)"></td>
+										<td class="actions"><button class="btn sm danger" type="button" :disabled="busy['rv-' + i.name]" @click="revoke(i)">{{ _("Revoke") }}</button></td>
+									</tr>
+								</template>
+							</tbody>
+						</table>
+					</div>
+				</section>
+			</template>
+		</div>
+	</template>
+
+	<!-- Security: require two-factor login for every member (Owners/Admins) -->
+	<template x-if="team && team.permissions.admin">
+		<section class="card" x-data="nxTeamSecurity">
+			<div class="card-head">
+				<h2>{{ _("Security") }}</h2>
+				<a class="btn sm" href="/dashboard/activity">{{ _("Activity log") }}</a>
+			</div>
+			<div class="card-body stack">
+				<label class="check">
+					<input type="checkbox" :checked="required" :disabled="busy" @change="toggle($event.target.checked)">
+					<span>{{ _("Require two-factor authentication for all members") }}</span>
+				</label>
+				<p class="small muted" style="margin: 0">{{ _("Members must enter a one-time code from an authenticator app when they sign in. New members get the requirement when they accept their invitation.") }}</p>
+				<div class="alert warning" x-show="required && systemOff">{{ _("Two-factor sign-in is not enabled on this platform yet. Ask the platform administrator to enable it in System Settings.") }}</div>
+			</div>
+		</section>
+	</template>
+</div>
+{% endblock %}

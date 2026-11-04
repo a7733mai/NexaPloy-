@@ -1,0 +1,357 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block head %}
+<!-- synchronous on purpose: registers its alpine:init listener before Alpine (deferred) starts -->
+<script src="/assets/nexaploy/js/monitoring.js"></script>
+<style>
+	.nx-mon-chart { width: 100%; height: 160px; display: block; }
+	.nx-mon-chart .grid-line { stroke: var(--nx-border); stroke-width: 1; }
+	.nx-mon-chart .line { fill: none; stroke: var(--nx-primary); stroke-width: 2; vector-effect: non-scaling-stroke; }
+	.nx-mon-chart .fail { stroke: var(--nx-danger); stroke-width: 2; opacity: .5; vector-effect: non-scaling-stroke; }
+	.nx-mon-bars { display: flex; gap: 2px; height: 28px; }
+	.nx-mon-bars span { flex: 1; min-width: 2px; border-radius: 2px; background: var(--nx-border); }
+	.nx-mon-bars span.up { background: var(--nx-success); }
+	.nx-mon-bars span.minor { background: #e3b341; }
+	.nx-mon-bars span.major { background: var(--nx-warning); }
+	.nx-mon-bars span.down { background: var(--nx-danger); }
+	.nx-mon-probes { display: flex; gap: 12px; flex-wrap: wrap; }
+	.nx-mon-updates { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+	.nx-mon-updates li { border-inline-start: 3px solid var(--nx-border); padding-inline-start: 8px; white-space: pre-line; }
+	.text-danger { color: var(--nx-danger); }
+	.text-warning { color: var(--nx-warning); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stack" x-data="nxMonitoring" x-cloak>
+	<template x-if="error"><div class="alert danger" x-text="error"></div></template>
+	<template x-if="data && data.same_host_only">
+		<div class="alert warning">{{ _("Checks currently run from the control plane, which shares a host with some of your sites (all-in-one install). Ask your operator to add an external probe for a real outside view.") }}</div>
+	</template>
+
+	<div class="tabs" role="tablist">
+		<button type="button" :class="{ active: tab === 'monitors' }" @click="tab = 'monitors'">{{ _("Monitors") }}</button>
+		<button type="button" :class="{ active: tab === 'incidents' }" @click="showIncidents()">{{ _("Incidents") }}</button>
+		<button type="button" :class="{ active: tab === 'status' }" @click="tab = 'status'">{{ _("Status page") }}</button>
+	</div>
+
+	<!-- ============================================================ monitors -->
+	<template x-if="tab === 'monitors'">
+	<div class="stack">
+		<!-- Monitor form -->
+		<template x-if="form">
+		<section class="card">
+			<div class="card-head">
+				<h2 x-text="form.name ? __('Edit monitor') : __('New monitor')"></h2>
+				<button class="btn sm ghost" type="button" @click="cancel()">{{ _("Close") }}</button>
+			</div>
+			<form class="card-body form-grid" @submit.prevent="save()">
+				<div class="grid cols-2">
+					<label class="field"><span>{{ _("Name") }}</span>
+						<input class="input" type="text" maxlength="80" required x-model="form.title" placeholder="{{ _('Shop front page') }}">
+					</label>
+					<label class="field"><span>{{ _("Site") }}</span>
+						<select class="input" x-model="form.site" @change="onSiteChange()" :disabled="!!form.name">
+							<template x-for="s in sites()" :key="s.name"><option :value="s.name" x-text="s.name" :selected="s.name === form.site"></option></template>
+						</select>
+						<span class="hint" x-show="siteLimit(form.site)"><span>{{ _("Monitors per site") }}:</span> <span x-text="siteLimit(form.site)"></span></span>
+					</label>
+				</div>
+				<div class="grid cols-2">
+					<label class="field"><span>{{ _("Address") }}</span>
+						<select class="input ltr" x-model="form.hostname" :disabled="form.is_default">
+							<template x-for="h in (site(form.site) ? site(form.site).hosts : [])" :key="h"><option :value="h" x-text="h" :selected="h === form.hostname"></option></template>
+						</select>
+						<span class="hint">{{ _("Monitors check the site's own address or one of its active custom domains.") }}</span>
+					</label>
+					<label class="field"><span>{{ _("Path") }}</span>
+						<input class="input ltr mono" type="text" maxlength="500" x-model="form.path" placeholder="/" :disabled="form.is_default">
+					</label>
+				</div>
+				<div class="grid cols-2">
+					<label class="field"><span>{{ _("Method") }}</span>
+						<select class="input" x-model="form.method" :disabled="form.is_default">
+							<template x-for="m in (data ? data.methods : [])" :key="m"><option :value="m" x-text="m" :selected="m === form.method"></option></template>
+						</select>
+					</label>
+					<label class="field"><span>{{ _("Expected status") }}</span>
+						<input class="input ltr mono" type="text" maxlength="60" x-model="form.expected_status" placeholder="200-399" :disabled="form.is_default">
+						<span class="hint">{{ _("A code (200), a range (200-299) or a class (2xx); comma separated.") }}</span>
+					</label>
+				</div>
+				<label class="field"><span>{{ _("Keyword (optional)") }}</span>
+					<input class="input" type="text" maxlength="200" x-model="form.keyword" :disabled="form.is_default || form.method === 'HEAD'">
+					<span class="hint">{{ _("The check fails when the response body does not contain this text.") }}</span>
+				</label>
+				<div class="grid cols-4">
+					<label class="field"><span>{{ _("Interval") }}</span>
+						<select class="input" x-model.number="form.interval_minutes">
+							<template x-for="i in (data ? data.intervals : [])" :key="i">
+								<option :value="i" :disabled="!intervalAllowed(i)" :selected="i == form.interval_minutes" x-text="__('Every {0} min', [i])"></option>
+							</template>
+						</select>
+					</label>
+					<label class="field"><span>{{ _("Timeout (seconds)") }}</span>
+						<input class="input" type="number" min="2" max="30" x-model.number="form.timeout_seconds">
+					</label>
+					<label class="field"><span>{{ _("Failures before alerting") }}</span>
+						<input class="input" type="number" min="1" max="10" x-model.number="form.failure_threshold">
+					</label>
+					<label class="field"><span>{{ _("Quorum") }}</span>
+						<input class="input" type="number" min="0" max="10" x-model.number="form.quorum">
+						<span class="hint">{{ _("Probes that must agree; 0 = majority.") }}</span>
+					</label>
+				</div>
+				<p class="hint" x-show="data && !(site(form.site) && site(form.site).advanced)">{{ _("1-minute checks and more than 3 monitors per site need the advanced monitoring plan feature.") }}</p>
+				<div class="field">
+					<span>{{ _("Probes") }}</span>
+					<div class="nx-mon-probes">
+						<template x-for="p in probes()" :key="p.name">
+							<label class="check small"><input type="checkbox" :checked="form.probes.indexOf(p.name) !== -1" @change="toggleProbe(p.name)"> <span x-text="p.title"></span> <span class="muted" x-text="p.region"></span></label>
+						</template>
+					</div>
+					<span class="hint">{{ _("None selected = every probe.") }}</span>
+				</div>
+				<label class="check"><input type="checkbox" x-model="form.enabled"> {{ _("Enabled") }}</label>
+				<div class="row">
+					<button class="btn primary" type="submit" :disabled="busy"><span class="spinner" x-show="busy"></span> {{ _("Save monitor") }}</button>
+					<button class="btn" type="button" @click="cancel()">{{ _("Cancel") }}</button>
+				</div>
+			</form>
+		</section>
+		</template>
+
+		<!-- Monitor detail -->
+		<template x-if="detail">
+		<section class="card">
+			<div class="card-head">
+				<h2 x-text="detail.monitor.title"></h2>
+				<span :class="statusClass(detail.monitor.status)" x-text="statusText(detail.monitor.status)"></span>
+				<div class="row">
+					<template x-for="r in ranges" :key="r.hours">
+						<button class="btn sm" type="button" :class="{ primary: range === r.hours }" @click="show(detail.monitor.name, r.hours)" x-text="__(r.label)"></button>
+					</template>
+					<button class="btn sm ghost" type="button" @click="closeDetail()">{{ _("Close") }}</button>
+				</div>
+			</div>
+			<div class="card-body stack">
+				<div class="small muted ltr mono" x-text="detail.monitor.method + ' ' + detail.monitor.url"></div>
+				<div class="grid cols-4">
+					<div><div class="small muted">{{ _("Average response time") }}</div><strong x-text="ms(chartAvg())"></strong></div>
+					<div><div class="small muted">{{ _("Uptime (90 days)") }}</div><strong x-text="pct(detail.uptime_90d)"></strong></div>
+					<div><div class="small muted">{{ _("Last check") }}</div><strong x-text="detail.monitor.last_checked_at ? nx.since(detail.monitor.last_checked_at) : __('never')"></strong></div>
+					<div><div class="small muted">{{ _("TLS certificate") }}</div><strong :class="tlsClass(detail.monitor)" x-text="tls(detail.monitor) || '–'"></strong></div>
+				</div>
+				<div>
+					<div class="small muted">{{ _("Response time") }} <span class="ltr" x-show="chartMax()">(max <span x-text="chartMax()"></span> ms)</span></div>
+					<svg class="nx-mon-chart" viewBox="0 0 600 140" preserveAspectRatio="none" role="img" aria-label="{{ _('Response time') }}" style="direction: ltr">
+						<line class="grid-line" x1="0" :x2="chartW" :y1="chartH / 2" :y2="chartH / 2"></line>
+						<line class="grid-line" x1="0" :x2="chartW" :y1="chartH - 1" :y2="chartH - 1"></line>
+						<path class="fail" :d="chartFailPath()"></path>
+						<path class="line" :d="chartPath()"></path>
+					</svg>
+					<p class="small muted" x-show="!chartPath()">{{ _("No data for this period yet.") }}</p>
+				</div>
+				<div>
+					<div class="small muted">{{ _("Last 90 days") }}</div>
+					<div class="nx-mon-bars"><template x-for="d in detail.days" :key="d.date"><span :class="d.level" :title="barTitle(d)"></span></template></div>
+				</div>
+				<div class="table-wrap">
+					<table class="nx-table">
+						<thead><tr><th>{{ _("Probe") }}</th><th>{{ _("Region") }}</th><th>{{ _("Last result") }}</th></tr></thead>
+						<tbody>
+							<template x-for="p in detail.probes" :key="p.name">
+								<tr x-show="p.assigned">
+									<td><span x-text="p.title"></span> <span class="badge warning" x-show="p.location === 'same_host'">{{ _("Same host") }}</span></td>
+									<td class="small" x-text="p.region"></td>
+									<td class="small" :class="p.state && !p.state.ok ? 'text-danger' : ''" x-text="probeState(p)"></td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+				<div class="table-wrap" x-show="detail.incidents.length">
+					<table class="nx-table">
+						<thead><tr><th>{{ _("Incident") }}</th><th>{{ _("Started") }}</th><th>{{ _("Duration") }}</th><th>{{ _("Cause") }}</th></tr></thead>
+						<tbody>
+							<template x-for="i in detail.incidents" :key="i.name">
+								<tr>
+									<td><span :class="i.status === 'Open' ? 'badge danger' : 'badge success'" x-text="__(i.status)"></span></td>
+									<td class="small" x-text="nx.fmtDate(i.started_at)"></td>
+									<td class="small" x-text="i.status === 'Open' ? __('ongoing') : duration(i.duration_seconds)"></td>
+									<td class="small ltr" x-text="i.cause"></td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</section>
+		</template>
+
+		<!-- Monitor list -->
+		<section class="card">
+			<div class="card-head">
+				<h2>{{ _("Uptime monitors") }}</h2>
+				<div class="row">
+					<button class="btn sm" type="button" @click="load()" :disabled="loading">{{ _("Refresh") }}</button>
+					<button class="btn primary sm" type="button" @click="openNew()" x-show="canWrite()" :disabled="!sites().length">{{ _("Add monitor") }}</button>
+				</div>
+			</div>
+			<div class="card-body" x-show="!loading && !monitors().length">
+				<div class="alert info">{{ _("Every active site gets a default monitor automatically within a few minutes.") }}</div>
+			</div>
+			<div class="card-body flush table-wrap">
+				<template x-if="loading"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+				<table class="nx-table" x-show="!loading && monitors().length">
+					<thead><tr><th>{{ _("Status") }}</th><th>{{ _("Name") }}</th><th>{{ _("Interval") }}</th><th>{{ _("Response time") }}</th><th>{{ _("Uptime (30 days)") }}</th><th>{{ _("TLS certificate") }}</th><th></th></tr></thead>
+					<tbody>
+						<template x-for="m in monitors()" :key="m.name">
+							<tr class="clickable" @click="show(m.name)">
+								<td><span :class="statusClass(m.status)" x-text="statusText(m.status)"></span></td>
+								<td>
+									<strong x-text="m.title"></strong> <span class="chip" x-show="m.is_default">{{ _("Default") }}</span>
+									<div class="small muted ltr ellipsis" x-text="m.url"></div>
+									<div class="small text-danger ltr" x-show="m.status === 'Down' && m.last_error" x-text="m.last_error"></div>
+								</td>
+								<td class="small" x-text="__('Every {0} min', [m.interval_minutes])"></td>
+								<td class="small" x-text="ms(m.last_response_ms)"></td>
+								<td class="small" x-text="pct(m.uptime_30d)"></td>
+								<td class="small" :class="tlsClass(m)" x-text="tls(m)"></td>
+								<td class="actions" @click.stop>
+									<template x-if="canWrite()">
+										<span>
+											<button class="btn sm" type="button" @click="toggleEnabled(m)" x-text="m.enabled ? __('Pause') : __('Resume')"></button>
+											<button class="btn sm" type="button" @click="edit(m)">{{ _("Edit") }}</button>
+											<button class="btn sm danger" type="button" @click="remove(m)" x-show="!m.is_default">{{ _("Delete") }}</button>
+										</span>
+									</template>
+								</td>
+							</tr>
+						</template>
+					</tbody>
+				</table>
+			</div>
+		</section>
+	</div>
+	</template>
+
+	<!-- ============================================================ incidents -->
+	<template x-if="tab === 'incidents'">
+	<section class="card">
+		<div class="card-head">
+			<h2>{{ _("Incidents") }}</h2>
+			<button class="btn sm" type="button" @click="loadIncidents()">{{ _("Refresh") }}</button>
+		</div>
+		<div class="card-body" x-show="incidentsLoaded && !incidents.length"><p class="muted">{{ _("No incidents. All good!") }}</p></div>
+		<div class="card-body flush">
+			<template x-for="inc in incidents" :key="inc.name">
+				<div class="card-body" style="border-block-end: 1px solid var(--nx-border)">
+					<div class="row between" style="cursor: pointer" @click="toggleIncident(inc)">
+						<div>
+							<span :class="inc.status === 'Open' ? 'badge danger' : 'badge success'" x-text="__(inc.status)"></span>
+							<strong x-text="inc.public_title || inc.monitor_title"></strong>
+							<div class="small muted"><span x-text="nx.fmtDate(inc.started_at)"></span> · <span x-text="inc.status === 'Open' ? __('ongoing') : duration(inc.duration_seconds)"></span> · <span class="ltr" x-text="inc.cause"></span></div>
+						</div>
+						<span class="small muted" x-show="inc.hide_from_status_page">{{ _("Hidden from the status page") }}</span>
+					</div>
+					<template x-if="openIncident === inc.name">
+						<div class="stack" style="margin-block-start: 12px">
+							<ul class="nx-mon-updates" x-show="inc.updates.length">
+								<template x-for="u in inc.updates" :key="u.posted_at + u.status">
+									<li><strong x-text="__(u.status)"></strong> <span class="small muted" x-text="nx.fmtDate(u.posted_at)"></span><br><span x-text="u.message"></span></li>
+								</template>
+							</ul>
+							<template x-if="canWrite()">
+								<div class="stack">
+									<div class="grid cols-2">
+										<label class="field"><span>{{ _("Public title") }}</span>
+											<input class="input" type="text" maxlength="140" x-model="inc.public_title" :placeholder="inc.monitor_title">
+										</label>
+										<label class="check" style="align-self: end"><input type="checkbox" x-model="inc.hide_from_status_page"> {{ _("Hide from the status page") }}</label>
+									</div>
+									<div><button class="btn sm" type="button" @click="saveIncident(inc)">{{ _("Save") }}</button></div>
+									<form class="stack" @submit.prevent="postUpdate(inc)">
+										<label class="field"><span>{{ _("Post an update") }}</span>
+											<select class="input" x-model="updateForm.status">
+												<template x-for="s in (data ? data.update_statuses : [])" :key="s"><option :value="s" x-text="__(s)" :selected="s === updateForm.status"></option></template>
+											</select>
+										</label>
+										<textarea class="input" rows="3" maxlength="2000" required x-model="updateForm.message" placeholder="{{ _('What happened and what you are doing about it') }}"></textarea>
+										<div><button class="btn primary sm" type="submit" :disabled="busy || !updateForm.message">{{ _("Post update") }}</button></div>
+									</form>
+								</div>
+							</template>
+						</div>
+					</template>
+				</div>
+			</template>
+		</div>
+	</section>
+	</template>
+
+	<!-- ============================================================ status page -->
+	<template x-if="tab === 'status' && page">
+	<section class="card">
+		<div class="card-head">
+			<h2>{{ _("Public status page") }}</h2>
+			<a class="btn sm" x-show="page.url && page.enabled" :href="page.url" target="_blank" rel="noopener">{{ _("Open status page") }}</a>
+		</div>
+		<form class="card-body form-grid" @submit.prevent="savePage()">
+			<p class="hint">{{ _("A public page showing the current status, 90-day uptime and incident history of the monitors you choose. Visitors only see the public names: never URLs or error details. The logo and colors come from your brand.") }}</p>
+			<div class="grid cols-2">
+				<label class="field"><span>{{ _("Title") }}</span>
+					<input class="input" type="text" maxlength="80" required x-model="page.title" :disabled="!canWrite()">
+				</label>
+				<label class="field"><span>{{ _("Address") }}</span>
+					<div class="input-group ltr">
+						<span class="addon">/status/</span>
+						<input class="input mono" type="text" maxlength="50" required x-model="page.slug" :disabled="!canWrite()">
+					</div>
+				</label>
+			</div>
+			<label class="field"><span>{{ _("Description (optional)") }}</span>
+				<textarea class="input" rows="2" maxlength="500" x-model="page.description" :disabled="!canWrite()"></textarea>
+			</label>
+			<label class="field"><span>{{ _("Custom domain (optional)") }}</span>
+				<input class="input ltr mono" type="text" maxlength="253" x-model="page.status_domain" placeholder="status.example.com" :disabled="!canWrite()">
+				<span class="hint">{{ _("Create a CNAME record to the control plane and ask your operator to route the domain; it then shows this page.") }}</span>
+			</label>
+			<div class="row">
+				<label class="check"><input type="checkbox" x-model="page.enabled" :disabled="!canWrite()"> {{ _("Published") }}</label>
+				<label class="check"><input type="checkbox" x-model="page.show_incident_history" :disabled="!canWrite()"> {{ _("Show incident history") }}</label>
+			</div>
+			<div class="field">
+				<span>{{ _("Monitors on the page") }}</span>
+				<div class="stack" style="gap: 6px">
+					<template x-for="m in monitors()" :key="m.name">
+						<label class="check small"><input type="checkbox" :checked="onPage(m.name)" @change="togglePageMonitor(m)" :disabled="!canWrite()"> <span x-text="m.title"></span></label>
+					</template>
+				</div>
+			</div>
+			<div class="table-wrap" x-show="page.monitors.length">
+				<table class="nx-table">
+					<thead><tr><th>{{ _("Monitor") }}</th><th>{{ _("Public name") }}</th><th></th></tr></thead>
+					<tbody>
+						<template x-for="(row, idx) in page.monitors" :key="row.monitor">
+							<tr>
+								<td class="small" x-text="monitorTitle(row.monitor)"></td>
+								<td><input class="input" type="text" maxlength="80" x-model="row.display_name" :placeholder="monitorTitle(row.monitor)" :disabled="!canWrite()"></td>
+								<td class="actions">
+									<button class="btn sm ghost" type="button" @click="movePageMonitor(idx, -1)" :disabled="!idx" aria-label="{{ _('Move up') }}">↑</button>
+									<button class="btn sm ghost" type="button" @click="movePageMonitor(idx, 1)" :disabled="idx === page.monitors.length - 1" aria-label="{{ _('Move down') }}">↓</button>
+								</td>
+							</tr>
+						</template>
+					</tbody>
+				</table>
+			</div>
+			<div class="row" x-show="canWrite()">
+				<button class="btn primary" type="submit" :disabled="busy"><span class="spinner" x-show="busy"></span> {{ _("Save status page") }}</button>
+				<span class="small muted ltr" x-show="page.url" x-text="page.url"></span>
+			</div>
+		</form>
+	</section>
+	</template>
+</div>
+{% endblock %}

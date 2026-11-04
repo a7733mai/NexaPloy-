@@ -1,0 +1,169 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-12 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "brand_name",
+  "title",
+  "enabled",
+  "team",
+  "is_default",
+  "column_break_look",
+  "primary_color",
+  "logo",
+  "favicon",
+  "section_break_portal",
+  "portal_domains",
+  "support_email",
+  "footer_text",
+  "section_break_email",
+  "email_sender_name",
+  "email_sender_address"
+ ],
+ "fields": [
+  {
+   "fieldname": "brand_name",
+   "fieldtype": "Data",
+   "label": "Brand ID",
+   "reqd": 1,
+   "unique": 1,
+   "description": "Lowercase letters, digits and '-'."
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Shown instead of Nexaploy in the portal, page titles and e-mails."
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "label": "Owner team",
+   "options": "Team",
+   "in_standard_filter": 1,
+   "description": "Reseller team that owns this brand. Empty = platform brand."
+  },
+  {
+   "fieldname": "is_default",
+   "fieldtype": "Check",
+   "label": "Platform default",
+   "default": "0",
+   "description": "Platform brands only: used on every host that no brand claims (instead of the built-in Nexaploy brand)."
+  },
+  {
+   "fieldname": "column_break_look",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "primary_color",
+   "fieldtype": "Data",
+   "label": "Primary color",
+   "default": "#2f5bea",
+   "description": "Hex, e.g. #0a7d5a."
+  },
+  {
+   "fieldname": "logo",
+   "fieldtype": "Attach Image",
+   "label": "Logo"
+  },
+  {
+   "fieldname": "favicon",
+   "fieldtype": "Attach Image",
+   "label": "Favicon"
+  },
+  {
+   "fieldname": "section_break_portal",
+   "fieldtype": "Section Break",
+   "label": "Portal"
+  },
+  {
+   "fieldname": "portal_domains",
+   "fieldtype": "Small Text",
+   "label": "Portal domains",
+   "description": "One host per line, e.g. cloud.reseller.com. The operator must also route each host to the control plane: add it as a domain of the control-plane site (bench setup add-domain / Frappe domains) and to its proxy (Traefik router + certificate). Nexaploy does not automate this."
+  },
+  {
+   "fieldname": "support_email",
+   "fieldtype": "Data",
+   "label": "Support e-mail",
+   "options": "Email"
+  },
+  {
+   "fieldname": "footer_text",
+   "fieldtype": "Small Text",
+   "label": "Footer text",
+   "description": "Portal footer and the footer of transactional e-mails."
+  },
+  {
+   "fieldname": "section_break_email",
+   "fieldtype": "Section Break",
+   "label": "E-mail"
+  },
+  {
+   "fieldname": "email_sender_name",
+   "fieldtype": "Data",
+   "label": "E-mail sender name",
+   "description": "e.g. Acme Cloud. Used for invitations, alerts and billing e-mails of the brand's customers."
+  },
+  {
+   "fieldname": "email_sender_address",
+   "fieldtype": "Data",
+   "label": "E-mail sender address",
+   "options": "Email",
+   "description": "Optional. Must be allowed by the control plane's outgoing Email Account (same domain, authenticated); empty = the default sender with this name."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-12 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Brand",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 0,
+   "print": 0,
+   "read": 1,
+   "report": 0,
+   "role": "Nexaploy Customer",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "autoname": "field:brand_name",
+ "title_field": "title",
+ "show_title_field_in_link": 1,
+ "search_fields": "title,team"
+}

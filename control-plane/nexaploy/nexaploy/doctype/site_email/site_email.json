@@ -1,0 +1,193 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-12 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "site",
+  "team",
+  "enabled",
+  "status",
+  "email_id",
+  "column_break_1",
+  "sender_domain",
+  "domain_verified",
+  "last_dns_check",
+  "daily_limit",
+  "section_break_dkim",
+  "dkim_selector",
+  "dkim_record_type",
+  "dkim_value",
+  "section_break_state",
+  "dns_check_result",
+  "last_job",
+  "last_error",
+  "configured_hash"
+ ],
+ "fields": [
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "options": "Site",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "label": "Team",
+   "options": "Team",
+   "fetch_from": "site.team",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Managed e-mail enabled",
+   "default": "0",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Disabled\nPending\nActive\nFailed",
+   "default": "Disabled",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "email_id",
+   "fieldtype": "Data",
+   "label": "Sender address",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sender_domain",
+   "fieldtype": "Data",
+   "label": "Custom sending domain",
+   "description": "Customer domain; used once SPF/DKIM/DMARC are verified."
+  },
+  {
+   "fieldname": "domain_verified",
+   "fieldtype": "Check",
+   "label": "Domain verified",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_dns_check",
+   "fieldtype": "Datetime",
+   "label": "Last DNS check",
+   "read_only": 1
+  },
+  {
+   "fieldname": "daily_limit",
+   "fieldtype": "Int",
+   "label": "Daily send limit override",
+   "default": "0",
+   "description": "0 = Email Relay Settings default."
+  },
+  {
+   "fieldname": "section_break_dkim",
+   "fieldtype": "Section Break",
+   "label": "Per-domain DKIM (operator)",
+   "description": "Providers like Amazon SES issue DKIM tokens per domain: enter them here to override the global DKIM selector/value."
+  },
+  {
+   "fieldname": "dkim_selector",
+   "fieldtype": "Data",
+   "label": "DKIM selector"
+  },
+  {
+   "fieldname": "dkim_record_type",
+   "fieldtype": "Select",
+   "label": "DKIM record type",
+   "options": "\nTXT\nCNAME"
+  },
+  {
+   "fieldname": "dkim_value",
+   "fieldtype": "Small Text",
+   "label": "DKIM value"
+  },
+  {
+   "fieldname": "section_break_state",
+   "fieldtype": "Section Break",
+   "label": "State"
+  },
+  {
+   "fieldname": "dns_check_result",
+   "fieldtype": "JSON",
+   "label": "DNS check result",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_job",
+   "fieldtype": "Link",
+   "label": "Last job",
+   "options": "Agent Job",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_error",
+   "fieldtype": "Small Text",
+   "label": "Last error",
+   "read_only": 1
+  },
+  {
+   "fieldname": "configured_hash",
+   "fieldtype": "Data",
+   "label": "Configured hash",
+   "hidden": 1,
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-12 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Site Email",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 0,
+   "print": 0,
+   "read": 1,
+   "report": 0,
+   "role": "Nexaploy Customer",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "autoname": "field:site",
+ "title_field": "site",
+ "search_fields": "team,status"
+}

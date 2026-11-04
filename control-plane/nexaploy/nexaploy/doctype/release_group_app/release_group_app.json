@@ -1,0 +1,80 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-03 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "source_type",
+  "app",
+  "custom_app",
+  "app_name",
+  "branch",
+  "repo_url"
+ ],
+ "fields": [
+  {
+   "default": "Marketplace",
+   "fieldname": "source_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Source",
+   "options": "Marketplace\nCustom",
+   "reqd": 1
+  },
+  {
+   "fieldname": "app",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Marketplace App",
+   "options": "Marketplace App",
+   "depends_on": "eval:doc.source_type!='Custom'",
+   "mandatory_depends_on": "eval:doc.source_type!='Custom'"
+  },
+  {
+   "fieldname": "custom_app",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Custom App",
+   "options": "Custom App",
+   "depends_on": "eval:doc.source_type=='Custom'",
+   "mandatory_depends_on": "eval:doc.source_type=='Custom'"
+  },
+  {
+   "fieldname": "app_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "App Name",
+   "read_only": 1,
+   "description": "Python package name (set from the marketplace or custom app)."
+  },
+  {
+   "description": "Defaults to the app's release branch for the group's Frappe major (custom apps: their tracked branch).",
+   "fieldname": "branch",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Branch"
+  },
+  {
+   "fieldname": "repo_url",
+   "fieldtype": "Data",
+   "label": "Repository URL",
+   "read_only": 1,
+   "length": 1000
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-20 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Release Group App",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

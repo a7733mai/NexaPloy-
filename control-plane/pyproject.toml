@@ -1,0 +1,22 @@
+[project]
+name = "nexaploy"
+authors = [{ name = "Nexaploy", email = "dev@nexaploy.local" }]
+description = "Nexaploy control plane - Frappe/ERPNext hosting (servers, release groups, benches, sites, backups, marketplace, BYOS)"
+requires-python = ">=3.10"
+readme = "README.md"
+dynamic = ["version"]
+dependencies = [
+    # "frappe~=15.0.0" # installed and managed by bench
+    # GitHub App JWTs (RS256) for custom apps; frappe already ships both, pinned here explicitly
+    "PyJWT[crypto]>=2.8",
+]
+
+[build-system]
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.bench.frappe-dependencies]
+frappe = ">=15.0.0,<17.0.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

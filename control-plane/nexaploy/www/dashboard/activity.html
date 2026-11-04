@@ -1,0 +1,58 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block content %}
+<div class="stack" x-data="nxActivity" x-cloak>
+	<template x-if="!nx.can('admin')">
+		<div class="alert warning">{{ _("Only team Owners and Admins can view the activity log.") }}</div>
+	</template>
+	<section class="card" x-show="nx.can('admin')">
+		<div class="card-head">
+			<h2>{{ _("Activity") }}</h2>
+			<a class="btn sm ghost" href="/dashboard/console_access">{{ _("Console access") }}</a>
+			<button class="btn sm" type="button" @click="load()" :disabled="loading">{{ _("Refresh") }}</button>
+		</div>
+		<div class="card-body">
+			<form class="row" @submit.prevent="search()">
+				<select class="input" style="width: auto" x-model="filters.action" aria-label="{{ _('Action') }}">
+					<option value="">{{ _("All actions") }}</option>
+					<template x-for="g in groups()" :key="g"><option :value="g + '.'" x-text="g + '.*'"></option></template>
+					<template x-for="a in actions" :key="a"><option :value="a" x-text="a"></option></template>
+				</select>
+				<select class="input" style="width: auto" x-model="filters.user" aria-label="{{ _('Member') }}">
+					<option value="">{{ _("All members") }}</option>
+					<template x-for="u in users" :key="u.user"><option :value="u.user" x-text="u.full_name || u.user"></option></template>
+				</select>
+				<label class="row small"><span class="muted">{{ _("From") }}</span><input class="input ltr" style="width: auto" type="date" x-model="filters.date_from"></label>
+				<label class="row small"><span class="muted">{{ _("To") }}</span><input class="input ltr" style="width: auto" type="date" x-model="filters.date_to"></label>
+				<button class="btn primary sm" type="submit" :disabled="loading">{{ _("Filter") }}</button>
+				<button class="btn sm" type="button" @click="reset()" :disabled="loading">{{ _("Clear") }}</button>
+			</form>
+		</div>
+		<div class="card-body flush table-wrap">
+			<template x-if="loading"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+			<template x-if="!loading && error"><div class="alert danger" x-text="error"></div></template>
+			<template x-if="!loading && !error && !rows.length"><div class="empty">{{ _("No activity yet.") }}</div></template>
+			<table class="nx-table" x-show="!loading && rows.length">
+				<thead><tr><th>{{ _("When") }}</th><th>{{ _("Member") }}</th><th>{{ _("Action") }}</th><th>{{ _("Target") }}</th><th>{{ _("Details") }}</th><th>{{ _("IP address") }}</th></tr></thead>
+				<tbody>
+					<template x-for="r in rows" :key="r.name">
+						<tr>
+							<td class="small nowrap" :title="r.creation" x-text="nx.fmtDate(r.creation)"></td>
+							<td class="small"><div x-text="r.full_name"></div><div class="muted ltr" x-show="r.full_name !== r.user" x-text="r.user"></div></td>
+							<td><span class="badge plain mono" x-text="r.action"></span></td>
+							<td class="small"><span class="muted" x-text="r.reference_doctype ? __(r.reference_doctype) : ''"></span> <span class="mono" x-text="r.reference_name || ''"></span></td>
+							<td class="small ltr"><template x-for="kv in details(r)" :key="kv[0]"><div><span class="muted" x-text="kv[0] + ':'"></span> <span x-text="kv[1]"></span></div></template></td>
+							<td class="small mono ltr" x-text="r.ip_address || ''"></td>
+						</tr>
+					</template>
+				</tbody>
+			</table>
+		</div>
+		<div class="card-body row" x-show="page > 1 || hasMore">
+			<button class="btn sm" type="button" :disabled="loading || page <= 1" @click="go(page - 1)">{{ _("Previous") }}</button>
+			<span class="small muted"><span>{{ _("Page") }}</span> <span x-text="page"></span></span>
+			<button class="btn sm" type="button" :disabled="loading || !hasMore" @click="go(page + 1)">{{ _("Next") }}</button>
+		</div>
+	</section>
+</div>
+{% endblock %}

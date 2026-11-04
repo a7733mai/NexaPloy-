@@ -1,0 +1,163 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block content %}
+<div class="stack" x-data="nxSites" x-cloak>
+
+	<!-- New site -->
+	<section class="card" x-show="showNew">
+		<div class="card-head">
+			<h2>{{ _("New Site") }}</h2>
+			<button class="btn sm ghost" type="button" @click="showNew = false">{{ _("Close") }}</button>
+		</div>
+
+		<template x-if="created">
+			<div class="card-body stack">
+				<div class="alert success">{{ _("Your site is being created. This usually takes a few minutes.") }}</div>
+				<dl class="kv">
+					<dt>{{ _("Site") }}</dt><dd class="ltr"><a :href="'/dashboard/site?name=' + encodeURIComponent(created.name)" x-text="created.name"></a></dd>
+					<dt>{{ _("Login") }}</dt><dd class="ltr">Administrator</dd>
+					<dt>{{ _("Administrator password") }}</dt>
+					<dd>
+						<div class="codebox"><span x-text="created.admin_password"></span><button class="btn sm" type="button" @click="nx.copy(created.admin_password)">{{ _("Copy") }}</button></div>
+					</dd>
+				</dl>
+				<div class="alert warning">{{ _("Save this password now. It will not be shown again.") }}</div>
+				<div class="row">
+					<a class="btn primary" :href="'/dashboard/site?name=' + encodeURIComponent(created.name) + '#jobs'">{{ _("Follow progress") }}</a>
+					<button class="btn" type="button" @click="created = null">{{ _("Create another site") }}</button>
+				</div>
+			</div>
+		</template>
+
+		<template x-if="!created">
+			<form class="card-body form-grid" @submit.prevent="create()">
+				<template x-if="benches === null"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+				<template x-if="benches && !benches.length">
+					<div class="alert info">{{ _("No bench is available for new sites yet. Add your own server or contact support.") }}</div>
+				</template>
+
+				<template x-if="benches && benches.length">
+					<div class="form-grid">
+						<div class="field">
+							<div style="font-weight: 550; margin-block-end: 6px">1. {{ _("Choose where to deploy") }}</div>
+							<template x-if="ownBenches.length">
+								<div>
+									<div class="small muted" style="margin-block-end: 6px">{{ _("Your servers") }}</div>
+									<div class="choice-list">
+										<template x-for="b in ownBenches" :key="b.name">
+											<label class="choice" :class="{ selected: form.bench === b.name }">
+												<input type="radio" name="bench" :value="b.name" :checked="form.bench === b.name" @change="selectBench(b.name)">
+												<div>
+													<div class="ltr" x-text="b.bench_name"></div>
+													<div class="small muted"><span class="ltr" x-text="b.server_hostname || b.server"></span> · Frappe v<span x-text="b.frappe_major"></span></div>
+												</div>
+											</label>
+										</template>
+									</div>
+								</div>
+							</template>
+							<template x-if="sharedBenches.length">
+								<div style="margin-block-start: 10px">
+									<div class="small muted" style="margin-block-end: 6px">{{ _("Shared hosting") }}</div>
+									<div class="choice-list">
+										<template x-for="b in sharedBenches" :key="b.name">
+											<label class="choice" :class="{ selected: form.bench === b.name }">
+												<input type="radio" name="bench" :value="b.name" :checked="form.bench === b.name" @change="selectBench(b.name)">
+												<div>
+													<div class="ltr" x-text="b.bench_name"></div>
+													<div class="small muted">Frappe v<span x-text="b.frappe_major"></span> · <span x-text="b.apps.length"></span> {{ _("apps") }}</div>
+												</div>
+											</label>
+										</template>
+									</div>
+								</div>
+							</template>
+						</div>
+
+						<template x-if="bench">
+							<div class="form-grid">
+								<label class="field">
+									<span>2. {{ _("Site name") }}</span>
+									<div class="input-group ltr">
+										<input class="input" type="text" x-model="form.name" placeholder="mycompany" autocomplete="off" spellcheck="false" required>
+										<span class="addon" x-show="form.name.indexOf('.') === -1" x-text="'.' + root"></span>
+									</div>
+									<span class="hint" x-show="bench.allow_custom_domain">{{ _("On your own server you can also enter a full domain, e.g. erp.example.com.") }}</span>
+									<span class="hint" x-show="preview">{{ _("Your site will be available at") }} <b class="ltr" x-text="'https://' + preview"></b></span>
+								</label>
+
+								<div class="field">
+									<div style="font-weight: 550; margin-block-end: 6px">3. {{ _("Apps") }} <span class="muted small">(Frappe v<span x-text="bench.frappe_major"></span>)</span></div>
+									<template x-if="!bench.apps.length"><div class="muted small">{{ _("This bench only has the Frappe framework.") }}</div></template>
+									<div class="choice-list">
+										<template x-for="a in bench.apps" :key="a.app">
+											<label class="choice" :class="{ selected: form.apps.includes(a.app) }">
+												<input type="checkbox" :checked="form.apps.includes(a.app)" @change="toggleApp(a.app)">
+												<div>
+													<div x-text="a.title"></div>
+													<div class="small muted">
+														<span class="ltr" x-text="a.app"></span>
+														<template x-if="a.pricing === 'Paid'"><span> · <span x-text="nx.money(a.price_monthly)"></span> {{ _("/ month") }}</span></template>
+													</div>
+												</div>
+											</label>
+										</template>
+									</div>
+								</div>
+
+								<template x-if="needsPlan || plans.length">
+									<label class="field">
+										<span>4. {{ _("Plan") }}</span>
+										<select class="input" x-model="form.plan" :required="needsPlan">
+											<template x-if="!needsPlan"><option value="">{{ _("No plan (included in your server)") }}</option></template>
+											<template x-for="p in plans" :key="p.name">
+												<option :value="p.name" x-text="p.title + ' · ' + nx.money(p.price_monthly, p.currency) + ' ' + __('/ month')"></option>
+											</template>
+										</select>
+									</label>
+								</template>
+
+								<div class="row">
+									<button class="btn primary" type="submit" :disabled="creating">
+										<span class="spinner" x-show="creating"></span>
+										{{ _("Create site") }}
+									</button>
+								</div>
+							</div>
+						</template>
+					</div>
+				</template>
+			</form>
+		</template>
+	</section>
+
+	<!-- Site list -->
+	<section class="card">
+		<div class="card-head">
+			<h2>{{ _("Sites") }}</h2>
+			<input class="input" style="max-width: 240px" type="search" x-model="q" placeholder="{{ _('Search sites') }}">
+			<button class="btn primary" type="button" @click="openNew()" x-show="!showNew && nx.can('write')">{{ _("New Site") }}</button>
+		</div>
+		<div class="card-body flush table-wrap">
+			<template x-if="loading && !sites.length"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+			<template x-if="error"><div class="alert danger" x-text="error"></div></template>
+			<template x-if="!loading && !error && !sites.length"><div class="empty">{{ _("You have no sites yet.") }}</div></template>
+			<table class="nx-table" x-show="filtered.length">
+				<thead><tr><th>{{ _("Site") }}</th><th>{{ _("Version") }}</th><th>{{ _("Bench") }}</th><th>{{ _("Plan") }}</th><th>{{ _("Created") }}</th><th>{{ _("Status") }}</th></tr></thead>
+				<tbody>
+					<template x-for="s in filtered" :key="s.name">
+						<tr class="clickable" @click="location.href = '/dashboard/site?name=' + encodeURIComponent(s.name)">
+							<td><a class="ltr" :href="'/dashboard/site?name=' + encodeURIComponent(s.name)" x-text="s.name" @click.stop></a></td>
+							<td x-text="s.frappe_major ? 'v' + s.frappe_major : ''"></td>
+							<td class="ltr small" x-text="s.bench"></td>
+							<td class="small" x-text="s.plan || '—'"></td>
+							<td class="small muted nowrap" x-text="nx.fmtDate(s.creation)"></td>
+							<td><span :class="nx.statusClass(s.status)" x-text="__(s.status)"></span></td>
+						</tr>
+					</template>
+				</tbody>
+			</table>
+		</div>
+	</section>
+</div>
+{% endblock %}

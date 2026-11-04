@@ -1,0 +1,213 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block head %}
+<!-- synchronous on purpose: registers its alpine:init listener before Alpine (deferred) starts -->
+<script src="/assets/nexaploy/js/backups.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="stack" x-data="nxBackups" x-cloak>
+	<template x-if="notice"><div class="alert" :class="notice.kind" x-text="notice.text"></div></template>
+	<template x-if="error"><div class="alert danger" x-text="error"></div></template>
+	<template x-if="loading"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+
+	<!-- Destinations -->
+	<section class="card" x-show="!loading && data">
+		<div class="card-head">
+			<h2>{{ _("Backup destinations") }}</h2>
+			<button class="btn sm primary" type="button" x-show="canAdmin()" @click="openForm()">{{ _("Add destination") }}</button>
+		</div>
+		<div class="card-body">
+			<p class="small muted">{{ _("Choose where your servers upload site backups. Connect Google Drive, OneDrive or Dropbox with one click, or use your own S3 bucket. Without a destination, backups go to the platform storage.") }}</p>
+		</div>
+		<form class="card-body form-grid" x-show="form.open" @submit.prevent="save()">
+			<div class="grid cols-2">
+				<label class="field"><span>{{ _("Type") }}</span>
+					<select class="input" x-model="form.destination_type" :disabled="!!form.name">
+						<option value="S3">S3</option>
+						<option value="Google Drive" :disabled="!providerReady('Google Drive')">Google Drive</option>
+						<option value="OneDrive" :disabled="!providerReady('OneDrive')">OneDrive</option>
+						<option value="Dropbox" :disabled="!providerReady('Dropbox')">Dropbox</option>
+					</select>
+				</label>
+				<label class="field"><span>{{ _("Name") }}</span>
+					<input class="input" type="text" maxlength="140" x-model="form.title" placeholder="{{ _('e.g. Company Drive') }}">
+				</label>
+			</div>
+			<div class="grid cols-2">
+				<label class="field"><span>{{ _("Folder") }}</span>
+					<input class="input ltr" type="text" maxlength="200" x-model="form.folder" placeholder="nexaploy-backups">
+					<span class="hint">{{ _("Each server writes into a sub-folder named after its server ID.") }}</span>
+				</label>
+				<label class="field row" style="align-items: center"><input type="checkbox" x-model="form.is_default"> <span>{{ _("Use for all team servers without their own destination") }}</span></label>
+			</div>
+			<template x-if="form.destination_type === 'S3'">
+				<div class="stack">
+					<div class="grid cols-2">
+						<label class="field"><span>{{ _("Bucket") }}</span><input class="input ltr" type="text" x-model="form.s3_bucket" required></label>
+						<label class="field"><span>{{ _("S3 provider") }}</span><input class="input ltr" type="text" x-model="form.s3_provider" placeholder="AWS, Cloudflare, Wasabi, Other"></label>
+					</div>
+					<div class="grid cols-2">
+						<label class="field"><span>{{ _("Endpoint") }}</span><input class="input ltr" type="text" x-model="form.s3_endpoint" placeholder="https://s3.eu-central-1.amazonaws.com"></label>
+						<label class="field"><span>{{ _("Region") }}</span><input class="input ltr" type="text" x-model="form.s3_region"></label>
+					</div>
+					<div class="grid cols-2">
+						<label class="field"><span>{{ _("Access key ID") }}</span><input class="input ltr" type="text" x-model="form.s3_access_key" required autocomplete="off"></label>
+						<label class="field"><span>{{ _("Secret access key") }}</span><input class="input ltr" type="password" x-model="form.s3_secret_key" :required="!form.name" autocomplete="new-password">
+							<span class="hint" x-show="form.name">{{ _("Leave empty to keep the current secret.") }}</span></label>
+					</div>
+				</div>
+			</template>
+			<template x-if="form.destination_type === 'Google Drive'">
+				<label class="field"><span>{{ _("Root folder ID (optional)") }}</span><input class="input ltr" type="text" x-model="form.root_folder_id">
+					<span class="hint">{{ _("Nexaploy only sees the files it creates in your Drive.") }}</span></label>
+			</template>
+			<div class="row">
+				<button class="btn primary" type="submit" :disabled="busy"><span class="spinner" x-show="busy"></span>
+					<span x-text="form.destination_type !== 'S3' && !form.name ? __('Save and connect') : __('Save')"></span></button>
+				<button class="btn ghost" type="button" @click="form.open = false">{{ _("Cancel") }}</button>
+			</div>
+		</form>
+		<div class="card-body flush table-wrap">
+			<template x-if="data && !data.destinations.length"><div class="empty">{{ _("No destinations yet. Backups go to the platform storage.") }}</div></template>
+			<table class="nx-table" x-show="data && data.destinations.length">
+				<thead><tr><th>{{ _("Name") }}</th><th>{{ _("Type") }}</th><th>{{ _("Status") }}</th><th>{{ _("Account") }}</th><th>{{ _("Folder") }}</th><th>{{ _("Last test") }}</th><th></th></tr></thead>
+				<tbody>
+					<template x-for="d in (data ? data.destinations : [])" :key="d.name">
+						<tr>
+							<td><span x-text="d.title"></span> <span class="badge plain" x-show="d.is_default">{{ _("Default") }}</span></td>
+							<td x-text="d.destination_type"></td>
+							<td><span class="badge" :class="statusClass(d.status)" x-text="__(d.status)"></span>
+								<div class="small muted" x-show="d.last_error" x-text="d.last_error"></div></td>
+							<td class="small ltr"><span x-text="d.account_email || (d.s3_bucket ? d.s3_bucket : '—')"></span>
+								<div class="muted" x-show="d.quota_total" x-text="quota(d)"></div></td>
+							<td class="small mono ltr" x-text="d.folder"></td>
+							<td class="small nowrap" x-text="d.last_tested_at ? nx.ago(d.last_tested_at) : '—'"></td>
+							<td class="row nowrap" x-show="canAdmin()">
+								<button class="btn sm" type="button" x-show="d.provider" @click="connect(d)" :disabled="busy" x-text="d.status === 'Connected' ? __('Reconnect') : __('Connect')"></button>
+								<button class="btn sm" type="button" @click="test(d)" :disabled="busy || !d.usable">{{ _("Test") }}</button>
+								<button class="btn sm ghost" type="button" @click="openForm(d)" :disabled="busy">{{ _("Edit") }}</button>
+								<button class="btn sm ghost" type="button" x-show="d.provider && d.status === 'Connected'" @click="disconnect(d)" :disabled="busy">{{ _("Disconnect") }}</button>
+								<button class="btn sm ghost danger" type="button" @click="remove(d)" :disabled="busy">{{ _("Delete") }}</button>
+							</td>
+						</tr>
+					</template>
+				</tbody>
+			</table>
+		</div>
+	</section>
+
+	<!-- Servers -->
+	<section class="card" x-show="!loading && data && data.servers.length">
+		<div class="card-head"><h2>{{ _("Servers") }}</h2></div>
+		<div class="card-body flush table-wrap">
+			<table class="nx-table">
+				<thead><tr><th>{{ _("Server") }}</th><th>{{ _("Status") }}</th><th>{{ _("Backups go to") }}</th></tr></thead>
+				<tbody>
+					<template x-for="s in (data ? data.servers : [])" :key="s.name">
+						<tr>
+							<td class="ltr"><a :href="'/dashboard/server?name=' + encodeURIComponent(s.name)" x-text="s.hostname || s.name"></a></td>
+							<td><span class="badge" :class="nx.statusClass(s.status)" x-text="__(s.status)"></span></td>
+							<td>
+								<select class="input" style="width: auto" :disabled="!canAdmin() || busy" @change="setServer(s, $event.target.value)" aria-label="{{ _('Backup destination') }}">
+									<option value="" :selected="!s.backup_destination" x-text="defaultLabel()"></option>
+									<template x-for="d in usableDestinations()" :key="d.name"><option :value="d.name" :selected="d.name === s.backup_destination" x-text="d.title + ' (' + d.destination_type + ')'"></option></template>
+								</select>
+							</td>
+						</tr>
+					</template>
+				</tbody>
+			</table>
+		</div>
+	</section>
+
+	<!-- Retention -->
+	<section class="card" x-show="!loading && data">
+		<div class="card-head"><h2>{{ _("Retention") }}</h2></div>
+		<form class="card-body form-grid" @submit.prevent="saveTeamRetention()">
+			<p class="small muted">{{ _("Team default for every site without its own retention.") }}</p>
+			<div class="grid cols-2">
+				<label class="field"><span>{{ _("Keep backups in storage (days)") }}</span><input class="input ltr" type="number" min="0" x-model.number="teamPolicy.retention_days">
+					<span class="hint">{{ _("0 = keep forever") }}</span></label>
+				<label class="field"><span>{{ _("Keep on the server (days)") }}</span><input class="input ltr" type="number" min="0" x-model.number="teamPolicy.local_retention_days">
+					<span class="hint">{{ _("0 = delete from the server right after upload") }}</span></label>
+				<label class="field"><span>{{ _("Daily backups to keep") }}</span><input class="input ltr" type="number" min="0" x-model.number="teamPolicy.keep_daily"></label>
+				<label class="field"><span>{{ _("Weekly backups to keep") }}</span><input class="input ltr" type="number" min="0" x-model.number="teamPolicy.keep_weekly"></label>
+				<label class="field"><span>{{ _("Monthly backups to keep") }}</span><input class="input ltr" type="number" min="0" x-model.number="teamPolicy.keep_monthly"></label>
+			</div>
+			<div class="small muted" x-show="limitsText()" x-text="limitsText()"></div>
+			<div class="row" x-show="canWrite()"><button class="btn primary sm" type="submit" :disabled="busy">{{ _("Save team default") }}</button></div>
+		</form>
+		<div class="card-body flush table-wrap" x-show="data && data.sites.length">
+			<table class="nx-table">
+				<thead><tr><th>{{ _("Site") }}</th><th>{{ _("Retention") }}</th><th>{{ _("In storage") }}</th><th>{{ _("On server") }}</th><th>{{ _("Daily / weekly / monthly") }}</th><th></th></tr></thead>
+				<tbody>
+					<template x-for="s in (data ? data.sites : [])" :key="s.name">
+						<tr>
+							<td class="ltr" x-text="s.name"></td>
+							<td><select class="input" style="width: auto" x-model="s.customSel" :disabled="!canWrite()" aria-label="{{ _('Retention') }}">
+								<option value="0">{{ _("Team default") }}</option><option value="1">{{ _("Custom") }}</option></select></td>
+							<td><input class="input ltr" style="width: 6em" type="number" min="0" x-model.number="s.edit.retention_days" :disabled="s.customSel !== '1'"></td>
+							<td><input class="input ltr" style="width: 6em" type="number" min="0" x-model.number="s.edit.local_retention_days" :disabled="s.customSel !== '1'"></td>
+							<td class="nowrap"><input class="input ltr" style="width: 4.5em" type="number" min="0" x-model.number="s.edit.keep_daily" :disabled="s.customSel !== '1'">
+								<input class="input ltr" style="width: 4.5em" type="number" min="0" x-model.number="s.edit.keep_weekly" :disabled="s.customSel !== '1'">
+								<input class="input ltr" style="width: 4.5em" type="number" min="0" x-model.number="s.edit.keep_monthly" :disabled="s.customSel !== '1'"></td>
+							<td class="row nowrap">
+								<button class="btn sm" type="button" x-show="canWrite()" @click="saveSiteRetention(s)" :disabled="busy">{{ _("Save") }}</button>
+								<button class="btn sm ghost" type="button" @click="openRestore(s)">{{ _("Restore…") }}</button>
+							</td>
+						</tr>
+					</template>
+				</tbody>
+			</table>
+		</div>
+	</section>
+
+	<!-- Restore -->
+	<section class="card" x-show="restore.site">
+		<div class="card-head">
+			<h2><span>{{ _("Restore") }}</span> <span class="ltr" x-text="restore.site"></span></h2>
+			<button class="btn sm ghost" type="button" @click="restore.site = null">{{ _("Close") }}</button>
+		</div>
+		<div class="card-body">
+			<div class="alert warning">{{ _("Restoring into the same site replaces its current data. Restore into a new site to inspect a backup safely.") }}</div>
+		</div>
+		<div class="card-body flush table-wrap">
+			<template x-if="restore.loading"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+			<template x-if="!restore.loading && !restore.backups.length"><div class="empty">{{ _("No uploaded backups for this site yet.") }}</div></template>
+			<table class="nx-table" x-show="!restore.loading && restore.backups.length">
+				<thead><tr><th>{{ _("Backup") }}</th><th>{{ _("Size") }}</th><th>{{ _("Contents") }}</th><th>{{ _("Restore what") }}</th><th></th></tr></thead>
+				<tbody>
+					<template x-for="b in restore.backups" :key="b.name">
+						<tr>
+							<td class="small nowrap" :title="b.created_at" x-text="nx.fmtDate(b.created_at)"></td>
+							<td class="small" x-text="nx.bytes(b.size)"></td>
+							<td class="small" x-text="b.files.map(function (f) { return __(f.file_type); }).join(', ')"></td>
+							<td><select class="input" style="width: auto" x-model="b.mode" aria-label="{{ _('Restore what') }}">
+								<option value="all">{{ _("Database and files") }}</option>
+								<option value="database">{{ _("Database only") }}</option>
+								<option value="files" x-show="b.modes.indexOf('files') !== -1">{{ _("Files only") }}</option>
+							</select></td>
+							<td class="row nowrap" x-show="canWrite()">
+								<button class="btn sm danger" type="button" @click="restoreHere(b)" :disabled="busy">{{ _("Restore into this site") }}</button>
+								<button class="btn sm" type="button" @click="restoreNew(b)" :disabled="busy || b.mode === 'files'">{{ _("Restore as new site") }}</button>
+							</td>
+						</tr>
+					</template>
+				</tbody>
+			</table>
+		</div>
+		<form class="card-body form-grid" x-show="restore.target" @submit.prevent="submitNew()">
+			<div class="grid cols-2">
+				<label class="field"><span>{{ _("New site name") }}</span><input class="input ltr" type="text" x-model="restore.newName" required></label>
+				<label class="field"><span>{{ _("Bench") }}</span>
+					<select class="input" x-model="restore.bench" required>
+						<template x-for="bn in restore.benches" :key="bn.name"><option :value="bn.name" x-text="bn.bench_name + ' · ' + (bn.server_hostname || bn.server)"></option></template>
+					</select></label>
+			</div>
+			<div class="row"><button class="btn primary" type="submit" :disabled="busy">{{ _("Restore as new site") }}</button>
+				<button class="btn ghost" type="button" @click="restore.target = null">{{ _("Cancel") }}</button></div>
+		</form>
+	</section>
+</div>
+{% endblock %}

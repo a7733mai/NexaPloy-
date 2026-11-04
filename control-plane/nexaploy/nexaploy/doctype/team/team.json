@@ -1,0 +1,226 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:team_name",
+ "creation": "2026-11-03 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "team_name",
+  "title",
+  "owner_user",
+  "column_break_1",
+  "billing_email",
+  "currency",
+  "enabled",
+  "billing_exempt",
+  "two_factor_required",
+  "console_two_factor_required",
+  "credit_balance",
+  "reseller_brand",
+  "members_section",
+  "members",
+  "section_break_backups",
+  "backup_retention_days",
+  "backup_keep_daily",
+  "backup_keep_weekly",
+  "backup_keep_monthly",
+  "backup_local_retention_days",
+  "extended_backup_retention",
+  "advanced_monitoring"
+ ],
+ "fields": [
+  {
+   "description": "URL-safe id (slug of the title), also the document name.",
+   "fieldname": "team_name",
+   "fieldtype": "Data",
+   "label": "Team Name",
+   "unique": 1,
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "owner_user",
+   "fieldtype": "Link",
+   "label": "Owner User",
+   "options": "User",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Invoices and payment receipts go here (and to Owner/Billing members).",
+   "fieldname": "billing_email",
+   "fieldtype": "Data",
+   "label": "Billing Email",
+   "options": "Email"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "in_list_view": 1
+  },
+  {
+   "default": "0",
+   "description": "Internal/platform team: its servers and sites are never billed (e.g. the all-in-one control plane host).",
+   "fieldname": "billing_exempt",
+   "fieldtype": "Check",
+   "label": "Billing Exempt",
+   "permlevel": 0
+  },
+  {
+   "default": "0",
+   "fieldname": "two_factor_required",
+   "fieldtype": "Check",
+   "label": "Two Factor Required"
+  },
+  {
+   "default": "0",
+   "description": "SQL and the Python console are refused unless the member signs in with two-factor authentication.",
+   "fieldname": "console_two_factor_required",
+   "fieldtype": "Check",
+   "label": "Require 2FA For Console"
+  },
+  {
+   "default": "0",
+   "description": "Prepaid credits in the team currency (sum of Team Credit Transaction). Recomputed by the ledger; do not edit.",
+   "fieldname": "credit_balance",
+   "fieldtype": "Currency",
+   "label": "Credit Balance",
+   "options": "currency",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "description": "Brand the team signed up through (white-label reseller). Set automatically from the portal host when the team is created; drives the portal look and the sender of the team's e-mails.",
+   "fieldname": "reseller_brand",
+   "fieldtype": "Link",
+   "label": "Reseller brand",
+   "options": "Brand"
+  },
+  {
+   "fieldname": "members_section",
+   "fieldtype": "Section Break",
+   "label": "Members"
+  },
+  {
+   "fieldname": "members",
+   "fieldtype": "Table",
+   "label": "Members",
+   "options": "Team Member"
+  },
+  {
+   "fieldname": "section_break_backups",
+   "fieldtype": "Section Break",
+   "label": "Backup Retention (team default)"
+  },
+  {
+   "fieldname": "backup_retention_days",
+   "fieldtype": "Int",
+   "label": "Keep Remote Backups (days)",
+   "default": "14",
+   "description": "Remote copies older than this are deleted (0 = forever)."
+  },
+  {
+   "fieldname": "backup_keep_daily",
+   "fieldtype": "Int",
+   "label": "Keep Daily Backups",
+   "default": "0",
+   "description": "Also keep the newest backup of each of the last N days (0 = off)."
+  },
+  {
+   "fieldname": "backup_keep_weekly",
+   "fieldtype": "Int",
+   "label": "Keep Weekly Backups",
+   "default": "0",
+   "description": "Also keep the newest backup of each of the last N weeks (0 = off)."
+  },
+  {
+   "fieldname": "backup_keep_monthly",
+   "fieldtype": "Int",
+   "label": "Keep Monthly Backups",
+   "default": "0",
+   "description": "Also keep the newest backup of each of the last N months (0 = off)."
+  },
+  {
+   "fieldname": "backup_local_retention_days",
+   "fieldtype": "Int",
+   "label": "Keep On Server (days)",
+   "default": "14",
+   "description": "Days uploaded backups stay on the server; 0 = delete right after upload."
+  },
+  {
+   "fieldname": "extended_backup_retention",
+   "fieldtype": "Check",
+   "label": "Extended Backup Retention Add-on",
+   "default": "0",
+   "read_only": 1,
+   "description": "Set by billing: allows retention beyond Nexaploy Settings > Included Retention."
+  },
+  {
+   "fieldname": "advanced_monitoring",
+   "fieldtype": "Check",
+   "label": "Advanced uptime monitoring",
+   "default": "0",
+   "description": "Paid feature: 1-minute checks and more than 3 monitors per site (ARCHITECTURE.md §16)."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-12-07 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Team",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 0,
+   "print": 0,
+   "read": 1,
+   "report": 0,
+   "role": "Nexaploy Customer",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "search_fields": "title,owner_user",
+ "show_title_field_in_link": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}

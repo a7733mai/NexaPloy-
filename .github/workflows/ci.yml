@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e "agent" pytest pyyaml
+      - run: python -m pytest agent/tests -q
+
+  control-plane:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pytest jinja2 pyyaml
+      - run: python -m compileall -q control-plane/nexaploy
+      - run: python -m pytest control-plane/tests -q
+
+  bench-template:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pytest pyyaml jinja2
+      - run: python -m pytest bench-template/tests -q
+      - name: Packaged agent templates match bench-template
+        run: |
+          diff -r bench-template/bench agent/nexaploy_agent/templates/bench
+          diff bench-template/site-route.yml.j2 agent/nexaploy_agent/templates/site-route.yml.j2
+
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y shellcheck jq
+      - run: bash -n agent/install/install.sh image-builder/build.sh
+      - run: shellcheck -S warning image-builder/build.sh agent/install/install.sh
+      - run: bash image-builder/tests/test_build_sh.sh
+      - run: bash agent/install/tests/test_os_upgrade.sh
+      - run: bash agent/install/tests/test_hardening.sh
+      - run: bash agent/install/tests/test_control_plane_install.sh
+
+  release-tooling:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pytest
+      - run: python -m pytest scripts/tests -q
+      - run: bash packer/tests/test_firstboot.sh
+      - run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - run: shellcheck -S warning scripts/release.sh packer/scripts/*.sh packer/files/usr/local/sbin/nexaploy-firstboot packer/tests/test_firstboot.sh
+
+  packer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-packer@v3
+      - run: packer init packer/
+      - run: packer validate -syntax-only packer/
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r docs/requirements.txt
+      - run: mkdocs build --strict

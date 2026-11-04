@@ -1,0 +1,95 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block content %}
+<div class="stack" x-data="nxAccount" x-cloak>
+	<template x-if="loading && !account"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+	<template x-if="error"><div class="alert danger" x-text="error"></div></template>
+
+	<template x-if="account">
+		<div class="stack">
+			<!-- Profile -->
+			<section class="card">
+				<div class="card-head"><h2>{{ _("Profile") }}</h2></div>
+				<div class="card-body stack">
+					<dl class="kv">
+						<dt>{{ _("Email") }}</dt><dd class="ltr" x-text="account.email || account.user"></dd>
+					</dl>
+					<form class="form-grid" @submit.prevent="saveProfile()">
+						<label class="field">{{ _("First name") }}
+							<input class="input" type="text" maxlength="140" x-model="form.first_name" required>
+						</label>
+						<label class="field">{{ _("Last name") }}
+							<input class="input" type="text" maxlength="140" x-model="form.last_name">
+						</label>
+						<label class="field">{{ _("Language") }}
+							<span class="hint">{{ _("Arabic shows the dashboard right-to-left.") }}</span>
+							<select class="input" x-model="form.language">
+								<template x-for="l in account.languages" :key="l.code"><option :value="l.code" :selected="l.code === form.language" x-text="l.label"></option></template>
+							</select>
+						</label>
+						<div class="row">
+							<button class="btn primary" type="submit" :disabled="busy.profile"><span class="spinner" x-show="busy.profile"></span> {{ _("Save") }}</button>
+							<a class="btn" href="/update-password">{{ _("Change password") }}</a>
+						</div>
+					</form>
+				</div>
+			</section>
+
+			<!-- Two-factor authentication -->
+			<section class="card">
+				<div class="card-head">
+					<h2>{{ _("Two-factor authentication") }}</h2>
+					<span class="badge success" x-show="account.two_factor.enforced">{{ _("On") }}</span>
+					<span class="badge" x-show="!account.two_factor.enforced">{{ _("Off") }}</span>
+				</div>
+				<div class="card-body stack">
+					<template x-if="account.two_factor.enforced">
+						<p style="margin: 0">{{ _("You sign in with your password and a one-time code.") }} <span class="muted" x-show="account.two_factor.method" x-text="'(' + __(account.two_factor.method) + ')'"></span></p>
+					</template>
+					<template x-if="!account.two_factor.enforced && !account.two_factor.required_by.length">
+						<p style="margin: 0" class="muted">{{ _("None of your teams requires two-factor authentication. A team Owner or Admin can require it on the Team page.") }}</p>
+					</template>
+					<template x-if="account.two_factor.required_by.length">
+						<div class="small">
+							<span>{{ _("Required by") }}:</span>
+							<template x-for="t in account.two_factor.required_by" :key="t.name"><span class="badge plain" x-text="t.title"></span></template>
+						</div>
+					</template>
+					<template x-if="account.two_factor.required_by.length && !account.two_factor.enforced">
+						<div class="alert warning">{{ _("Two-factor authentication will be asked for at your next sign-in once the platform administrator enables it.") }}</div>
+					</template>
+				</div>
+			</section>
+
+			<!-- API key -->
+			<section class="card">
+				<div class="card-head"><h2>{{ _("API access") }}</h2></div>
+				<div class="card-body stack">
+					<p class="small muted" style="margin: 0">{{ _("An API key acts as you, with your role in each team. Keep the secret safe: it is shown only once.") }}</p>
+					<template x-if="account.api_key">
+						<dl class="kv">
+							<dt>{{ _("API key") }}</dt><dd class="mono ltr" x-text="account.api_key"></dd>
+						</dl>
+					</template>
+					<template x-if="!account.api_key"><p style="margin: 0">{{ _("You have no API key.") }}</p></template>
+					<div class="row">
+						<button class="btn primary" type="button" x-show="!account.api_key" :disabled="busy.key" @click="generate(false)"><span class="spinner" x-show="busy.key"></span> {{ _("Generate API key") }}</button>
+						<button class="btn" type="button" x-show="account.api_key" :disabled="busy.key" @click="generate(true)"><span class="spinner" x-show="busy.key"></span> {{ _("Rotate") }}</button>
+						<button class="btn danger" type="button" x-show="account.api_key" :disabled="busy.revoke" @click="revoke()">{{ _("Revoke") }}</button>
+					</div>
+					<template x-if="secret">
+						<div class="stack">
+							<div class="alert warning">{{ _("Copy the secret now. You will not be able to see it again.") }}</div>
+							<div class="codebox mono ltr"><span x-text="secret.api_key + ':' + secret.api_secret"></span><button class="btn sm" type="button" @click="nx.copy(secret.api_key + ':' + secret.api_secret)">{{ _("Copy") }}</button></div>
+						</div>
+					</template>
+					<div class="stack">
+						<div class="small muted">{{ _("Example request") }}</div>
+						<pre class="codebox mono ltr" style="white-space: pre-wrap" x-text="snippet()"></pre>
+					</div>
+				</div>
+			</section>
+		</div>
+	</template>
+</div>
+{% endblock %}

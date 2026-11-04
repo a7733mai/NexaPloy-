@@ -1,0 +1,152 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-11-03 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "release_group",
+  "build_id",
+  "image_tag",
+  "column_break_1",
+  "status",
+  "build_server",
+  "agent_job",
+  "section_break_apps",
+  "apps_json",
+  "app_sources",
+  "commits",
+  "section_break_log",
+  "build_log"
+ ],
+ "fields": [
+  {
+   "fieldname": "release_group",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Release Group",
+   "options": "Release Group",
+   "reqd": 1
+  },
+  {
+   "fieldname": "build_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Build ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "image_tag",
+   "fieldtype": "Data",
+   "label": "Image Tag",
+   "read_only": 1,
+   "length": 1000
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Pending",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Pending\nBuilding\nSuccess\nFailure",
+   "read_only": 1
+  },
+  {
+   "fieldname": "build_server",
+   "fieldtype": "Link",
+   "label": "Build Server",
+   "options": "Server",
+   "read_only": 1
+  },
+  {
+   "fieldname": "agent_job",
+   "fieldtype": "Link",
+   "label": "Agent Job",
+   "options": "Agent Job",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_apps",
+   "fieldtype": "Section Break",
+   "label": "Apps JSON"
+  },
+  {
+   "fieldname": "apps_json",
+   "fieldtype": "JSON",
+   "label": "Apps JSON",
+   "read_only": 1
+  },
+  {
+   "description": "Non-secret source metadata (custom app, installation) used to mint clone tokens when the build server polls. apps_json never contains credentials.",
+   "fieldname": "app_sources",
+   "fieldtype": "JSON",
+   "label": "App Sources",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "commits",
+   "fieldtype": "JSON",
+   "label": "Custom App Commits",
+   "read_only": 1,
+   "description": "{custom_app: commit} known when the build was created."
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_log",
+   "fieldtype": "Section Break",
+   "label": "Build Log"
+  },
+  {
+   "fieldname": "build_log",
+   "fieldtype": "Long Text",
+   "label": "Build Log",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-20 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Deploy Candidate",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Nexaploy Customer",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

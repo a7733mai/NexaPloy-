@@ -1,0 +1,106 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-11-03 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "token_prefix",
+  "token_hash",
+  "team",
+  "column_break_1",
+  "expires_on",
+  "used",
+  "server"
+ ],
+ "fields": [
+  {
+   "description": "First characters of the token, for identification only.",
+   "fieldname": "token_prefix",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Token Prefix",
+   "read_only": 1
+  },
+  {
+   "fieldname": "token_hash",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Token Hash",
+   "read_only": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Team",
+   "options": "Team"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "expires_on",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Expires On",
+   "reqd": 1
+  },
+  {
+   "fieldname": "used",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Used",
+   "read_only": 1
+  },
+  {
+   "fieldname": "server",
+   "fieldtype": "Link",
+   "label": "Server",
+   "options": "Server",
+   "read_only": 1,
+   "description": "Set when the token is used (BYOS: the new Server). Set at creation for a Hosted server provisioned by Nexaploy: registering then activates that Server instead of creating one."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-28 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Server Registration Token",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Nexaploy Customer",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

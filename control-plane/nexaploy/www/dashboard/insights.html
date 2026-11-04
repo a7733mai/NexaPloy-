@@ -1,0 +1,278 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block page_title %}<a href="/dashboard/sites" class="muted">{{ _("Sites") }}</a> <span class="muted">/</span> <a class="ltr" id="nx-insights-site" href="/dashboard/sites"></a> <span class="muted">/</span> {{ _("Insights") }}{% endblock %}
+
+{% block head %}
+{# observability (analytics, logs, slow queries, SQL, console): plain script so it registers before Alpine starts #}
+<script src="/assets/nexaploy/js/insights.js"></script>
+<style>
+	.nx-chart svg { width: 100%; height: 160px; display: block; }
+	.nx-chart .bar { fill: var(--nx-primary); }
+	.nx-chart .bar.err { fill: var(--nx-danger); }
+	.nx-chart .axis { stroke: var(--nx-border); }
+	.nx-chart text { fill: var(--nx-muted); font-size: 10px; }
+	.nx-hbar { height: 6px; border-radius: 99px; background: var(--nx-primary-soft); overflow: hidden; min-width: 60px; }
+	.nx-hbar > span { display: block; height: 100%; background: var(--nx-primary); }
+	.nx-mono { font-family: var(--nx-mono); font-size: 12px; direction: ltr; text-align: start; overflow-wrap: anywhere; }
+	.nx-logview { max-height: 520px; font-size: 12px; font-family: var(--nx-mono); }
+	.nx-sql textarea, .nx-console textarea { width: 100%; min-height: 160px; font-family: var(--nx-mono); font-size: 13px; direction: ltr; text-align: left; }
+	.nx-results td { font-family: var(--nx-mono); font-size: 12px; white-space: pre-wrap; max-width: 480px; overflow-wrap: anywhere; }
+	.nx-results td.null { color: var(--nx-muted); font-style: italic; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stack" x-data="nxInsights" x-cloak x-effect="if (site) { var a = document.getElementById('nx-insights-site'); a.textContent = site; a.href = '/dashboard/site?name=' + encodeURIComponent(site); }">
+	<template x-if="!site"><div class="alert danger">{{ _("No site selected.") }}</div></template>
+	<template x-if="site && permError"><div class="alert danger" x-text="permError"></div></template>
+
+	<template x-if="site && perms">
+		<div class="stack">
+			<template x-if="perms.two_factor_required && !perms.two_factor_ok"><div class="alert warning">{{ _("Your team requires two-factor authentication for SQL and the console. Enable it for your account and sign in again.") }}</div></template>
+			<div class="tabs" role="tablist">
+				<button type="button" :class="{ active: tab === 'analytics' }" @click="show('analytics')">{{ _("Analytics") }}</button>
+				<button type="button" x-show="perms.logs" :class="{ active: tab === 'logs' }" @click="show('logs')">{{ _("Logs") }}</button>
+				<button type="button" x-show="perms.logs" :class="{ active: tab === 'slow' }" @click="show('slow')">{{ _("Slow queries") }}</button>
+				<button type="button" x-show="perms.sql" :class="{ active: tab === 'sql' }" @click="show('sql')">{{ _("SQL") }}</button>
+				<button type="button" x-show="perms.console" :class="{ active: tab === 'console' }" @click="show('console')">{{ _("Console") }}</button>
+			</div>
+
+			<!-- Analytics -->
+			<div class="stack" x-show="tab === 'analytics'">
+				<div class="row">
+					<label class="small muted" for="nx-days">{{ _("Period") }}</label>
+					<select id="nx-days" class="input" style="width: auto" x-model.number="analytics.days" @change="loadAnalytics(false)">
+						<option value="1">{{ _("Last 24 hours") }}</option>
+						<option value="7">{{ _("Last 7 days") }}</option>
+						<option value="14">{{ _("Last 14 days") }}</option>
+						<option value="31">{{ _("Last 31 days") }}</option>
+					</select>
+					<span class="spacer"></span>
+					<button class="btn sm" type="button" @click="loadAnalytics(true)" :disabled="analytics.loading">{{ _("Refresh") }}</button>
+				</div>
+				<template x-if="analytics.loading"><div class="loading"><span class="spinner"></span> {{ _("Collecting data from the server…") }}</div></template>
+				<template x-if="analytics.error"><div class="alert danger" x-text="analytics.error"></div></template>
+				<template x-if="analytics.data">
+					<div class="stack">
+						<template x-if="analytics.data.monitor_enabled === false"><div class="alert warning">{{ _("Request monitoring is not enabled for this site, so analytics may be empty.") }}</div></template>
+						<div class="grid cols-4">
+							<div class="card stat"><div class="label">{{ _("Requests") }}</div><div class="value" x-text="fmtNum(analytics.data.requests.count, 0)"></div></div>
+							<div class="card stat"><div class="label">{{ _("Median response") }}</div><div class="value" x-text="ms(analytics.data.requests.p50_ms)"></div></div>
+							<div class="card stat"><div class="label">{{ _("95th percentile") }}</div><div class="value" x-text="ms(analytics.data.requests.p95_ms)"></div></div>
+							<div class="card stat"><div class="label">{{ _("Background jobs") }}</div><div class="value" x-text="fmtNum(analytics.data.jobs.count, 0)"></div><div class="sub" x-text="ms(analytics.data.jobs.total_ms) + ' ' + __('total')"></div></div>
+						</div>
+						<section class="card">
+							<div class="card-head"><h2>{{ _("Requests per hour") }}</h2></div>
+							<div class="card-body nx-chart" x-html="hourlyChart()"></div>
+						</section>
+						<div class="grid cols-2">
+							<section class="card">
+								<div class="card-head"><h2>{{ _("Top paths by requests") }}</h2></div>
+								<div class="card-body flush table-wrap">
+									<table class="nx-table">
+										<thead><tr><th>{{ _("Path") }}</th><th>{{ _("Requests") }}</th><th>{{ _("Average") }}</th><th></th></tr></thead>
+										<tbody>
+											<template x-for="r in analytics.data.paths_by_count" :key="r.path">
+												<tr><td class="nx-mono" x-text="r.path"></td><td x-text="fmtNum(r.count, 0)"></td><td class="nowrap" x-text="ms(r.avg_ms)"></td><td><div class="nx-hbar"><span :style="'width:' + share(r.count, analytics.data.paths_by_count, 'count')"></span></div></td></tr>
+											</template>
+										</tbody>
+									</table>
+									<template x-if="!analytics.data.paths_by_count.length"><div class="empty">{{ _("No requests in this period.") }}</div></template>
+								</div>
+							</section>
+							<section class="card">
+								<div class="card-head"><h2>{{ _("Top paths by total time") }}</h2></div>
+								<div class="card-body flush table-wrap">
+									<table class="nx-table">
+										<thead><tr><th>{{ _("Path") }}</th><th>{{ _("Total") }}</th><th>{{ _("Max") }}</th><th></th></tr></thead>
+										<tbody>
+											<template x-for="r in analytics.data.paths_by_duration" :key="r.path">
+												<tr><td class="nx-mono" x-text="r.path"></td><td class="nowrap" x-text="ms(r.total_ms)"></td><td class="nowrap" x-text="ms(r.max_ms)"></td><td><div class="nx-hbar"><span :style="'width:' + share(r.total_ms, analytics.data.paths_by_duration, 'total_ms')"></span></div></td></tr>
+											</template>
+										</tbody>
+									</table>
+								</div>
+							</section>
+							<section class="card">
+								<div class="card-head"><h2>{{ _("Status codes") }}</h2></div>
+								<div class="card-body flush table-wrap">
+									<table class="nx-table">
+										<tbody>
+											<template x-for="s in analytics.data.status_codes" :key="s.status">
+												<tr><td><span :class="statusBadge(s.status)" x-text="s.status"></span></td><td x-text="fmtNum(s.count, 0)"></td><td><div class="nx-hbar"><span :style="'width:' + share(s.count, analytics.data.status_codes, 'count')"></span></div></td></tr>
+											</template>
+										</tbody>
+									</table>
+								</div>
+							</section>
+							<section class="card">
+								<div class="card-head"><h2>{{ _("Background jobs by method") }}</h2></div>
+								<div class="card-body flush table-wrap">
+									<table class="nx-table">
+										<thead><tr><th>{{ _("Method") }}</th><th>{{ _("Runs") }}</th><th>{{ _("Total") }}</th><th>{{ _("Average") }}</th></tr></thead>
+										<tbody>
+											<template x-for="r in analytics.data.jobs_by_method" :key="r.method">
+												<tr><td class="nx-mono" x-text="r.method"></td><td x-text="fmtNum(r.count, 0)"></td><td class="nowrap" x-text="ms(r.total_ms)"></td><td class="nowrap" x-text="ms(r.avg_ms)"></td></tr>
+											</template>
+										</tbody>
+									</table>
+									<template x-if="!analytics.data.jobs_by_method.length"><div class="empty">{{ _("No background jobs in this period.") }}</div></template>
+								</div>
+							</section>
+						</div>
+					</div>
+				</template>
+			</div>
+
+			<!-- Logs -->
+			<section class="card" x-show="tab === 'logs' && perms.logs">
+				<div class="card-head">
+					<select class="input" style="width: auto" x-model="logs.log" @change="loadLogs(true)" aria-label="{{ _('Log') }}">
+						<option value="web">{{ _("Web") }}</option>
+						<option value="worker">{{ _("Background workers") }}</option>
+						<option value="scheduler">{{ _("Scheduler") }}</option>
+						<option value="frappe">{{ _("Frappe log") }}</option>
+						<option value="error">{{ _("Error Log") }}</option>
+					</select>
+					<select class="input" style="width: auto" x-model.number="logs.lines" @change="loadLogs(true)" aria-label="{{ _('Lines') }}">
+						<option value="100">100</option>
+						<option value="200">200</option>
+						<option value="500">500</option>
+						<option value="2000">2000</option>
+					</select>
+					<span class="spacer"></span>
+					<button class="btn sm" type="button" @click="loadLogs(true)" :disabled="logs.loading">{{ _("Refresh") }}</button>
+				</div>
+				<div class="card-body stack">
+					<template x-if="logs.loading"><div class="loading"><span class="spinner"></span> {{ _("Reading logs…") }}</div></template>
+					<template x-if="logs.error"><div class="alert danger" x-text="logs.error"></div></template>
+					<template x-if="logs.data && logs.data.shared_bench"><div class="alert info">{{ _("This site shares its bench with other sites; only lines that mention this site are shown.") }}</div></template>
+					<template x-if="logs.data && logs.data.rows">
+						<div class="stack">
+							<template x-for="(r, i) in logs.data.rows" :key="i">
+								<details>
+									<summary><span class="small muted" x-text="nx.fmtDate(r.creation)"></span> <span class="nx-mono" x-text="r.method || '—'"></span></summary>
+									<pre class="log nx-logview" x-text="r.error"></pre>
+								</details>
+							</template>
+							<template x-if="!logs.data.rows.length"><div class="empty">{{ _("No errors logged.") }}</div></template>
+						</div>
+					</template>
+					<template x-if="logs.data && logs.data.sources">
+						<div class="stack">
+							<template x-for="src in logs.data.sources" :key="src.source">
+								<div class="stack">
+									<div class="row small"><strong class="ltr" x-text="src.source"></strong><span class="muted" x-text="src.lines.length + ' ' + __('lines')"></span><template x-if="src.truncated"><span class="badge warning">{{ _("Truncated") }}</span></template></div>
+									<template x-if="src.error"><div class="alert warning small" x-text="src.error"></div></template>
+									<pre class="log nx-logview" x-show="src.lines.length" x-text="src.lines.join('\n')"></pre>
+								</div>
+							</template>
+							<template x-if="!logs.data.sources.some(function (s) { return s.lines.length; })"><div class="empty">{{ _("No log lines found.") }}</div></template>
+						</div>
+					</template>
+				</div>
+			</section>
+
+			<!-- Slow queries -->
+			<section class="card" x-show="tab === 'slow' && perms.logs">
+				<div class="card-head">
+					<h2>{{ _("Slow queries") }}</h2>
+					<span class="spacer"></span>
+					<button class="btn sm" type="button" @click="loadSlow(true)" :disabled="slow.loading">{{ _("Refresh") }}</button>
+				</div>
+				<div class="card-body flush">
+					<template x-if="slow.loading"><div class="loading" style="padding: 16px"><span class="spinner"></span> {{ _("Reading the slow query log…") }}</div></template>
+					<template x-if="slow.error"><div class="alert danger" style="margin: 16px" x-text="slow.error"></div></template>
+					<template x-if="slow.data && !slow.data.enabled"><div class="alert warning" style="margin: 16px">{{ _("The slow query log is not enabled on this server.") }}</div></template>
+					<template x-if="slow.data && slow.data.enabled">
+						<div class="table-wrap">
+							<table class="nx-table">
+								<thead><tr><th>{{ _("Query") }}</th><th>{{ _("Count") }}</th><th>{{ _("Average") }}</th><th>{{ _("Max") }}</th><th>{{ _("Rows examined") }}</th><th>{{ _("Last seen") }}</th></tr></thead>
+								<tbody>
+									<template x-for="(q, i) in slow.data.queries" :key="i">
+										<tr>
+											<td><details><summary class="nx-mono" x-text="q.query.length > 160 ? q.query.slice(0, 160) + '…' : q.query"></summary><pre class="log" x-text="q.example"></pre></details></td>
+											<td x-text="fmtNum(q.count, 0)"></td>
+											<td class="nowrap" x-text="secs(q.avg_time)"></td>
+											<td class="nowrap" x-text="secs(q.max_time)"></td>
+											<td x-text="fmtNum(q.rows_examined_avg, 0) + ' / ' + fmtNum(q.rows_examined_max, 0)"></td>
+											<td class="small nowrap" x-text="q.last_seen ? nx.fmtDate(q.last_seen) : '—'"></td>
+										</tr>
+									</template>
+								</tbody>
+							</table>
+							<template x-if="!slow.data.queries.length"><div class="empty">{{ _("No slow queries recorded for this site.") }}</div></template>
+						</div>
+					</template>
+				</div>
+			</section>
+
+			<!-- SQL playground -->
+			<section class="card nx-sql" x-show="tab === 'sql' && perms.sql">
+				<div class="card-head">
+					<h2>{{ _("SQL playground") }}</h2>
+					<span class="spacer"></span>
+					<label class="check small" x-show="perms.sql_write"><input type="checkbox" x-model="sql.readOnly"> {{ _("Read-only") }}</label>
+				</div>
+				<div class="card-body stack">
+					<template x-if="!sql.readOnly"><div class="alert danger">{{ _("Write mode: statements change data immediately and cannot be undone. Take a backup first.") }}</div></template>
+					<textarea class="input" x-model="sql.query" spellcheck="false" placeholder="SELECT name, creation FROM `tabUser` LIMIT 20" @keydown.ctrl.enter.prevent="runSql()" @keydown.meta.enter.prevent="runSql()"></textarea>
+					<div class="row">
+						<button class="btn primary" type="button" @click="runSql()" :disabled="sql.loading || !sql.query.trim()">{{ _("Run query") }}</button>
+						<label class="small muted" for="nx-maxrows">{{ _("Max rows") }}</label>
+						<select id="nx-maxrows" class="input" style="width: auto" x-model.number="sql.maxRows">
+							<option value="100">100</option><option value="500">500</option><option value="1000">1000</option><option value="5000">5000</option>
+						</select>
+						<span class="spacer"></span>
+						<button class="btn sm" type="button" x-show="sql.data && sql.data.columns.length" @click="downloadCsv()">{{ _("Download CSV") }}</button>
+					</div>
+					<template x-if="sql.loading"><div class="loading"><span class="spinner"></span> {{ _("Running…") }}</div></template>
+					<template x-if="sql.error"><div class="alert danger nx-mono" x-text="sql.error"></div></template>
+					<template x-if="sql.data">
+						<div class="stack">
+							<div class="small muted" x-text="sqlSummary()"></div>
+							<template x-if="sql.data.truncated"><div class="alert warning small">{{ _("Only the first rows are shown. Add a LIMIT or download fewer rows.") }}</div></template>
+							<div class="table-wrap" x-show="sql.data.columns.length">
+								<table class="nx-table nx-results">
+									<thead><tr><template x-for="(c, i) in sql.data.columns" :key="i"><th class="ltr" x-text="c"></th></template></tr></thead>
+									<tbody>
+										<template x-for="(r, ri) in sql.data.rows" :key="ri">
+											<tr><template x-for="(v, ci) in r" :key="ci"><td :class="{ null: v === null }" x-text="v === null ? 'NULL' : v"></td></template></tr>
+										</template>
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</template>
+				</div>
+			</section>
+
+			<!-- Console -->
+			<section class="card nx-console" x-show="tab === 'console' && perms.console">
+				<div class="card-head"><h2>{{ _("Console") }}</h2></div>
+				<div class="card-body stack">
+					<div class="alert warning">{{ _("Code runs inside your site with full access to its data, as Administrator. Changes are rolled back unless you choose to commit them. Every run is recorded in the team activity log.") }}</div>
+					<textarea class="input" x-model="con.code" spellcheck="false" placeholder="print(frappe.db.count('User'))" @keydown.ctrl.enter.prevent="runConsole()" @keydown.meta.enter.prevent="runConsole()"></textarea>
+					<div class="row">
+						<button class="btn primary" type="button" @click="runConsole()" :disabled="con.loading || !con.code.trim()">{{ _("Execute") }}</button>
+						<label class="check small"><input type="checkbox" x-model="con.commit"> {{ _("Commit database changes") }}</label>
+					</div>
+					<template x-if="con.loading"><div class="loading"><span class="spinner"></span> {{ _("Running…") }}</div></template>
+					<template x-if="con.error"><div class="alert danger" x-text="con.error"></div></template>
+					<template x-if="con.data">
+						<div class="stack">
+							<div class="row small">
+								<span :class="con.data.ok ? 'badge success' : 'badge danger'" x-text="con.data.ok ? __('Success') : __('Failure')"></span>
+								<template x-if="con.data.committed"><span class="badge warning">{{ _("Committed") }}</span></template>
+								<span class="muted" x-show="con.data.duration !== undefined && con.data.duration !== null" x-text="secs(con.data.duration)"></span>
+								<template x-if="con.data.truncated"><span class="badge warning">{{ _("Truncated") }}</span></template>
+							</div>
+							<pre class="log nx-logview" x-text="con.data.output || __('(no output)')"></pre>
+						</div>
+					</template>
+				</div>
+			</section>
+		</div>
+	</template>
+</div>
+{% endblock %}

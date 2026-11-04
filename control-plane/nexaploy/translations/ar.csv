@@ -1,0 +1,2235 @@
+Servers,الخوادم
+Loading…,جارٍ التحميل…
+Server ID,معرّف الخادم
+Type,النوع
+Last heartbeat,آخر نبضة
+Agent version,إصدار الوكيل
+Plan,الخطة
+/ month,/ شهريًا
+Created,تاريخ الإنشاء
+No heartbeat for more than 5 minutes. Check that the server is running and the nexaploy-agent service is active.,لم تصل أي نبضة منذ أكثر من 5 دقائق. تأكد من أن الخادم يعمل وأن خدمة nexaploy-agent نشطة.
+Facts,معلومات الخادم
+The agent has not reported any facts yet.,لم يُرسل الوكيل أي معلومات بعد.
+Benches,البيئات (Benches)
+New Site,موقع جديد
+No benches on this server yet.,لا توجد بيئات على هذا الخادم بعد.
+Bench,البيئة (Bench)
+Version,الإصدار
+Image,الصورة
+Sites,المواقع
+Status,الحالة
+Jobs,المهام
+No jobs yet.,لا توجد مهام بعد.
+Waiting for the server agent to pick up this job…,بانتظار أن يستلم وكيل الخادم هذه المهمة…
+Add your own server,أضف خادمك الخاص
+Close,إغلاق
+Bring a fresh Ubuntu 22.04 or 24.04 server from any provider. Nexaploy installs its agent and manages benches and sites on it; your sites keep running even if you remove the agent.,استخدم خادم Ubuntu 22.04 أو 24.04 جديدًا من أي مزوّد. يثبّت Nexaploy وكيله عليه ويدير البيئات والمواقع؛ وتستمر مواقعك في العمل حتى لو أزلت الوكيل.
+per server per month for management. You pay your server provider directly.,لكل خادم شهريًا مقابل الإدارة. تدفع لمزوّد الخادم مباشرةً.
+Generate install command,إنشاء أمر التثبيت
+Run this command as root on your server:,شغّل هذا الأمر بصلاحيات root على خادمك:
+Copy,نسخ
+The token can be used once and expires on,يمكن استخدام الرمز مرة واحدة وتنتهي صلاحيته في
+Waiting for your server to register…,بانتظار تسجيل خادمك…
+"Server registered, waiting for the first heartbeat…",تم تسجيل الخادم، بانتظار أول نبضة…
+Your server is connected and active.,خادمك متصل ونشط.
+Open server,فتح الخادم
+This token has expired.,انتهت صلاحية هذا الرمز.
+Generate a new command,إنشاء أمر جديد
+You have no servers yet. Sites can also run on our shared hosting.,لا توجد لديك خوادم بعد. يمكن تشغيل المواقع أيضًا على الاستضافة المشتركة لدينا.
+Server,الخادم
+Heartbeat,النبضة
+Open site,فتح الموقع
+Open desk,فتح لوحة الإدارة
+Frappe version,إصدار Frappe
+Shared hosting,استضافة مشتركة
+The site is being created. This page refreshes automatically.,يجري إنشاء الموقع. تتحدّث هذه الصفحة تلقائيًا.
+The site is being moved to another bench. Actions are disabled until the move finishes.,يجري نقل الموقع إلى بيئة أخرى. الإجراءات معطّلة حتى ينتهي النقل.
+"The last operation failed. Check the jobs log, restore a backup or contact support.",فشلت العملية الأخيرة. راجع سجل المهام أو استعد نسخة احتياطية أو تواصل مع الدعم.
+Apps,التطبيقات
+Domains,النطاقات
+Backups,النسخ الاحتياطية
+Settings,الإعدادات
+Installed apps,التطبيقات المثبّتة
+Installed,مثبّت
+Uninstall {0}? Its data will be removed from the site.,إلغاء تثبيت {0}؟ ستُحذف بياناته من الموقع.
+Uninstall,إلغاء التثبيت
+Available apps,التطبيقات المتاحة
+Marketplace,متجر التطبيقات
+All apps of this bench are installed. More apps need a bench with those apps.,جميع تطبيقات هذه البيئة مثبّتة. تحتاج التطبيقات الإضافية إلى بيئة تحتوي عليها.
+Free,مجاني
+Install,تثبيت
+Add domain,إضافة نطاق
+"Point a CNAME (or A record) for the domain to your site before adding it, so the certificate can be issued.",وجّه سجل CNAME (أو سجل A) للنطاق إلى موقعك قبل إضافته حتى يمكن إصدار الشهادة.
+Primary,أساسي
+Remove domain {0}?,إزالة النطاق {0}؟
+Remove,إزالة
+Include files,تضمين الملفات
+Backup now,نسخ احتياطي الآن
+No backups yet.,لا توجد نسخ احتياطية بعد.
+Files,الملفات
+Size,الحجم
+Yes,نعم
+No,لا
+Restore this backup? The current data of {0} will be replaced.,استعادة هذه النسخة الاحتياطية؟ ستُستبدل البيانات الحالية لـ {0}.
+Restore,استعادة
+Refreshing automatically,يتحدّث تلقائيًا
+Migrate,ترحيل قاعدة البيانات
+Run database migrations (bench migrate) for this site.,تشغيل ترحيلات قاعدة البيانات (bench migrate) لهذا الموقع.
+Run migrate on {0}?,تشغيل الترحيل على {0}؟
+Drop site,حذف الموقع
+The site is backed up and then deleted from the server. This cannot be undone.,يُنسخ الموقع احتياطيًا ثم يُحذف من الخادم. لا يمكن التراجع عن ذلك.
+Type the site name to confirm,اكتب اسم الموقع للتأكيد
+Search,بحث
+Search apps,ابحث في التطبيقات
+All versions,كل الإصدارات
+Category,الفئة
+All categories,كل الفئات
+No apps match your filters.,لا توجد تطبيقات تطابق عوامل التصفية.
+Source code,الشيفرة المصدرية
+Apps are installed per site from the site's Apps tab. A site can only use apps that are part of its bench.,تُثبّت التطبيقات لكل موقع من تبويب التطبيقات الخاص به. يمكن للموقع استخدام تطبيقات بيئته فقط.
+Your site is being created. This usually takes a few minutes.,يجري إنشاء موقعك. يستغرق ذلك عادةً بضع دقائق.
+Site,الموقع
+Login,اسم الدخول
+Administrator password,كلمة مرور المسؤول
+Save this password now. It will not be shown again.,احفظ كلمة المرور هذه الآن، فلن تُعرض مرة أخرى.
+Follow progress,متابعة التقدّم
+Create another site,إنشاء موقع آخر
+No bench is available for new sites yet. Add your own server or contact support.,لا توجد بيئة متاحة للمواقع الجديدة بعد. أضف خادمك الخاص أو تواصل مع الدعم.
+Choose where to deploy,اختر مكان النشر
+Your servers,خوادمك
+apps,تطبيقات
+Site name,اسم الموقع
+"On your own server you can also enter a full domain, e.g. erp.example.com.",على خادمك الخاص يمكنك أيضًا إدخال نطاق كامل، مثل erp.example.com.
+Your site will be available at,سيكون موقعك متاحًا على
+This bench only has the Frappe framework.,تحتوي هذه البيئة على إطار Frappe فقط.
+No plan (included in your server),بدون خطة (مشمول في خادمك)
+Create site,إنشاء الموقع
+Search sites,ابحث في المواقع
+You have no sites yet.,لا توجد لديك مواقع بعد.
+active,نشط
+broken,معطّل
+offline,غير متصل
+Running jobs,المهام الجارية
+of the last 10 jobs,من آخر 10 مهام
+Unpaid invoices,فواتير غير مدفوعة
+invoices in total,فاتورة إجمالًا
+View all,عرض الكل
+Create your first site,أنشئ موقعك الأول
+Connect a server you own (BYOS) or deploy on our shared hosting.,اربط خادمًا تملكه (BYOS) أو انشر على الاستضافة المشتركة لدينا.
+Recent jobs,أحدث المهام
+Job,المهمة
+Target,الهدف
+Invoices,الفواتير
+Pay with,الدفع عبر
+Refresh,تحديث
+Billing is not available yet.,الفوترة غير متاحة بعد.
+No invoices yet.,لا توجد فواتير بعد.
+Invoice,الفاتورة
+Period,الفترة
+Due date,تاريخ الاستحقاق
+Amount,المبلغ
+Pay,ادفع
+Dashboard,لوحة التحكم
+Navigation,التنقل
+Overview,نظرة عامة
+Billing,الفوترة
+Admin desk,لوحة الإدارة
+Profile,الملف الشخصي
+Log out,تسجيل الخروج
+Menu,القائمة
+The dashboard needs JavaScript.,تحتاج لوحة التحكم إلى JavaScript.
+Request failed ({0}),فشل الطلب ({0})
+Network error. Check your connection.,خطأ في الشبكة. تحقّق من اتصالك.
+Copied to clipboard,تم النسخ إلى الحافظة
+Copy failed,فشل النسخ
+never,أبدًا
+just now,الآن
+{0} min ago,منذ {0} دقيقة
+{0} h ago,منذ {0} ساعة
+{0} d ago,منذ {0} يوم
+Choose a bench,اختر بيئة
+Enter a subdomain,أدخل نطاقًا فرعيًا
+No site selected,لم يتم اختيار موقع
+Job queued: {0},أُضيفت المهمة إلى قائمة الانتظار: {0}
+Server {0} is connected,الخادم {0} متصل
+No server selected,لم يتم اختيار خادم
+No payment method is available. Please contact support.,لا توجد وسيلة دفع متاحة. يرجى التواصل مع الدعم.
+Payment submitted,تم إرسال الدفعة
+Please log in to use the dashboard,يرجى تسجيل الدخول لاستخدام لوحة التحكم
+You need the Nexaploy Customer role to use the dashboard,تحتاج إلى دور Nexaploy Customer لاستخدام لوحة التحكم
+{0} is required,{0} مطلوب
+{0} {1} not found,{0} {1} غير موجود
+{0} {1} belongs to another team,{0} {1} يتبع فريقًا آخر
+Bench {0} not found,البيئة {0} غير موجودة
+You cannot deploy on bench {0},لا يمكنك النشر على البيئة {0}
+Unknown plan type {0},نوع خطة غير معروف {0}
+Bench {0} is not active,البيئة {0} غير نشطة
+Server {0} is archived,الخادم {0} مؤرشف
+{0} is already taken,{0} مستخدم بالفعل
+Apps {0} are not available on this bench,التطبيقات {0} غير متاحة على هذه البيئة
+Plan {0} is not an available Site plan,الخطة {0} ليست خطة مواقع متاحة
+No Site plan is available,لا توجد خطة مواقع متاحة
+Backup {0} does not belong to site {1},النسخة الاحتياطية {0} لا تخص الموقع {1}
+Backup {0} cannot be restored,لا يمكن استعادة النسخة الاحتياطية {0}
+Site {0} is {1}; it must be Active,حالة الموقع {0} هي {1}؛ يجب أن يكون نشطًا
+Agent Job {0} not found,مهمة الوكيل {0} غير موجودة
+Not allowed,غير مسموح
+Unsupported Frappe version {0},إصدار Frappe غير مدعوم {0}
+"Subdomain must have at least 3 characters (a-z, 0-9, -)",يجب أن يتكوّن النطاق الفرعي من 3 أحرف على الأقل (a-z، 0-9، -)
+Subdomain must have at most 63 characters,يجب ألا يتجاوز النطاق الفرعي 63 حرفًا
+Invalid subdomain,نطاق فرعي غير صالح
+This subdomain is reserved,هذا النطاق الفرعي محجوز
+Site name is required,اسم الموقع مطلوب
+Only one subdomain level is allowed,يُسمح بمستوى واحد فقط من النطاق الفرعي
+Custom domains are only allowed on your own servers; use a subdomain,النطاقات المخصّصة مسموحة على خوادمك الخاصة فقط؛ استخدم نطاقًا فرعيًا
+"Site name must be a lowercase FQDN, e.g. erp.example.com",يجب أن يكون اسم الموقع نطاقًا كاملًا بأحرف صغيرة، مثل erp.example.com
+apps must be a list,يجب أن تكون التطبيقات قائمة
+Backup,نسخ احتياطي
+Install app,تثبيت تطبيق
+Uninstall app,إلغاء تثبيت تطبيق
+Remove domain,إزالة نطاق
+Active,نشط
+Pending,قيد الانتظار
+Moving,قيد النقل
+Broken,معطّل
+Suspended,موقوف
+Archived,مؤرشف
+Offline,غير متصل
+Queued,في قائمة الانتظار
+Running,قيد التنفيذ
+Success,نجح
+Failure,فشل
+Failed,فشل
+Removing,قيد الإزالة
+Building,قيد البناء
+Draft,مسودة
+Unpaid,غير مدفوعة
+Paid,مدفوعة
+Overdue,متأخرة
+Void,ملغاة
+pending,قيد الانتظار
+running,قيد التنفيذ
+success,نجح
+failure,فشل
+skipped,تم التخطي
+Hosted,مستضاف
+BYOS,خادمك الخاص (BYOS)
+Manual,يدوي
+Scheduled,مجدول
+Move,نقل
+ERP,تخطيط الموارد (ERP)
+HR,الموارد البشرية
+CRM,إدارة العملاء (CRM)
+E-commerce,التجارة الإلكترونية
+Integration,تكامل
+Utility,أدوات
+Other,أخرى
+Stripe,Stripe
+Paymob,Paymob
+Server Registration Token,رمز تسجيل الخادم
+Site Backup,نسخة احتياطية للموقع
+Team,الفريق
+Owner,المالك
+Admin,مسؤول
+Developer,مطوّر
+Accepted,مقبولة
+Expired,منتهية
+Revoked,ملغاة
+Email,البريد الإلكتروني
+Save,حفظ
+Saved,تم الحفظ
+Role,الدور
+Your role,دورك
+Accept invitation,قبول الدعوة
+Billing email,بريد الفوترة
+Create team,إنشاء فريق
+New team,فريق جديد
+Team ID,معرّف الفريق
+Team name,اسم الفريق
+Team invitation,دعوة إلى فريق
+Email address,عنوان البريد الإلكتروني
+Expires,تنتهي
+Invitations,الدعوات
+Invite,دعوة
+Invitation sent.,تم إرسال الدعوة.
+Invitation revoked,تم إلغاء الدعوة
+Member,العضو
+Members,الأعضاء
+Member removed,تمت إزالة العضو
+Role updated,تم تحديث الدور
+Revoke,إلغاء
+Leave team,مغادرة الفريق
+Leave {0}?,مغادرة {0}؟
+Remove {0} from the team?,إزالة {0} من الفريق؟
+You joined {0},انضممت إلى {0}
+you,أنت
+as,بدور
+You are invited to join,أنت مدعو للانضمام إلى
+Invoices are sent here and to Owners and Billing members.,تُرسل الفواتير إلى هذا العنوان وإلى المالكين وأعضاء الفوترة.
+"Owner and Admin manage members and servers; Developer manages sites, benches and backups; Billing manages invoices and payments. Everyone can view.",يدير المالك والمسؤول الأعضاء والخوادم؛ ويدير المطوّر المواقع والبيئات والنسخ الاحتياطية؛ وتدير الفوترة الفواتير والمدفوعات. ويمكن للجميع العرض.
+The email could not be sent. Share this link with the invitee:,تعذّر إرسال البريد. شارك هذا الرابط مع المدعو:
+This invitation is no longer valid.,هذه الدعوة لم تعد صالحة.
+This invitation was sent to another email address. Log in with it to accept:,أُرسلت هذه الدعوة إلى عنوان بريد آخر. سجّل الدخول به لقبولها:
+"If you did not expect this email, you can ignore it.",إذا لم تكن تتوقع هذه الرسالة، يمكنك تجاهلها.
+Open the link below to accept the invitation. It expires in 7 days.,افتح الرابط أدناه لقبول الدعوة. تنتهي صلاحيته خلال 7 أيام.
+You are invited to join {0} on Nexaploy,أنت مدعو للانضمام إلى {0} على Nexaploy
+{0} invited you to the team {1} as {2}.,دعاك {0} إلى الفريق {1} بدور {2}.
+{0} is already a member of this team,{0} عضو في هذا الفريق بالفعل
+Invitation token is required,رمز الدعوة مطلوب
+Invitation {0} not found,الدعوة {0} غير موجودة
+No team selected,لم يتم اختيار فريق
+Only an Owner can invite Owners,المالك وحده يمكنه دعوة مالكين
+Please log in,يرجى تسجيل الدخول
+Team {0} is disabled,الفريق {0} معطّل
+Team {0} not found,الفريق {0} غير موجود
+This invitation has expired,انتهت صلاحية هذه الدعوة
+This invitation is {0},هذه الدعوة {0}
+This invitation link is invalid,رابط الدعوة هذا غير صالح
+This invitation was sent to {0},أُرسلت هذه الدعوة إلى {0}
+You are not a member of team {0},لست عضوًا في الفريق {0}
+You can own at most {0} teams,يمكنك امتلاك {0} فرق كحد أقصى
+Your role {0} in team {1} does not allow this action,دورك {0} في الفريق {1} لا يسمح بهذا الإجراء
+Unknown team role,دور فريق غير معروف
+User is not a member of this team,المستخدم ليس عضوًا في هذا الفريق
+Only an Owner can change the Owner role,المالك وحده يمكنه تغيير دور المالك
+A team must keep at least one Owner,يجب أن يبقى للفريق مالك واحد على الأقل
+Team name is required,اسم الفريق مطلوب
+Team name must have at most 140 characters,يجب ألا يتجاوز اسم الفريق 140 حرفًا
+Enter a valid email address,أدخل عنوان بريد إلكتروني صالحًا
+{0} is listed twice in the team,{0} مُدرج مرتين في الفريق
+"Team name {0} must be lowercase letters, digits and '-'",يجب أن يتكون اسم الفريق {0} من أحرف صغيرة وأرقام و'-'
+A bench group is a Frappe version plus a list of apps. Each deploy builds one image that you can run on your servers.,مجموعة البنش هي إصدار من Frappe مع قائمة تطبيقات. كل نشر يبني صورة واحدة يمكنك تشغيلها على خوادمك.
+A build of {0} is already in progress,يوجد بناء قيد التنفيذ لـ {0} بالفعل
+Access token (read-only),رمز الوصول (قراءة فقط)
+Add an app from GitHub,إضافة تطبيق من GitHub
+Add app,إضافة تطبيق
+"Add from another git provider (GitLab, Gitea, …)",إضافة من مزوّد git آخر (GitLab، Gitea، …)
+Add one of your servers first; it builds the images.,أضف أحد خوادمك أولاً؛ فهو يبني الصور.
+Add your own server to deploy this group.,أضف خادمك الخاص لنشر هذه المجموعة.
+App,التطبيق
+App added. Deploy to include it in a new image.,تمت إضافة التطبيق. انشر لتضمينه في صورة جديدة.
+App name,اسم التطبيق
+App name (optional),اسم التطبيق (اختياري)
+"App name must be a python package name, e.g. acme_erp",يجب أن يكون اسم التطبيق اسم حزمة بايثون، مثل acme_erp
+App removed,تمت إزالة التطبيق
+App {0} is not in release group {1},التطبيق {0} ليس ضمن مجموعة الإصدار {1}
+Auto update,التحديث التلقائي
+Bench Group,مجموعة البنش
+Bench Groups,مجموعات البنش
+Bench group,مجموعة البنش
+Bench group {0} created,تم إنشاء مجموعة البنش {0}
+Bench {0} already runs the latest image,البنش {0} يعمل بالفعل بأحدث صورة
+Benches on your servers,البنشات على خوادمك
+Branch,الفرع
+Branch (optional),الفرع (اختياري)
+Build server,خادم البناء
+Build server {0} is archived,خادم البناء {0} مؤرشف
+Build started,بدأ البناء
+Building…,جارٍ البناء…
+Cancel,إلغاء
+Choose a server…,اختر خادماً…
+Choose one of your servers as the build server,اختر أحد خوادمك كخادم بناء
+Connect GitHub,ربط GitHub
+Connect another GitHub account,ربط حساب GitHub آخر
+Could not detect the Frappe app in {0}@{1} (no <app>/hooks.py). Enter the app name.,تعذّر اكتشاف تطبيق Frappe في {0}@{1} (لا يوجد <app>/hooks.py). أدخل اسم التطبيق.
+Could not reach GitHub: {0},تعذّر الوصول إلى GitHub: {0}
+Could not verify that you can access this GitHub installation.,تعذّر التحقق من صلاحيتك للوصول إلى تثبيت GitHub هذا.
+Create bench group,إنشاء مجموعة بنش
+Creating bench {0},جارٍ إنشاء البنش {0}
+Custom,مخصص
+Custom Apps,التطبيقات المخصصة
+Custom app is used by release groups {0},التطبيق المخصص مستخدم في مجموعات الإصدار {0}
+Custom app {0} added,تمت إضافة التطبيق المخصص {0}
+Custom app {0} belongs to another team,التطبيق المخصص {0} يتبع فريقاً آخر
+Custom apps still use installation {0}; disable them first,ما زالت تطبيقات مخصصة تستخدم التثبيت {0}؛ عطّلها أولاً
+Default branch,الفرع الافتراضي
+Deploy,نشر
+Deploy Candidate {0} not found,مرشح النشر {0} غير موجود
+Deploy now,انشر الآن
+Deploy the group first to build an image.,انشر المجموعة أولاً لبناء صورة.
+Deploy to server,نشر على خادم
+Deploys,عمليات النشر
+Disable,تعطيل
+Do not put credentials in the repository URL; use the access token field,لا تضع بيانات الاعتماد في رابط المستودع؛ استخدم حقل رمز الوصول
+"Each app must be an object {source_type, app, branch}","يجب أن يكون كل تطبيق كائناً {source_type, app, branch}"
+Enable,تفعيل
+"Frappe majors must be a comma separated list of 14, 15, 16",يجب أن تكون إصدارات Frappe قائمة مفصولة بفواصل من 14، 15، 16
+Frappe versions,إصدارات Frappe
+GitHub API error {0}: {1},خطأ في واجهة GitHub البرمجية {0}: {1}
+GitHub account,حساب GitHub
+GitHub account connected. You can now add apps from its repositories.,تم ربط حساب GitHub. يمكنك الآن إضافة تطبيقات من مستودعاته.
+GitHub apps need a github.com repository; use provider Other for {0},تطبيقات GitHub تتطلب مستودعاً على github.com؛ استخدم المزوّد «آخر» لـ {0}
+GitHub did not return an installation token,لم يُرجع GitHub رمز تثبيت
+GitHub did not return an installation. Try again.,لم يُرجع GitHub أي تثبيت. حاول مرة أخرى.
+GitHub installation {0} belongs to another team,تثبيت GitHub {0} يتبع فريقاً آخر
+GitHub installation {0} is {1},تثبيت GitHub {0} في حالة {1}
+GitHub installation {0} not found,تثبيت GitHub {0} غير موجود
+GitHub integration is not configured (GitHub Settings),تكامل GitHub غير مُعدّ (إعدادات GitHub)
+GitHub is not configured on this control plane yet. You can still add apps from other git providers with an access token.,لم يُعدّ GitHub على لوحة التحكم هذه بعد. لا يزال بإمكانك إضافة تطبيقات من مزوّدي git آخرين باستخدام رمز وصول.
+Incompatible apps,تطبيقات غير متوافقة
+Installation ID must be numeric,يجب أن يكون معرّف التثبيت رقمياً
+Invalid branch name {0},اسم فرع غير صالح {0}
+Invalid status,حالة غير صالحة
+Last commit,آخر إيداع
+Last deploy,آخر نشر
+Latest image,أحدث صورة
+"Lowercase letters, digits and dashes (3-31 characters). Used in image names.",أحرف صغيرة وأرقام وشرطات (3-31 حرفاً). يُستخدم في أسماء الصور.
+Manage custom apps,إدارة التطبيقات المخصصة
+Marketplace apps,تطبيقات المتجر
+Name,الاسم
+"Name must match ^[a-z][a-z0-9-]{2,30}$ (it is used in image tags), e.g. acme-v15","يجب أن يطابق الاسم ^[a-z][a-z0-9-]{2,30}$ (يُستخدم في وسوم الصور)، مثل acme-v15"
+Never,أبداً
+New Bench Group,مجموعة بنش جديدة
+New commits were pushed to the custom apps of this group. Deploy to build a new image.,تم دفع إيداعات جديدة إلى التطبيقات المخصصة لهذه المجموعة. انشر لبناء صورة جديدة.
+Nexaploy build server,خادم البناء من Nexaploy
+No bench group selected,لم يتم اختيار مجموعة بنش
+No custom apps yet. Add one from GitHub below.,لا توجد تطبيقات مخصصة بعد. أضف واحداً من GitHub أدناه.
+No deploys yet.,لا توجد عمليات نشر بعد.
+No image registry is configured: images can only run on the server that built them.,لا يوجد سجل صور مُعدّ: لا يمكن تشغيل الصور إلا على الخادم الذي بناها.
+No marketplace apps for this version.,لا توجد تطبيقات في المتجر لهذا الإصدار.
+Not compatible with this Frappe version,غير متوافق مع إصدار Frappe هذا
+Off,متوقف
+On,مفعّل
+Only the Frappe framework. Add apps to include them in the next deploy.,إطار Frappe فقط. أضف تطبيقات لتضمينها في النشر القادم.
+Private Key must be the PEM file contents (-----BEGIN RSA PRIVATE KEY-----),يجب أن يكون المفتاح الخاص محتوى ملف PEM (-----BEGIN RSA PRIVATE KEY-----)
+Release Group {0} belongs to another team,مجموعة الإصدار {0} تتبع فريقاً آخر
+Release Group {0} has no successful build yet; deploy it first,مجموعة الإصدار {0} ليس لها بناء ناجح بعد؛ انشرها أولاً
+Release Group {0} not found,مجموعة الإصدار {0} غير موجودة
+Remove {0} from this bench group?,إزالة {0} من مجموعة البنش هذه؟
+Repository,المستودع
+Repository URL,رابط المستودع
+Row {0}: invalid branch {1},الصف {0}: فرع غير صالح {1}
+Row {0}: select a marketplace app,الصف {0}: اختر تطبيقاً من المتجر
+Select the GitHub installation that can access {0},اختر تثبيت GitHub الذي يمكنه الوصول إلى {0}
+Select…,اختر…
+Server {0} belongs to another team,الخادم {0} يتبع فريقاً آخر
+Server {0} is {1}; it cannot be used as {2},الخادم {0} في حالة {1}؛ لا يمكن استخدامه كـ {2}
+Server {0} not found,الخادم {0} غير موجود
+Source,المصدر
+The GitHub connection link expired or was started by another user. Try again.,انتهت صلاحية رابط ربط GitHub أو بدأه مستخدم آخر. حاول مرة أخرى.
+The name {0} is already taken,الاسم {0} مستخدم بالفعل
+This GitHub account is already connected to another team.,حساب GitHub هذا مرتبط بالفعل بفريق آخر.
+This group does not run on any server yet.,هذه المجموعة لا تعمل على أي خادم بعد.
+"Title must match ^[a-z][a-z0-9-]{2,30}$ (it is used in image tags), e.g. erp-v15-main","يجب أن يطابق العنوان ^[a-z][a-z0-9-]{2,30}$ (يُستخدم في وسوم الصور)، مثل erp-v15-main"
+Token username,اسم مستخدم الرمز
+Uninstall {0} from the sites of this group first,ألغِ تثبيت {0} من مواقع هذه المجموعة أولاً
+Unknown app source {0},مصدر تطبيق غير معروف {0}
+Update available,يتوفر تحديث
+Updating bench {0},جارٍ تحديث البنش {0}
+Versions,الإصدارات
+Waiting for the build server to pick up this job…,بانتظار أن يستلم خادم البناء هذه المهمة…
+You have no bench groups yet. Create one to run your own apps on your servers.,ليست لديك مجموعات بنش بعد. أنشئ واحدة لتشغيل تطبيقاتك على خوادمك.
+Your custom apps,تطبيقاتك المخصصة
+Your request to install the GitHub app was sent to the organization owners.,تم إرسال طلب تثبيت تطبيق GitHub إلى مالكي المؤسسة.
+Your team already has an active custom app named {0},لدى فريقك بالفعل تطبيق مخصص نشط باسم {0}
+app is required,التطبيق مطلوب
+apps must be a JSON list,يجب أن تكون التطبيقات قائمة JSON
+build server,خادم بناء
+default,افتراضي
+deploy target,هدف نشر
+detected from the repository,يُكتشف من المستودع
+frappe itself cannot be a custom app,لا يمكن أن يكون frappe نفسه تطبيقاً مخصصاً
+not compatible,غير متوافق
+private,خاص
+Disabled,معطّل
+Deleted,محذوف
+Add key,إضافة مفتاح
+CPU time per day,وقت المعالج يوميًا
+Config,الإعدادات
+Current plan,الخطة الحالية
+Download,تنزيل
+Key,المفتاح
+Last 30 days,آخر 30 يومًا
+No plans available.,لا توجد خطط متاحة.
+"Only team owners, admins and billing members can change the plan.",يمكن لمالكي الفريق والمسؤولين وأعضاء الفوترة فقط تغيير الخطة.
+Over plan limit,تجاوز حد الخطة
+Read-only,للقراءة فقط
+Reading the config from the server…,جارٍ قراءة الإعدادات من الخادم…
+Reload,إعادة التحميل
+Requests today: {0},الطلبات اليوم: {0}
+Save changes,حفظ التغييرات
+Site config,إعدادات الموقع
+Switch,تبديل
+This site is close to its plan limits.,هذا الموقع قريب من حدود خطته.
+This site is in maintenance mode because it is over its plan limits. Upgrade the plan or reduce usage to bring it back.,هذا الموقع في وضع الصيانة لأنه تجاوز حدود خطته. قم بترقية الخطة أو قلّل الاستخدام لإعادته.
+This site is over its daily CPU budget and requests are rate limited until midnight UTC. Upgrade the plan to lift the limit now.,تجاوز هذا الموقع حصته اليومية من وقت المعالج، والطلبات محدودة حتى منتصف الليل بالتوقيت العالمي. قم بترقية الخطة لرفع الحد الآن.
+This site is over its plan limits.,هذا الموقع تجاوز حدود خطته.
+Throttled,محدود السرعة
+UTC day; CPU resets at midnight UTC,يوم بالتوقيت العالمي؛ يُعاد ضبط المعالج عند منتصف الليل UTC
+Undo,تراجع
+Updated {0},آخر تحديث {0}
+Upgrade plan,ترقية الخطة
+Usage,الاستخدام
+Usage today,الاستخدام اليوم
+Value,القيمة
+"Values are JSON: numbers, true/false, lists and objects are typed; text values stay text. Secrets are hidden; type a new value to replace one. Database, encryption and Nexaploy-managed keys are read-only.",القيم بصيغة JSON: الأرقام وtrue/false والقوائم والكائنات لها أنواعها، والقيم النصية تبقى نصًا. الأسرار مخفية؛ اكتب قيمة جديدة لاستبدالها. مفاتيح قاعدة البيانات والتشفير والمفاتيح التي يديرها Nexaploy للقراءة فقط.
+requests,طلبات
+secret,سري
+CPU time today,وقت المعالج اليوم
+s,ث
+Database,قاعدة البيانات
+File storage,تخزين الملفات
+Unlimited,غير محدود
+{0} CPU s/day,{0} ثانية معالج/يوم
+Unlimited CPU,معالج غير محدود
+{0} MB database,{0} ميغابايت لقاعدة البيانات
+Unlimited database,قاعدة بيانات غير محدودة
+{0} MB storage,{0} ميغابايت للتخزين
+Unlimited storage,تخزين غير محدود
+Change the plan of {0} to {1}?,تغيير خطة {0} إلى {1}؟
+Plan changed to {0},تم تغيير الخطة إلى {0}
+Public files,الملفات العامة
+Private files,الملفات الخاصة
+Could not read the site config,تعذّرت قراءة إعدادات الموقع
+The server agent did not answer. Try again later.,لم يستجب وكيل الخادم. حاول مرة أخرى لاحقًا.
+Invalid config key,مفتاح إعداد غير صالح
+{0} already exists,{0} موجود بالفعل
+Invalid JSON value: {0},قيمة JSON غير صالحة: {0}
+Nothing to change,لا يوجد ما يتغير
+Apply config changes to {0}? ({1}),تطبيق تغييرات الإعدادات على {0}؟ ({1})
+Update config,تحديث الإعدادات
+Site config updated,تم تحديث إعدادات الموقع
+Config update failed,فشل تحديث الإعدادات
+Site is required,الموقع مطلوب
+Site {0} not found,الموقع {0} غير موجود
+Site {0} is {1},الموقع {0} في حالة {1}
+Unknown backup file type {0},نوع ملف نسخ احتياطي غير معروف {0}
+Backup {0} not found,النسخة الاحتياطية {0} غير موجودة
+{0} downloaded the {1} file,قام {0} بتنزيل ملف {1}
+Plan changed from {0} to {1} by {2},تم تغيير الخطة من {0} إلى {1} بواسطة {2}
+{0} changed site config: set {1}; removed {2},قام {0} بتغيير إعدادات الموقع: تعيين {1}؛ حذف {2}
+{0} cannot be negative (0 = unlimited),{0} لا يمكن أن يكون سالبًا (0 = غير محدود)
+"Overage Action must be Notify, Throttle or Suspend",يجب أن يكون إجراء التجاوز: إشعار أو تحديد السرعة أو إيقاف
+Site Usage,استخدام الموقع
+Site Backup File,ملف النسخة الاحتياطية
+CPU Seconds per Day,ثواني المعالج يوميًا
+Max Storage (MB),الحد الأقصى للتخزين (ميغابايت)
+Max Database (MB),الحد الأقصى لقاعدة البيانات (ميغابايت)
+Overage Action,إجراء التجاوز
+Plan Order,ترتيب الخطة
+Notify,إشعار
+Throttle,تحديد السرعة
+Suspend,إيقاف
+Lifecycle,دورة الحياة
+Renaming,جارٍ إعادة التسمية
+Rejected,مرفوض
+Cancelled,ملغى
+"A copy of this site on the same bench to test updates and changes safely. Emails are muted, the scheduler is paused and email accounts are disabled on the copy.",نسخة من هذا الموقع على نفس الـ bench لاختبار التحديثات والتغييرات بأمان. تُكتم الرسائل ويُوقف المجدول وتُعطَّل حسابات البريد في النسخة.
+Accept transfer,قبول النقل
+"After a move to another server, every domain of the site must point to the new server.",بعد النقل إلى خادم آخر يجب أن يشير كل نطاق للموقع إلى الخادم الجديد.
+Cancel this transfer?,إلغاء هذا النقل؟
+Choose a target bench…,اختر الـ bench الهدف…
+Create a staging copy of {0}? Emails and the scheduler are disabled on the copy.,إنشاء نسخة تجريبية من {0}؟ تُعطَّل الرسائل والمجدول في النسخة.
+Create staging site,إنشاء موقع تجريبي
+Decline,رفض
+Decline this transfer?,رفض هذا النقل؟
+Give the site a new name. The database and files stay the same; the old name is kept as a domain so existing links keep working.,امنح الموقع اسمًا جديدًا. تبقى قاعدة البيانات والملفات كما هي، ويُحتفظ بالاسم القديم كنطاق لتبقى الروابط الحالية تعمل.
+Hand the site over to another team. They accept with the emailed link; from then on they own it and are billed for it.,سلّم الموقع إلى فريق آخر. يقبلونه عبر الرابط المرسل بالبريد، ومن ثم يملكونه وتُحتسب عليهم فواتيره.
+Manage,إدارة
+Move site,نقل الموقع
+Move started,بدأ النقل
+"Move the site to another bench on this or another of your servers. The site is backed up, restored on the target bench (migrated) and then removed from the current one.",انقل الموقع إلى bench آخر على هذا الخادم أو على خادم آخر من خوادمك. يُنسخ الموقع احتياطيًا ثم يُستعاد على الـ bench الهدف (مع الترحيل) ثم يُحذف من الحالي.
+"Move {0} to bench {1}? The site is backed up, restored on the target and removed from the current bench.",نقل {0} إلى الـ bench {1}؟ يُنسخ الموقع احتياطيًا ويُستعاد على الهدف ثم يُحذف من الـ bench الحالي.
+Moving to another server needs backup storage configured by the platform administrator.,النقل إلى خادم آخر يتطلب تخزين نسخ احتياطية يضبطه مسؤول المنصة.
+New name,الاسم الجديد
+No other bench is available. Deploy a bench group on a server first.,لا يوجد bench آخر متاح. انشر مجموعة bench على خادم أولًا.
+"Offer {0} to {1}? Once accepted, the other team owns and pays for the site.",عرض {0} على {1}؟ بعد القبول يملك الفريق الآخر الموقع ويدفع مقابله.
+"Once accepted, your team owns the site and is billed for it from today. Its backups move with it.",بعد القبول يملك فريقك الموقع وتُحتسب فواتيره من اليوم. تنتقل نسخه الاحتياطية معه.
+Only owners and admins of the receiving team can accept this transfer.,يمكن فقط لمالكي ومسؤولي الفريق المستلم قبول هذا النقل.
+Open,فتح
+Outgoing emails are muted and the scheduler is paused. Staging sites are not billed.,الرسائل الصادرة مكتومة والمجدول متوقف. المواقع التجريبية لا تُحتسب عليها فواتير.
+Pending transfer to,نقل معلّق إلى
+Refresh from production,تحديث من الإنتاج
+Refresh the staging site? Its data is replaced by a fresh copy of production.,تحديث الموقع التجريبي؟ تُستبدل بياناته بنسخة جديدة من الإنتاج.
+Rename,إعادة تسمية
+Rename failed,فشلت إعادة التسمية
+Rename site,إعادة تسمية الموقع
+Rename {0} to {1}? The site is in maintenance mode for a moment; the old name keeps working as a domain.,إعادة تسمية {0} إلى {1}؟ يدخل الموقع وضع الصيانة لحظات، ويبقى الاسم القديم يعمل كنطاق.
+Renaming to {0}…,جارٍ إعادة التسمية إلى {0}…
+Request transfer,طلب النقل
+Site transfer,نقل الموقع
+Staging site,الموقع التجريبي
+Staging site is being refreshed,جارٍ تحديث الموقع التجريبي
+Staging site {0} is being created,جارٍ إنشاء الموقع التجريبي {0}
+Take over {0}? Your team will be billed for it from today.,استلام {0}؟ ستُحتسب فواتيره على فريقك من اليوم.
+The email could not be sent. Share this link with the new owner:,تعذّر إرسال البريد. شارك هذا الرابط مع المالك الجديد:
+The site is being renamed. It is briefly in maintenance mode; this page moves to the new name when done.,جارٍ إعادة تسمية الموقع. سيكون في وضع الصيانة لفترة قصيرة، وتنتقل هذه الصفحة إلى الاسم الجديد عند الانتهاء.
+The site now belongs to your team. Opening it…,أصبح الموقع ملكًا لفريقك. جارٍ فتحه…
+This is a staging copy of,هذه نسخة تجريبية من
+This transfer is no longer valid.,هذا النقل لم يعد صالحًا.
+This transfer link is invalid,رابط النقل هذا غير صالح
+"This transfer was sent to another email address, or you are not an owner or admin of a team that can receive it:",أُرسل هذا النقل إلى بريد آخر، أو لست مالكًا أو مسؤولًا في فريق يمكنه استلامه:
+Transfer declined,تم رفض النقل
+Transfer requested,تم طلب النقل
+Transfer to another team,النقل إلى فريق آخر
+Upgrade from v{0} to v{1} (runs migrate; cannot be undone),ترقية من v{0} إلى v{1} (يشغّل الترحيل؛ لا يمكن التراجع)
+same server,نفس الخادم
+shared,مشترك
+upgrade,ترقية
+to team,إلى الفريق
+wants to transfer the site,يريد نقل الموقع
+{0} now belongs to your team,{0} أصبح ملكًا لفريقك
+Staging sites stay on the bench of their production site; drop and recreate it instead,تبقى المواقع التجريبية على bench موقع الإنتاج؛ احذفها وأعد إنشاءها بدلًا من ذلك
+Moving a site to another server needs backup storage (Nexaploy Settings > Backup bucket): the target server restores the backup from the bucket.,نقل موقع إلى خادم آخر يتطلب تخزين النسخ الاحتياطية (إعدادات Nexaploy > حاوية النسخ): يستعيد الخادم الهدف النسخة من الحاوية.
+Target bench belongs to another team,الـ bench الهدف يتبع فريقًا آخر
+{0} already has a staging site: {1},{0} لديه موقع تجريبي بالفعل: {1}
+{0} is a staging site,{0} موقع تجريبي
+Staging sites cannot be renamed,لا يمكن إعادة تسمية المواقع التجريبية
+Staging sites move together with their production site,تنتقل المواقع التجريبية مع موقع الإنتاج الخاص بها
+This transfer has expired; ask for a new one,انتهت صلاحية هذا النقل؛ اطلب نقلًا جديدًا
+The site no longer belongs to the team that offered it,لم يعد الموقع ملكًا للفريق الذي عرضه
+"This site runs on a server or bench owned by your team. Move it to a shared hosted bench first (Lifecycle > Move), then transfer it; the target team can move it to its own server afterwards.",يعمل هذا الموقع على خادم أو bench يملكه فريقك. انقله أولًا إلى bench مستضاف مشترك (دورة الحياة > نقل)، ثم انقل ملكيته؛ ويمكن للفريق المستلم نقله إلى خادمه لاحقًا.
+Site transfer: {0},نقل موقع: {0}
+Enter the email of the new owner or the name of the target team,أدخل بريد المالك الجديد أو اسم الفريق الهدف
+Names starting with 'staging-' are reserved for staging sites,الأسماء التي تبدأ بـ 'staging-' محجوزة للمواقع التجريبية
+The new name is the current name,الاسم الجديد هو الاسم الحالي
+Site name is too long for a staging copy,اسم الموقع طويل جدًا لنسخة تجريبية
+(no output),(لا يوجد مُخرَج)
+95th percentile,المئين 95
+Analytics,التحليلات
+Average,المتوسط
+Background jobs,المهام الخلفية
+Background jobs by method,المهام الخلفية حسب الدالة
+Background workers,العمّال الخلفيون
+Code contains a NUL byte,الشيفرة تحتوي على بايت NUL
+Code is empty,الشيفرة فارغة
+Code is too long,الشيفرة طويلة جدًا
+"Code runs inside your site with full access to its data, as Administrator. Changes are rolled back unless you choose to commit them. Every run is recorded in the team activity log.",تعمل الشيفرة داخل موقعك بصلاحيات المسؤول ووصول كامل إلى بياناته. يتم التراجع عن التغييرات ما لم تختر اعتمادها. يُسجَّل كل تشغيل في سجل نشاط الفريق.
+Collecting data from the server…,جارٍ جمع البيانات من الخادم…
+Commit database changes,اعتماد تغييرات قاعدة البيانات
+Committed,تم الاعتماد
+Console,وحدة التحكم
+Count,العدد
+Download CSV,تنزيل CSV
+Error Log,سجل الأخطاء
+Execute,تنفيذ
+Execute this code on {0} and COMMIT its database changes?,تنفيذ هذه الشيفرة على {0} واعتماد تغييراتها في قاعدة البيانات؟
+Frappe log,سجل Frappe
+INTO OUTFILE / DUMPFILE is not allowed,INTO OUTFILE / DUMPFILE غير مسموح
+Insights,الرؤى
+Invalid time filter,مرشح الوقت غير صالح
+Last 14 days,آخر 14 يومًا
+Last 24 hours,آخر 24 ساعة
+Last 31 days,آخر 31 يومًا
+Last 7 days,آخر 7 أيام
+Last seen,آخر ظهور
+Lines,الأسطر
+Locking reads are not allowed in read-only mode,القراءات المقفلة غير مسموحة في وضع القراءة فقط
+Log,السجل
+Logs,السجلات
+Max,الأقصى
+Max rows,الحد الأقصى للصفوف
+Median response,وسيط زمن الاستجابة
+Method,الدالة
+No background jobs in this period.,لا توجد مهام خلفية في هذه الفترة.
+No data for this period.,لا توجد بيانات لهذه الفترة.
+No errors logged.,لا توجد أخطاء مسجّلة.
+No log lines found.,لم يتم العثور على أسطر في السجل.
+No requests in this period.,لا توجد طلبات في هذه الفترة.
+No site selected.,لم يتم اختيار موقع.
+No slow queries recorded for this site.,لا توجد استعلامات بطيئة مسجّلة لهذا الموقع.
+Only the first rows are shown. Add a LIMIT or download fewer rows.,تُعرض الصفوف الأولى فقط. أضف LIMIT أو اطلب صفوفًا أقل.
+Path,المسار
+Query,الاستعلام
+Query contains a NUL byte,الاستعلام يحتوي على بايت NUL
+Query is empty,الاستعلام فارغ
+Query is too long,الاستعلام طويل جدًا
+Read-only mode allows only SELECT after WITH,وضع القراءة فقط يسمح فقط بـ SELECT بعد WITH
+"Read-only mode allows only SELECT, SHOW, DESCRIBE, EXPLAIN and WITH statements",وضع القراءة فقط يسمح فقط بعبارات SELECT وSHOW وDESCRIBE وEXPLAIN وWITH
+Reading logs…,جارٍ قراءة السجلات…
+Reading the slow query log…,جارٍ قراءة سجل الاستعلامات البطيئة…
+"Request monitoring is not enabled for this site, so analytics may be empty.",مراقبة الطلبات غير مفعّلة لهذا الموقع، لذا قد تكون التحليلات فارغة.
+Requests,الطلبات
+Requests per hour,الطلبات في الساعة
+Rows examined,الصفوف المفحوصة
+Run query,تشغيل الاستعلام
+Run this query in WRITE mode on {0}? Changes cannot be undone.,تشغيل هذا الاستعلام في وضع الكتابة على {0}؟ لا يمكن التراجع عن التغييرات.
+Running…,جارٍ التشغيل…
+Runs,مرات التشغيل
+SQL,SQL
+SQL playground,ساحة SQL
+Scheduler,المجدول
+Site {0} has no server,الموقع {0} ليس له خادم
+Slow queries,الاستعلامات البطيئة
+Status codes,رموز الحالة
+The job failed,فشلت المهمة
+The slow query log is not enabled on this server.,سجل الاستعلامات البطيئة غير مفعّل على هذا الخادم.
+This site shares its bench with other sites; only lines that mention this site are shown.,يتشارك هذا الموقع البيئة مع مواقع أخرى؛ تُعرض فقط الأسطر التي تذكر هذا الموقع.
+Too many requests are in progress for this site. Wait for them to finish.,هناك طلبات كثيرة قيد التنفيذ لهذا الموقع. انتظر حتى تنتهي.
+Too many statements,عدد العبارات كبير جدًا
+Top paths by requests,أكثر المسارات طلبًا
+Top paths by total time,أكثر المسارات استهلاكًا للوقت
+Truncated,مقتطع
+Unknown log,سجل غير معروف
+Web,الويب
+Write mode: statements change data immediately and cannot be undone. Take a backup first.,وضع الكتابة: تغيّر العبارات البيانات فورًا ولا يمكن التراجع عنها. خذ نسخة احتياطية أولًا.
+lines,أسطر
+ms,مللي ثانية
+read-only,قراءة فقط
+showing the last of {0} result sets,عرض آخر مجموعة من {0} مجموعات نتائج
+total,الإجمالي
+write mode,وضع الكتابة
+{0} row(s),{0} صف
+{0} statement(s),{0} عبارة
+The console is only available for sites on a bench dedicated to your team.,وحدة التحكم متاحة فقط للمواقع على بيئة مخصّصة لفريقك.
+API access,الوصول عبر واجهة البرمجة
+API key,مفتاح API
+API key revoked,تم إلغاء مفتاح API
+Account,الحساب
+Action,الإجراء
+Activity,النشاط
+Activity log,سجل النشاط
+Add credits,إضافة رصيد
+Adjustment,تسوية
+All actions,كل الإجراءات
+All members,كل الأعضاء
+Amount due,المبلغ المستحق
+"An API key acts as you, with your role in each team. Keep the secret safe: it is shown only once.",يعمل مفتاح API باسمك وبدورك في كل فريق. احتفظ بالسر في مكان آمن: يُعرض مرة واحدة فقط.
+Applied to invoice {0},مُطبّق على الفاتورة {0}
+Arabic shows the dashboard right-to-left.,العربية تعرض لوحة التحكم من اليمين إلى اليسار.
+Balance,الرصيد
+Billing is not enabled,الفوترة غير مفعّلة
+Change password,تغيير كلمة المرور
+Clear,مسح
+Copy the secret now. You will not be able to see it again.,انسخ السر الآن. لن تتمكن من رؤيته مرة أخرى.
+Could not start the payment: {0},تعذّر بدء الدفع: {0}
+Credit Top-up,شحن رصيد
+Credit balance,رصيد الحساب
+Credit history,سجل الرصيد
+Credits applied,الرصيد المُطبّق
+Credits pay new invoices automatically before any card is charged.,يُستخدم الرصيد لدفع الفواتير الجديدة تلقائيًا قبل الخصم من أي بطاقة.
+Date,التاريخ
+Description,الوصف
+Details,التفاصيل
+Enter a valid amount,أدخل مبلغًا صحيحًا
+Example request,مثال على طلب
+Filter,تصفية
+First name,الاسم الأول
+First name is required,الاسم الأول مطلوب
+From,من
+Generate API key,إنشاء مفتاح API
+IP address,عنوان IP
+Invoice payment,دفع فاتورة
+Invoice {0} is {1},الفاتورة {0} حالتها {1}
+Invoice {0} not found,الفاتورة {0} غير موجودة
+Language,اللغة
+Last name,اسم العائلة
+Login required,يلزم تسجيل الدخول
+Maximum,الحد الأقصى
+Members must enter a one-time code from an authenticator app when they sign in. New members get the requirement when they accept their invitation.,يجب على الأعضاء إدخال رمز لمرة واحدة من تطبيق المصادقة عند تسجيل الدخول. يُطبّق المتطلب على الأعضاء الجدد عند قبول دعوتهم.
+Minimum,الحد الأدنى
+Next,التالي
+No activity yet.,لا يوجد نشاط بعد.
+No credit transactions yet.,لا توجد حركات رصيد بعد.
+None of your teams requires two-factor authentication. A team Owner or Admin can require it on the Team page.,لا يشترط أي من فرقك المصادقة الثنائية. يمكن لمالك الفريق أو مديره فرضها من صفحة الفريق.
+"Only Owners, Admins and Billing members can add credits.",يمكن للمالكين والمديرين وأعضاء الفوترة فقط إضافة رصيد.
+Only team Owners and Admins can view the activity log.,يمكن لمالكي الفريق ومديريه فقط عرض سجل النشاط.
+Page,الصفحة
+Payment gateway {0} is not available,بوابة الدفع {0} غير متاحة
+Prepaid credits,رصيد مدفوع مسبقًا
+Previous,السابق
+Promotional credit,رصيد ترويجي
+Refund,استرداد
+Require two-factor authentication for all members,فرض المصادقة الثنائية على جميع الأعضاء
+Require two-factor authentication for every member of this team?,فرض المصادقة الثنائية على كل أعضاء هذا الفريق؟
+Required by,مطلوبة من
+Revoke the API key? Scripts using it stop working.,إلغاء مفتاح API؟ ستتوقف السكربتات التي تستخدمه عن العمل.
+Rotate,تدوير
+Rotate the API key? Scripts using the current key stop working.,تدوير مفتاح API؟ ستتوقف السكربتات التي تستخدم المفتاح الحالي عن العمل.
+Security,الأمان
+Signup credits,رصيد التسجيل
+Stop requiring two-factor authentication for this team?,إيقاف فرض المصادقة الثنائية لهذا الفريق؟
+Thank you! Your payment is being processed. It can take a minute until the payment provider confirms it.,شكرًا لك! تتم معالجة الدفع. قد يستغرق تأكيد مزوّد الدفع دقيقة.
+To,إلى
+Top up,شحن
+Top-up,شحن رصيد
+Top-up {0},شحن رصيد {0}
+Total,الإجمالي
+Two-factor authentication,المصادقة الثنائية
+Two-factor authentication will be asked for at your next sign-in once the platform administrator enables it.,ستُطلب المصادقة الثنائية عند تسجيل دخولك التالي بعد أن يفعّلها مسؤول المنصة.
+Two-factor sign-in is not enabled on this platform yet. Ask the platform administrator to enable it in System Settings.,تسجيل الدخول الثنائي غير مفعّل على هذه المنصة بعد. اطلب من مسؤول المنصة تفعيله في إعدادات النظام.
+Unsupported language {0},اللغة {0} غير مدعومة
+When,الوقت
+You have no API key.,ليس لديك مفتاح API.
+You sign in with your password and a one-time code.,تسجّل الدخول بكلمة المرور ورمز لمرة واحدة.
+Insufficient credit balance,الرصيد غير كافٍ
+Credits,الرصيد
+Nexaploy Invoice,فاتورة Nexaploy
+Team Invitation,دعوة فريق
+OTP App,تطبيق رموز التحقق
+Credit transactions cannot be changed; add an Adjustment instead,لا يمكن تعديل حركات الرصيد؛ أضف تسوية بدلًا من ذلك
+Credit transactions cannot be deleted; add an Adjustment instead,لا يمكن حذف حركات الرصيد؛ أضف تسوية بدلًا من ذلك
+Team Activity is read-only,نشاط الفريق للقراءة فقط
+Team Activity cannot be deleted,لا يمكن حذف نشاط الفريق
+"A dedicated server in the region of your choice, created and managed by Nexaploy. The monthly price covers the server and its management.",خادم مخصص في المنطقة التي تختارها، تنشئه Nexaploy وتديره. يشمل السعر الشهري الخادم وإدارته.
+Already have an account?,لديك حساب بالفعل؟
+"An account with this e-mail already exists. Log in first, then sign up again.",يوجد حساب بهذا البريد الإلكتروني بالفعل. سجّل الدخول أولاً ثم أعد التسجيل.
+Apps {0} are not part of release group {1},التطبيقات {0} ليست ضمن مجموعة الإصدار {1}
+Archive the benches on this server first,أرشف الـ Benches على هذا الخادم أولاً
+At least 8 characters with letters and digits. Also the Administrator password of your site.,8 أحرف على الأقل تتضمن حروفاً وأرقاماً. وهي أيضاً كلمة مرور المسؤول (Administrator) لموقعك.
+Bootstrapping,جارٍ التهيئة
+Check your inbox,تحقق من بريدك الوارد
+Checking…,جارٍ التحقق…
+Code is required,الرمز مطلوب
+Company,الشركة
+Confirm your e-mail to create your {0} site,أكّد بريدك الإلكتروني لإنشاء موقع {0} الخاص بك
+Create hosted server,إنشاء خادم مستضاف
+Create my site,أنشئ موقعي
+Create server,إنشاء الخادم
+Creating,جارٍ الإنشاء
+Creating your site… this takes a few minutes.,جارٍ إنشاء موقعك… يستغرق ذلك بضع دقائق.
+Delete,حذف
+Delete or move the sites on this server first,احذف المواقع على هذا الخادم أو انقلها أولاً
+Delete server {0}? The virtual machine and all its data are destroyed.,حذف الخادم {0}؟ سيتم إتلاف الجهاز الافتراضي وجميع بياناته.
+Deleting,جارٍ الحذف
+E-mail,البريد الإلكتروني
+Enter a valid e-mail address,أدخل عنوان بريد إلكتروني صالحاً
+Free for {0} days. No credit card required.,مجاني لمدة {0} يوماً. لا حاجة إلى بطاقة ائتمان.
+Full name,الاسم الكامل
+Full name is required,الاسم الكامل مطلوب
+Imported {0} regions and {1} sizes (disabled),تم استيراد {0} منطقة و{1} حجماً (معطلة)
+Invalid product,منتج غير صالح
+Log in,تسجيل الدخول
+Log in as Administrator with the password you chose.,سجّل الدخول باسم Administrator بكلمة المرور التي اخترتها.
+No server is available for this product right now. Our team has been notified.,لا يتوفر خادم لهذا المنتج حالياً. تم إبلاغ فريقنا.
+Not Provisioned,غير مُجهّز
+Only servers created by Nexaploy can be deleted here,يمكن هنا حذف الخوادم التي أنشأتها Nexaploy فقط
+Open dashboard,فتح لوحة التحكم
+Optional,اختياري
+"Optional. Lowercase letters, digits and dashes.",اختياري. أحرف لاتينية صغيرة وأرقام وشرطات.
+Password,كلمة المرور
+Password is too long,كلمة المرور طويلة جداً
+Password must contain letters and digits and no leading or trailing spaces,يجب أن تحتوي كلمة المرور على حروف وأرقام وألا تبدأ أو تنتهي بمسافة
+Password must have at least 8 characters,يجب أن تتكون كلمة المرور من 8 أحرف على الأقل
+Pending Verification,بانتظار التحقق
+Plan {0} is not a Server Hosted plan,الخطة {0} ليست خطة خادم مستضاف
+Plan {0} is not a Site plan,الخطة {0} ليست خطة موقع
+Please fill in all required fields.,يرجى ملء جميع الحقول المطلوبة.
+Provider,المزوّد
+Provisioning,جارٍ التجهيز
+Ready,جاهز
+Region,المنطقة
+Region {0} is not available,المنطقة {0} غير متاحة
+Release group {0} belongs to a team; use a shared release group,مجموعة الإصدار {0} تابعة لفريق؛ استخدم مجموعة إصدار مشتركة
+Server name,اسم الخادم
+Server size,حجم الخادم
+Server size {0} is not available,حجم الخادم {0} غير متاح
+Server size {0} is not offered in region {1},حجم الخادم {0} غير متوفر في المنطقة {1}
+Server {0} is being created,جارٍ إنشاء الخادم {0}
+Server {0} is being deleted,جارٍ حذف الخادم {0}
+Sign up,إنشاء حساب
+Sign up for {0},سجّل في {0}
+Site address,عنوان الموقع
+The server could not be created.,تعذّر إنشاء الخادم.
+The server of this registration token is already registered,خادم رمز التسجيل هذا مسجّل بالفعل
+The server of this registration token no longer exists,خادم رمز التسجيل هذا لم يعد موجوداً
+The server of this registration token was deleted,تم حذف خادم رمز التسجيل هذا
+This product is not available,هذا المنتج غير متاح
+This server is already deleted,هذا الخادم محذوف بالفعل
+This subdomain is already taken,هذا النطاق الفرعي مستخدم بالفعل
+This verification link has expired. Please sign up again.,انتهت صلاحية رابط التحقق هذا. يرجى التسجيل مرة أخرى.
+This verification link is invalid,رابط التحقق هذا غير صالح
+Too many attempts. Please try again later.,محاولات كثيرة جداً. يرجى المحاولة لاحقاً.
+Trial days cannot be negative,لا يمكن أن تكون أيام التجربة سالبة
+Unknown signup,تسجيل غير معروف
+Verified,تم التحقق
+We sent a confirmation link to,أرسلنا رابط تأكيد إلى
+You will be billed,سيتم احتساب
+Your server is being set up. This usually takes 5 to 10 minutes.,جارٍ إعداد خادمك. يستغرق ذلك عادةً من 5 إلى 10 دقائق.
+Your server is ready.,خادمك جاهز.
+Your site could not be created.,تعذّر إنشاء موقعك.
+Your site could not be created. Our team has been notified.,تعذّر إنشاء موقعك. تم إبلاغ فريقنا.
+Your site is created as soon as you confirm your e-mail.,يتم إنشاء موقعك فور تأكيد بريدك الإلكتروني.
+Your site is ready.,موقعك جاهز.
+Your site {0} is ready. Log in at https://{0} as Administrator with the password you chose at signup. Manage it from {1}.,موقعك {0} جاهز. سجّل الدخول على https://{0} باسم Administrator بكلمة المرور التي اخترتها عند التسجيل. يمكنك إدارته من {1}.
+Your {0} site is ready,موقع {0} الخاص بك جاهز
+"Hello {0},<br><br>Confirm your e-mail address to create {1}:<br><br><a href=""{2}"">{2}</a><br><br>The link is valid for 24 hours. If you did not sign up, ignore this e-mail.","مرحباً {0}،<br><br>أكّد عنوان بريدك الإلكتروني لإنشاء {1}:<br><br><a href=""{2}"">{2}</a><br><br>الرابط صالح لمدة 24 ساعة. إذا لم تقم بالتسجيل فتجاهل هذه الرسالة."
+per month,شهرياً
+per month once the server is created.,شهرياً بمجرد إنشاء الخادم.
+your-company,your-company
+{0} GB RAM,{0} غيغابايت ذاكرة
+{0} GB disk,{0} غيغابايت تخزين
+{0} is available,{0} متاح
+{0} vCPU,{0} معالج افتراضي
+In Review,قيد المراجعة
+Published,منشور
+Approved,معتمد
+Waiting on Customer,بانتظار العميل
+Waiting on Support,بانتظار الدعم
+Resolved,تم الحل
+Closed,مغلقة
+Low,منخفضة
+Normal,عادية
+High,مرتفعة
+Urgent,عاجلة
+Bank,تحويل بنكي
+PayPal,PayPal
+A publisher with payouts cannot be deleted,لا يمكن حذف ناشر لديه دفعات مستحقات
+"Account holder, bank name and SWIFT, or your PayPal email",صاحب الحساب واسم البنك ورمز SWIFT، أو بريدك في PayPal
+Account number / IBAN,رقم الحساب / IBAN
+Account number is too long,رقم الحساب طويل جدًا
+Account on file,الحساب محفوظ
+Add a custom app on the Bench Groups page first.,أضف تطبيقًا مخصصًا من صفحة مجموعات Bench أولًا.
+All,الكل
+All tickets,كل التذاكر
+An app named {0} is already on the marketplace,يوجد تطبيق باسم {0} في المتجر بالفعل
+"App name must be a python package name, e.g. erpnext",يجب أن يكون اسم التطبيق اسم حزمة بايثون، مثل erpnext
+App {0} is not listed by your team,التطبيق {0} غير مدرج من قِبل فريقك
+App {0} not found,التطبيق {0} غير موجود
+Become a publisher,كن ناشرًا
+Cannot tell which Frappe versions the app supports: add releases to the listing or set the custom app's Frappe majors,تعذّر تحديد إصدارات Frappe التي يدعمها التطبيق: أضف إصدارات إلى الإدراج أو حدّد إصدارات Frappe للتطبيق المخصص
+Close this ticket?,إغلاق هذه التذكرة؟
+Close ticket,إغلاق التذكرة
+Create your publisher profile first,أنشئ ملف الناشر أولًا
+Custom app,التطبيق المخصص
+Custom app {0} does not belong to your team,التطبيق المخصص {0} لا يتبع فريقك
+Describe the problem,صف المشكلة
+Documentation,التوثيق
+Documentation URL,رابط التوثيق
+Edit,تعديل
+Edit listing,تعديل الإدراج
+Enter the transfer reference before marking the payout Paid,أدخل مرجع التحويل قبل تعليم الدفعة كمدفوعة
+Explain why the listing is rejected in the review notes,وضّح سبب رفض الإدراج في ملاحظات المراجعة
+First response,أول رد
+First response within (hours),أول رد خلال (ساعات)
+Gross,الإجمالي
+Installs,التثبيتات
+Invalid documentation URL,رابط التوثيق غير صالح
+Invalid listing values,قيم الإدراج غير صالحة
+Listing saved,تم حفظ الإدراج
+Listing withdrawn,تم سحب الإدراج
+"Listings are reviewed by Nexaploy staff before they appear on the marketplace. On approval, one release per Frappe version is created from your app's version branches.",يراجع فريق Nexaploy الإدراجات قبل ظهورها في المتجر. عند الاعتماد يُنشأ إصدار لكل نسخة Frappe من فروع الإصدارات في تطبيقك.
+Logo URL,رابط الشعار
+Marketplace listing {0} submitted for review,تم إرسال إدراج المتجر {0} للمراجعة
+Marketplace payout {0} ({1} to {2}),دفعة المتجر {0} ({1} إلى {2})
+Marketplace payout {0} paid,تم دفع مستحقات المتجر {0}
+Month,الشهر
+My listings,إدراجاتي
+Net,الصافي
+Never share passwords or API secrets in a ticket.,لا تشارك كلمات المرور أو أسرار API في التذكرة أبدًا.
+New listing,إدراج جديد
+New ticket,تذكرة جديدة
+Nexaploy Support,دعم Nexaploy
+No listings yet. Create one from one of your custom apps.,لا توجد إدراجات بعد. أنشئ إدراجًا من أحد تطبيقاتك المخصصة.
+No paid installs yet.,لا توجد تثبيتات مدفوعة بعد.
+No payouts yet. Payouts are calculated monthly for the previous month's payments.,لا توجد دفعات بعد. تُحسب الدفعات شهريًا عن مدفوعات الشهر السابق.
+No tickets. Need help? Open a ticket and our team will get back to you.,لا توجد تذاكر. تحتاج مساعدة؟ افتح تذكرة وسيعود إليك فريقنا.
+None,لا شيء
+Only Draft payouts can be deleted,يمكن حذف الدفعات المسودة فقط
+Only Draft payouts can change their amounts,يمكن تغيير مبالغ الدفعات المسودة فقط
+Only active custom apps can be listed,يمكن إدراج التطبيقات المخصصة النشطة فقط
+Only support staff can reply here,يمكن لفريق الدعم فقط الرد هنا
+Only team Owners and Admins can manage the publisher profile.,يمكن لمالكي الفريق ومسؤوليه فقط إدارة ملف الناشر.
+Open ticket,فتح تذكرة
+Opened,فُتحت
+Paid apps need a monthly price,التطبيقات المدفوعة تحتاج إلى سعر شهري
+Payout details,تفاصيل الدفع
+Payout method,طريقة الدفع
+Payouts,الدفعات
+Platform fee,رسوم المنصة
+Please describe the problem,يرجى وصف المشكلة
+Please write a message,يرجى كتابة رسالة
+Price,السعر
+Price per site per month,السعر لكل موقع شهريًا
+Pricing,التسعير
+Pricing of a published app cannot be changed. Contact support to unpublish it first.,لا يمكن تغيير تسعير تطبيق منشور. تواصل مع الدعم لإلغاء نشره أولًا.
+Priority,الأولوية
+Priority: {0},الأولوية: {0}
+"Public image URLs, one per line (max 8).",روابط صور عامة، رابط في كل سطر (8 كحد أقصى).
+Publish your own app on the marketplace,انشر تطبيقك الخاص في المتجر
+Publish your team's custom apps on the Nexaploy marketplace and earn a share of the revenue of paid apps.,انشر تطبيقات فريقك المخصصة في متجر Nexaploy واحصل على حصة من إيرادات التطبيقات المدفوعة.
+Publisher,الناشر
+Publisher name,اسم الناشر
+Publisher profile,ملف الناشر
+Publisher profile saved,تم حفظ ملف الناشر
+Remove or reassign the publisher's listings first,احذف إدراجات الناشر أو انقلها أولًا
+Reopen,إعادة فتح
+Reply,رد
+Reply sent,تم إرسال الرد
+Reply {0} is empty,الرد {0} فارغ
+Replying reopens the ticket.,الرد يعيد فتح التذكرة.
+Revenue by month,الإيرادات حسب الشهر
+Review notes,ملاحظات المراجعة
+Row {0}: duplicate release for Frappe {1},الصف {0}: إصدار مكرر لـ Frappe {1}
+Row {0}: unsupported Frappe major {1},الصف {0}: إصدار Frappe الرئيسي {1} غير مدعوم
+Sales,المبيعات
+Screenshots,لقطات الشاشة
+Send reply,إرسال الرد
+Server: {0},الخادم: {0}
+Site: {0},الموقع: {0}
+Status: {0},الحالة: {0}
+Stored encrypted. Leave empty to keep the saved account.,يُخزَّن مشفرًا. اتركه فارغًا للإبقاء على الحساب المحفوظ.
+Subject,الموضوع
+Submit for review,إرسال للمراجعة
+Submit {0} for review?,إرسال {0} للمراجعة؟
+Submitted for review,تم الإرسال للمراجعة
+Support,الدعم
+Support email,بريد الدعم
+Support team,فريق الدعم
+Support tickets,تذاكر الدعم
+Team {0} already has a publisher profile,الفريق {0} لديه ملف ناشر بالفعل
+Team: {0},الفريق: {0}
+The repository must be public: marketplace builds clone it without credentials.,يجب أن يكون المستودع عامًا: عمليات بناء المتجر تستنسخه بدون بيانات اعتماد.
+This custom app is already listed,هذا التطبيق المخصص مدرج بالفعل
+This ticket is closed. Reopen it to reply,هذه التذكرة مغلقة. أعد فتحها للرد
+This ticket is closed. Reopen it to reply.,هذه التذكرة مغلقة. أعد فتحها للرد.
+Ticket,التذكرة
+Ticket closed,تم إغلاق التذكرة
+Ticket reopened,تمت إعادة فتح التذكرة
+Ticket {0} not found,التذكرة {0} غير موجودة
+Ticket {0} opened,تم فتح التذكرة {0}
+Title,العنوان
+Unknown status {0},حالة غير معروفة {0}
+Updated,آخر تحديث
+Website,الموقع الإلكتروني
+Withdraw,سحب
+Your app {0} is published on the marketplace,تم نشر تطبيقك {0} في المتجر
+Your app {0} was unpublished from the marketplace,تم إلغاء نشر تطبيقك {0} من المتجر
+Your marketplace listing {0} needs changes,إدراجك في المتجر {0} يحتاج إلى تعديلات
+Your marketplace payout {0} for {1} to {2} has been paid: {3} {4} ({5}).,تم دفع مستحقاتك من المتجر {0} عن الفترة {1} إلى {2}: {3} {4} ({5}).
+Your revenue share,حصتك من الإيرادات
+Your share,حصتك
+Your share is added to your team's prepaid credits.,تُضاف حصتك إلى الرصيد المسبق الدفع لفريقك.
+Your team has too many open tickets. Please reply to or close an existing one.,لدى فريقك تذاكر مفتوحة كثيرة. يرجى الرد على إحداها أو إغلاقها.
+[{0}] Customer replied: {1},[{0}] رد العميل: {1}
+[{0}] New support ticket: {1},[{0}] تذكرة دعم جديدة: {1}
+[{0}] Support replied: {1},[{0}] رد الدعم: {1}
+expected by,متوقع بحلول
+name already listed,الاسم مدرج بالفعل
+{0} submitted {1} for review.,أرسل {0} التطبيق {1} للمراجعة.
+{0} {1} does not belong to team {2},{0} {1} لا يتبع الفريق {2}
+Title is required,العنوان مطلوب
+Add a description,أضف وصفًا
+The listing has no source custom app,الإدراج ليس له تطبيق مخصص مصدر
+Publisher name is required,اسم الناشر مطلوب
+Invalid website URL,رابط الموقع غير صالح
+Invalid support email,بريد الدعم غير صالح
+"Payout method must be Bank, PayPal or Credits",يجب أن تكون طريقة الدفع تحويلًا بنكيًا أو PayPal أو رصيدًا
+Enter the PayPal email address in the payout details,أدخل بريد PayPal في تفاصيل الدفع
+Enter the bank account number (IBAN),أدخل رقم الحساب البنكي (IBAN)
+Invalid logo URL,رابط الشعار غير صالح
+Pricing must be Free or Paid,يجب أن يكون التسعير مجانيًا أو مدفوعًا
+Invalid price,سعر غير صالح
+Only platform administrators can review listings,يمكن لمسؤولي المنصة فقط مراجعة الإدراجات
+Revenue share must be a number,يجب أن تكون حصة الإيرادات رقمًا
+Revenue share must be between 0 and 100 percent,يجب أن تكون حصة الإيرادات بين 0 و100 بالمئة
+Please enter a subject,يرجى إدخال موضوع
+Get help,احصل على مساعدة
+Access token,رمز الوصول
+Add channel,إضافة قناة
+All events,كل الأحداث
+An Email channel was added so your team keeps receiving emails. Disable it if you do not need it.,أُضيفت قناة بريد إلكتروني حتى يستمر فريقك في تلقي الرسائل. عطّلها إن لم تكن بحاجة إليها.
+Backup failed,فشل النسخ الاحتياطي
+Bot token,رمز البوت
+Channel deleted,حُذفت القناة
+Channel saved,حُفظت القناة
+Channel settings → Integrations → Webhooks → New webhook → Copy webhook URL.,إعدادات القناة ← التكاملات ← Webhooks ← Webhook جديد ← نسخ رابط الـ Webhook.
+Chat ID,معرّف المحادثة
+Choose a channel type,اختر نوع القناة
+Choose at least one event,اختر حدثًا واحدًا على الأقل
+"Create a bot with @BotFather, paste its token, send any message to the bot (or add it to a group), then click Detect chat.",أنشئ بوتًا عبر ‎@BotFather، والصق رمزه، وأرسل أي رسالة إلى البوت (أو أضفه إلى مجموعة)، ثم انقر «اكتشاف المحادثة».
+Create an incoming webhook in your Slack workspace and paste its URL.,أنشئ Webhook واردًا في مساحة عمل Slack والصق رابطه.
+Delete the channel {0}?,حذف القناة {0}؟
+Destination,الوجهة
+Detect chat,اكتشاف المحادثة
+Discord,Discord
+Discord webhook URLs start with https://discord.com/api/webhooks/,روابط Webhook في Discord تبدأ بـ https://discord.com/api/webhooks/
+Disk almost full,القرص ممتلئ تقريبًا
+Edit channel,تعديل القناة
+Enabled,مفعّلة
+Enter a valid https:// webhook URL,أدخل رابط Webhook صالحًا يبدأ بـ https://
+Enter the Phone number ID from the WhatsApp Business dashboard,أدخل معرّف رقم الهاتف من لوحة WhatsApp Business
+"Enter the WhatsApp number in international format, e.g. +974 5555 1234",أدخل رقم واتساب بالصيغة الدولية، مثل ‎+974 5555 1234
+Enter the bot token first,أدخل رمز البوت أولًا
+"Enter the chat id (a number, or @channelname)",أدخل معرّف المحادثة (رقم أو ‎@اسم_القناة)
+Events,الأحداث
+Failing,متعثرة
+Invalid channel data,بيانات القناة غير صالحة
+Invoice issued,صدور فاتورة
+Job failed,فشل مهمة
+Last sent,آخر إرسال
+"Leave recipients empty to email the team's Owners, Admins and Developers (billing events: the billing contacts).",اترك المستلمين فارغًا لمراسلة مالكي الفريق ومسؤوليه ومطوريه (أحداث الفوترة: جهات اتصال الفوترة).
+New channel,قناة جديدة
+"No channels yet: alerts and billing notices are emailed to your team as before. Once you add a channel, notifications go to your channels only.",لا توجد قنوات بعد: تُرسل التنبيهات وإشعارات الفوترة إلى فريقك بالبريد كما كانت. بعد إضافة قناة، تذهب الإشعارات إلى قنواتك فقط.
+"No chats yet. Send a message to your bot, then try again.",لا توجد محادثات بعد. أرسل رسالة إلى البوت ثم أعد المحاولة.
+Not used yet,لم تُستخدم بعد
+Notification channel {0} not found,قناة الإشعارات {0} غير موجودة
+Notification channels,قنوات الإشعارات
+Notifications,الإشعارات
+Only team Owners and Admins can manage notification channels.,يمكن لمالكي الفريق ومسؤوليه فقط إدارة قنوات الإشعارات.
+Payment failed,فشل الدفع
+Phone number ID,معرّف رقم الهاتف
+Recipient number,رقم المستلم
+Recipients,المستلمون
+Requests are signed with HMAC-SHA256 in the X-Nexaploy-Signature header.,تُوقَّع الطلبات بـ HMAC-SHA256 في الترويسة X-Nexaploy-Signature.
+SSL certificate expiring,قرب انتهاء شهادة SSL
+Save channel,حفظ القناة
+Send test,إرسال تجريبي
+Sending failed: {0},فشل الإرسال: {0}
+Server back online,عاد الخادم للعمل
+Server offline,الخادم غير متصل
+Signing secret (optional),سر التوقيع (اختياري)
+Site back up,عاد الموقع للعمل
+Site down,الموقع متوقف
+Sites suspended,إيقاف المواقع
+Slack,Slack
+Slack webhook URLs start with https://hooks.slack.com/services/,روابط Webhook في Slack تبدأ بـ https://hooks.slack.com/services/
+Stored token,الرمز المحفوظ
+Stored — leave empty to keep,محفوظ — اتركه فارغًا للإبقاء عليه
+Support reply,رد الدعم
+Team members,أعضاء الفريق
+Telegram,تيليجرام
+Telegram bot token and chat id are required,رمز بوت تيليجرام ومعرّف المحادثة مطلوبان
+Template language,لغة القالب
+Template language looks like en_US or ar,لغة القالب بصيغة مثل en_US أو ar
+Template name (optional),اسم القالب (اختياري)
+"Template names use lowercase letters, digits and underscores",تستخدم أسماء القوالب أحرفًا لاتينية صغيرة وأرقامًا وشرطات سفلية
+Test message sent,أُرسلت رسالة الاختبار
+The bot token looks like 123456789:AA... (from @BotFather),رمز البوت بصيغة 123456789:AA...‏ (من ‎@BotFather)
+The signing secret must be at least 16 characters,يجب ألا يقل سر التوقيع عن 16 حرفًا
+Unhealthy containers,حاويات غير سليمة
+"Uses the WhatsApp Business Cloud API. Without an approved template, messages only arrive within 24 hours of the recipient's last message.",تستخدم WhatsApp Business Cloud API. بدون قالب معتمد، تصل الرسائل فقط خلال 24 ساعة من آخر رسالة للمستلم.
+"We POST JSON {event, title, message, context, url, team, timestamp}. With a signing secret, X-Nexaploy-Signature carries sha256=<hex HMAC-SHA256 of the raw body>.","نرسل طلب POST بصيغة JSON ‏{event, title, message, context, url, team, timestamp}. مع سر التوقيع، تحمل الترويسة X-Nexaploy-Signature القيمة sha256=<HMAC-SHA256 بصيغة hex للجسم الخام>."
+Webhook,Webhook
+Webhook URL,رابط Webhook
+Webhook URL is required,رابط Webhook مطلوب
+Webhook URLs must point to a public address,يجب أن تشير روابط Webhook إلى عنوان عام
+WhatsApp,واتساب
+"WhatsApp phone number ID, access token and recipient are required",معرّف رقم واتساب ورمز الوصول والمستلم مطلوبة
+Working,تعمل
+Bot token is required,رمز البوت مطلوب
+Access token is required,رمز الوصول مطلوب
+Unknown error,خطأ غير معروف
+No recipients,لا يوجد مستلمون
+Pending DNS,بانتظار DNS
+Verifying,جارٍ التحقق
+Valid,صالحة
+Expiring,قاربت على الانتهاء
+Default Certificate,الشهادة الافتراضية
+Untrusted,غير موثوقة
+Error,خطأ
+Check certificates,فحص الشهادات
+Checking certificates…,جارٍ فحص الشهادات…
+Cloudflare proxy,وكيل Cloudflare
+Create one of these DNS records at your DNS provider:,أنشئ أحد سجلات DNS التالية لدى مزوّد DNS الخاص بك:
+"Create the DNS record first: a CNAME to the site's address for a subdomain, or an A record to the server's IP for a root domain. We verify it before adding the domain, then issue a free Let's Encrypt certificate.",أنشئ سجل DNS أولاً: سجل CNAME إلى عنوان الموقع للنطاق الفرعي، أو سجل A إلى عنوان IP الخادم للنطاق الرئيسي. نتحقق منه قبل إضافة النطاق ثم نصدر شهادة Let's Encrypt مجانية.
+DNS check skipped,تم تخطي فحص DNS
+DNS is correct. Adding {0} to the server…,إعدادات DNS صحيحة. جارٍ إضافة {0} إلى الخادم…
+DNS records you can create (one is enough):,سجلات DNS التي يمكنك إنشاؤها (يكفي سجل واحد):
+Last checked {0}.,آخر فحص {0}.
+Recommended,موصى به
+Require DNS check,اشتراط فحص DNS
+Skip DNS check,تخطي فحص DNS
+Skip DNS verification (administrator),تخطي التحقق من DNS (للمسؤول)
+Skip DNS verification for {0} and add it to the server now?,تخطي التحقق من DNS للنطاق {0} وإضافته إلى الخادم الآن؟
+Verify now,تحقق الآن
+We check automatically for {0} hours after the domain was added.,نتحقق تلقائياً لمدة {0} ساعة بعد إضافة النطاق.
+expires {0},تنتهي {0}
+{0} added. Create the DNS record shown below; we check it automatically.,تمت إضافة {0}. أنشئ سجل DNS الموضح أدناه وسنتحقق منه تلقائياً.
+Domain {0} is already in use,النطاق {0} مستخدم بالفعل
+Domain {0} is being removed,جارٍ إزالة النطاق {0}
+Domain {0} is not attached to this site,النطاق {0} غير مرتبط بهذا الموقع
+Duplicate domain {0},النطاق {0} مكرر
+Invalid domain {0},النطاق {0} غير صالح
+Only administrators can skip DNS verification,يمكن للمسؤولين فقط تخطي التحقق من DNS
+TLS certificate for {0} expires soon,شهادة TLS للنطاق {0} تنتهي قريباً
+{0} is a CNAME to {1}. DNS is correct.,{0} هو سجل CNAME يشير إلى {1}. إعدادات DNS صحيحة.
+{0} points to this server ({1}). DNS is correct.,{0} يشير إلى هذا الخادم ({1}). إعدادات DNS صحيحة.
+DNS verification was skipped by an administrator.,تخطى أحد المسؤولين التحقق من DNS.
+DNS lookup for {0} failed: {1}. We will retry automatically.,فشل استعلام DNS عن {0}: {1}. سنعيد المحاولة تلقائياً.
+No DNS record found for {0}. Create the record shown below.,لم يُعثر على سجل DNS للنطاق {0}. أنشئ السجل الموضح أدناه.
+"{0} is a CNAME to {1}, which does not resolve. Point it to {2} instead.",{0} هو سجل CNAME يشير إلى {1} الذي لا يُحل إلى أي عنوان. وجّهه إلى {2} بدلاً من ذلك.
+"{0} resolves to Cloudflare ({1}): the Cloudflare proxy (orange cloud) is on, so we cannot verify the record or issue a certificate. Set the record to ""DNS only"" (grey cloud) until the domain is active, or ask support to enable it in proxied mode (TLS terminated by Cloudflare, SSL mode ""Full"").","{0} يُحل إلى Cloudflare ({1}): وكيل Cloudflare (السحابة البرتقالية) مفعّل، لذا لا يمكننا التحقق من السجل أو إصدار شهادة. اضبط السجل على ""DNS only"" (السحابة الرمادية) حتى يصبح النطاق نشطاً، أو اطلب من الدعم تفعيله بوضع الوكيل (TLS من Cloudflare ووضع SSL ""Full"")."
+The server's public IP address is unknown. Create a CNAME record for {0} pointing to {1}.,عنوان IP العام للخادم غير معروف. أنشئ سجل CNAME للنطاق {0} يشير إلى {1}.
+"{0} is a CNAME to {1}, not to {2}. Change the record as shown below.",{0} هو سجل CNAME يشير إلى {1} وليس إلى {2}. عدّل السجل كما هو موضح أدناه.
+"{0} has an AAAA (IPv6) record {1} that does not point to this server. Let's Encrypt prefers IPv6, so remove the AAAA record (or point it to this server).",للنطاق {0} سجل AAAA (IPv6) هو {1} لا يشير إلى هذا الخادم. تفضّل Let's Encrypt عناوين IPv6، لذا احذف سجل AAAA (أو وجّهه إلى هذا الخادم).
+"{0} also points to {1}, which is not this server. Remove those records so the certificate can be issued.",{0} يشير أيضاً إلى {1} وهو ليس هذا الخادم. احذف تلك السجلات حتى يمكن إصدار الشهادة.
+"{0} points to {1}, but this server is {2}. Change the record as shown below.",{0} يشير إلى {1} لكن عنوان هذا الخادم هو {2}. عدّل السجل كما هو موضح أدناه.
+The server could not add {0}: {1},تعذّر على الخادم إضافة {0}: {1}
+"DNS for {0} was not set up correctly within 72 hours, so we stopped checking. Fix the record and press ""Verify now"" to try again.","لم تُضبط إعدادات DNS للنطاق {0} بشكل صحيح خلال 72 ساعة، لذا توقفنا عن الفحص. أصلح السجل واضغط ""تحقق الآن"" للمحاولة مرة أخرى."
+"Certificate from {0}, valid until {1}.",شهادة صادرة من {0}، صالحة حتى {1}.
+The certificate for {0} is being issued.,جارٍ إصدار الشهادة للنطاق {0}.
+"{0} still serves the default certificate: Let's Encrypt could not issue one. Check that the DNS record points to this server, that port 80 is open to the internet (HTTP-01 challenge) and that the Let's Encrypt rate limit (5 failed validations per hour) was not hit; issuance is retried automatically.",ما زال {0} يقدّم الشهادة الافتراضية: تعذّر على Let's Encrypt إصدار شهادة. تأكد من أن سجل DNS يشير إلى هذا الخادم، وأن المنفذ 80 مفتوح على الإنترنت (تحدي HTTP-01)، وأنه لم يتم تجاوز حد Let's Encrypt (5 محاولات تحقق فاشلة في الساعة)؛ تتم إعادة محاولة الإصدار تلقائياً.
+"The certificate for {0} expires in {1} days ({2}). Certificates renew 30 days before expiry, so renewal is failing: check the DNS record and that port 80 is open.",تنتهي شهادة {0} خلال {1} يوم ({2}). تُجدَّد الشهادات قبل 30 يوماً من انتهائها، لذا فإن التجديد يفشل: تحقق من سجل DNS ومن أن المنفذ 80 مفتوح.
+The certificate for {0} expired on {1}. Check the DNS record and that port 80 is open.,انتهت شهادة {0} في {1}. تحقق من سجل DNS ومن أن المنفذ 80 مفتوح.
+The certificate for {0} is not trusted by browsers ({1}).,شهادة {0} غير موثوقة لدى المتصفحات ({1}).
+Could not check the certificate of {0}: {1},تعذّر فحص شهادة {0}: {1}
+A customer,أحد العملاء
+A test build of this release is already running,يجري حاليًا بناء تجريبي لهذا الإصدار
+"Add apps to a bench group (Bench groups page), deploy it, then install them on a site from the site's Apps tab. Required apps are added and installed first automatically.",أضف التطبيقات إلى مجموعة بنش (صفحة مجموعات البنش) وانشرها، ثم ثبّتها على موقع من تبويب التطبيقات في الموقع. تُضاف التطبيقات المطلوبة وتُثبَّت أولًا تلقائيًا.
+Also added the required apps {0}.,تمت أيضًا إضافة التطبيقات المطلوبة {0}.
+Also installs first:,يثبّت أولًا أيضًا:
+App {0} has no verified release yet,لا يوجد للتطبيق {0} إصدار موثَّق بعد
+Apps {0} are not available on bench {1} (release group {2}); add them to the group and deploy first,التطبيقات {0} غير متاحة على البنش {1} (مجموعة الإصدار {2})؛ أضفها إلى المجموعة وانشرها أولًا
+Bench groups on Frappe {0} use this release; it cannot be removed,تستخدم مجموعات البنش على Frappe {0} هذا الإصدار؛ لا يمكن حذفه
+Build log,سجل البناء
+Change,تغيير
+Commit (optional),الإيداع (اختياري)
+Commit must be a 7-40 character hexadecimal hash,يجب أن يكون الإيداع تجزئة ست عشرية من 7 إلى 40 حرفًا
+Delete your review?,حذف مراجعتك؟
+"Each new or changed release is test-built (Frappe, the required apps and your app) before customers can install it. Only verified releases are shown in the marketplace.",يُبنى كل إصدار جديد أو معدَّل بناءً تجريبيًا (Frappe والتطبيقات المطلوبة وتطبيقك) قبل أن يتمكن العملاء من تثبيته. لا تظهر في المتجر إلا الإصدارات الموثَّقة.
+Edit reply,تعديل الرد
+Education,التعليم
+Hidden,مخفي
+Hide,إخفاء
+Install this app on one of your sites to rate and review it.,ثبّت هذا التطبيق على أحد مواقعك لتقييمه ومراجعته.
+Install {0} on one of your sites before reviewing it,ثبّت {0} على أحد مواقعك قبل مراجعته
+Install {0}? {1} will be installed first.,تثبيت {0}؟ سيُثبَّت {1} أولًا.
+Invalid branch {0},فرع غير صالح {0}
+Missing required apps,تطبيقات مطلوبة مفقودة
+No releases yet.,لا توجد إصدارات بعد.
+No reviews yet.,لا توجد مراجعات بعد.
+Not in the bench's current image yet: deploy the bench group first.,غير موجود في صورة البنش الحالية بعد: انشر مجموعة البنش أولًا.
+Only platform administrators can hide reviews,يمكن لمسؤولي المنصة فقط إخفاء المراجعات
+Only the publisher of {0} can reply to its reviews,يمكن لناشر {0} فقط الرد على مراجعاته
+Pending verification,بانتظار التحقق
+Productivity,الإنتاجية
+Publisher reply,رد الناشر
+"Python app names your app needs, separated by commas. Bench groups add them automatically and sites install them first.",أسماء تطبيقات بايثون التي يحتاجها تطبيقك، مفصولة بفواصل. تضيفها مجموعات البنش تلقائيًا وتثبّتها المواقع أولًا.
+Rate this app,قيّم هذا التطبيق
+Ratings & reviews,التقييمات والمراجعات
+Release saved. A test build was started.,تم حفظ الإصدار. بدأ بناء تجريبي.
+Releases,الإصدارات
+Releases of {0},إصدارات {0}
+Remove the release for Frappe {0}?,حذف الإصدار الخاص بـ Frappe {0}؟
+Reply to this review (empty removes the reply),رد على هذه المراجعة (الترك فارغًا يحذف الرد)
+Required apps,التطبيقات المطلوبة
+Required apps {0} are not in the marketplace yet; bench groups cannot add {1} until they are.,التطبيقات المطلوبة {0} ليست في المتجر بعد؛ لا يمكن لمجموعات البنش إضافة {1} حتى تتوفر.
+Requires:,يتطلب:
+Save and test,حفظ واختبار
+Save review,حفظ المراجعة
+Set to {0} by {1},عُيّنت إلى {0} بواسطة {1}
+Show,إظهار
+Status must be one of {0},يجب أن تكون الحالة إحدى القيم {0}
+Supports Frappe {0},يدعم Frappe {0}
+Team {0} already reviewed {1},قام الفريق {0} بمراجعة {1} مسبقًا
+Test again,اختبار مجددًا
+Test build started,بدأ البناء التجريبي
+Thanks for your review,شكرًا على مراجعتك
+The build has not started yet.,لم يبدأ البناء بعد.
+They are added to the bench group and installed on the site first.,تُضاف إلى مجموعة البنش وتُثبَّت على الموقع أولًا.
+What do you like or miss? (optional),ما الذي أعجبك أو ينقصه؟ (اختياري)
+Why is this review hidden?,لماذا تُخفى هذه المراجعة؟
+You have not reviewed {0},لم تقم بمراجعة {0}
+Your review,مراجعتك
+requires {0},يتطلب {0}
+{0} has no release for Frappe {1},لا يوجد لـ {0} إصدار لـ Frappe {1}
+{0} is already being installed,يجري تثبيت {0} بالفعل
+{0} is already in this bench group,{0} موجود بالفعل في مجموعة البنش هذه
+{0} is already installed,{0} مثبّت بالفعل
+{0} is not installed,{0} غير مثبّت
+{0} is required by {1}; remove those first,{0} مطلوب من قبل {1}؛ احذفها أولًا
+{0} is required by {1}; uninstall those first,{0} مطلوب من قبل {1}؛ أزل تثبيتها أولًا
+{0} out of 5,{0} من 5
+{0} requires {1}; it was selected too,{0} يتطلب {1}؛ تم تحديده أيضًا
+{0} reviews,{0} مراجعات
+Check DNS,تحقق من DNS
+Custom sending domain,نطاق إرسال مخصص
+Daily sending limit: {0} e-mails,حد الإرسال اليومي: {0} رسالة
+Enable managed e-mail,تفعيل البريد المُدار
+Host,المضيف
+Last checked {0},آخر تحقق {0}
+Managed e-mail,البريد المُدار
+Managed e-mail is not available on this platform yet.,البريد المُدار غير متاح على هذه المنصة بعد.
+Not verified,لم يتم التحقق
+OK,سليم
+Purpose,الغرض
+"Send as noreply@ your own domain. Add the DNS records below at your DNS provider, then check them. Until the domain is verified the default sender is used.",أرسل باسم noreply@ على نطاقك. أضف سجلات DNS أدناه لدى مزود DNS ثم تحقق منها. يُستخدم المرسل الافتراضي حتى يتم التحقق من النطاق.
+Send this site's e-mail through the platform's authenticated relay so it does not land in spam. The site gets a default outgoing Email Account named Nexaploy Relay.,أرسل بريد هذا الموقع عبر خادم الترحيل الموثّق للمنصة حتى لا يصل إلى مجلد الرسائل المزعجة. يحصل الموقع على حساب بريد صادر افتراضي باسم Nexaploy Relay.
+Sender,المرسل
+Disable managed e-mail? The site stops sending through the platform relay.,تعطيل البريد المُدار؟ سيتوقف الموقع عن الإرسال عبر خادم الترحيل للمنصة.
+Managed e-mail is being set up,جارٍ إعداد البريد المُدار
+Managed e-mail is being disabled,جارٍ تعطيل البريد المُدار
+Sending domain saved,تم حفظ نطاق الإرسال
+Domain verified,تم التحقق من النطاق
+"DNS lookup unavailable, try again later",تعذّر الاستعلام عن DNS، حاول لاحقًا
+Some records are missing or wrong,بعض السجلات مفقودة أو غير صحيحة
+DNS lookup unavailable,تعذّر الاستعلام عن DNS
+No SPF record,لا يوجد سجل SPF
+More than one SPF record,يوجد أكثر من سجل SPF
+No DMARC record,لا يوجد سجل DMARC
+More than one DMARC record,يوجد أكثر من سجل DMARC
+No DKIM record,لا يوجد سجل DKIM
+DKIM CNAME points elsewhere,سجل DKIM من نوع CNAME يشير إلى وجهة أخرى
+DKIM record does not match,سجل DKIM غير مطابق
+No record,لا يوجد سجل
+Points elsewhere,يشير إلى وجهة أخرى
+Merge into your existing SPF record: a domain may only have one v=spf1 record.,ادمجه في سجل SPF الحالي: يجب أن يكون للنطاق سجل v=spf1 واحد فقط.
+Keep your existing DMARC record if you already have one.,احتفظ بسجل DMARC الحالي إن وُجد.
+Recommended: aligns bounces with your domain.,موصى به: يربط الرسائل المرتدة بنطاقك.
+"Enter a valid domain, e.g. example.com",أدخل نطاقًا صالحًا، مثل example.com
+Set a sending domain first,حدّد نطاق إرسال أولًا
+Please wait a few seconds before checking again,يرجى الانتظار بضع ثوانٍ قبل التحقق مرة أخرى
+Managed e-mail is not available: the platform relay is not configured,البريد المُدار غير متاح: لم يتم إعداد خادم الترحيل للمنصة
+Daily send limit cannot be negative,لا يمكن أن يكون حد الإرسال اليومي سالبًا
+Color must be a hex value like #2f5bea,يجب أن يكون اللون قيمة سداسية عشرية مثل #2f5bea
+Portal domain {0} already belongs to another brand,نطاق البوابة {0} يتبع علامة تجارية أخرى
+"Sender name cannot contain <, >, "", @, comma, semicolon or line breaks","لا يمكن أن يحتوي اسم المرسل على < أو > أو "" أو @ أو فاصلة أو فاصلة منقوطة أو أسطر جديدة"
+Sender name is too long,اسم المرسل طويل جدًا
+Backup destinations,وجهات النسخ الاحتياطي
+Add destination,إضافة وجهة
+"Choose where your servers upload site backups. Connect Google Drive, OneDrive or Dropbox with one click, or use your own S3 bucket. Without a destination, backups go to the platform storage.",اختر المكان الذي ترفع إليه خوادمك النسخ الاحتياطية للمواقع. اربط Google Drive أو OneDrive أو Dropbox بنقرة واحدة، أو استخدم حاوية S3 الخاصة بك. بدون وجهة تُحفظ النسخ في تخزين المنصة.
+e.g. Company Drive,مثال: Drive الشركة
+Folder,المجلد
+Each server writes into a sub-folder named after its server ID.,يكتب كل خادم في مجلد فرعي يحمل معرّف الخادم.
+Use for all team servers without their own destination,استخدمها لكل خوادم الفريق التي ليس لها وجهة خاصة
+Bucket,الحاوية
+S3 provider,مزوّد S3
+Endpoint,نقطة الاتصال
+Access key ID,معرّف مفتاح الوصول
+Secret access key,مفتاح الوصول السري
+Leave empty to keep the current secret.,اتركه فارغًا للإبقاء على المفتاح السري الحالي.
+Root folder ID (optional),معرّف المجلد الجذر (اختياري)
+Nexaploy only sees the files it creates in your Drive.,لا يرى Nexaploy إلا الملفات التي ينشئها في Drive الخاص بك.
+Save and connect,حفظ وربط
+No destinations yet. Backups go to the platform storage.,لا توجد وجهات بعد. تُحفظ النسخ الاحتياطية في تخزين المنصة.
+Last test,آخر اختبار
+Default,افتراضي
+Reconnect,إعادة الربط
+Connect,ربط
+Test,اختبار
+Disconnect,فصل
+Backups go to,تُحفظ النسخ في
+Backup destination,وجهة النسخ الاحتياطي
+Retention,مدة الاحتفاظ
+Team default for every site without its own retention.,الإعداد الافتراضي للفريق لكل موقع ليس له مدة احتفاظ خاصة.
+Keep backups in storage (days),الاحتفاظ بالنسخ في التخزين (أيام)
+0 = keep forever,0 = الاحتفاظ دائمًا
+Keep on the server (days),الاحتفاظ على الخادم (أيام)
+0 = delete from the server right after upload,0 = الحذف من الخادم مباشرة بعد الرفع
+Daily backups to keep,عدد النسخ اليومية المحتفظ بها
+Weekly backups to keep,عدد النسخ الأسبوعية المحتفظ بها
+Monthly backups to keep,عدد النسخ الشهرية المحتفظ بها
+Save team default,حفظ الإعداد الافتراضي للفريق
+In storage,في التخزين
+On server,على الخادم
+Daily / weekly / monthly,يومي / أسبوعي / شهري
+Team default,افتراضي الفريق
+Restore…,استعادة…
+Restoring into the same site replaces its current data. Restore into a new site to inspect a backup safely.,الاستعادة إلى الموقع نفسه تستبدل بياناته الحالية. استعد إلى موقع جديد لفحص النسخة بأمان.
+No uploaded backups for this site yet.,لا توجد نسخ احتياطية مرفوعة لهذا الموقع بعد.
+Contents,المحتويات
+Restore what,ما الذي تريد استعادته
+Database and files,قاعدة البيانات والملفات
+Database only,قاعدة البيانات فقط
+Files only,الملفات فقط
+Restore into this site,استعادة إلى هذا الموقع
+Restore as new site,استعادة كموقع جديد
+New site name,اسم الموقع الجديد
+Connected. Your servers will use it for the next backups.,تم الربط. ستستخدمه خوادمك في النسخ الاحتياطية القادمة.
+Team default ({0}),افتراضي الفريق ({0})
+Platform storage,تخزين المنصة
+Not configured,غير مُعد
+at least {0} days,{0} يوم على الأقل
+at most {0} days,{0} يوم على الأكثر
+at most {0} days on the server,{0} يوم على الأكثر على الخادم
+at most {0} monthly backups,{0} نسخة شهرية على الأكثر
+longer than {0} days needs the extended retention add-on,الاحتفاظ لأكثر من {0} يوم يتطلب إضافة الاحتفاظ الممتد
+Limits: {0},الحدود: {0}
+Disconnect {0}? Servers using it fall back to the platform storage.,فصل {0}؟ ستعود الخوادم التي تستخدمها إلى تخزين المنصة.
+Disconnected,تم الفصل
+Delete {0}? Backups already stored there are not deleted.,حذف {0}؟ لن تُحذف النسخ المخزنة هناك مسبقًا.
+Connection test started,بدأ اختبار الاتصال
+{0} is reachable and writable,{0} متاح وقابل للكتابة
+Connection test failed: {0},فشل اختبار الاتصال: {0}
+Backup destination updated,تم تحديث وجهة النسخ الاحتياطي
+Restore {0} into {1}? Current data is replaced ({2}).,استعادة {0} إلى {1}؟ ستُستبدل البيانات الحالية ({2}).
+Restore started,بدأت الاستعادة
+Backup destination {0} not found,وجهة النسخ الاحتياطي {0} غير موجودة
+Backup destination {0} belongs to another team,وجهة النسخ الاحتياطي {0} تابعة لفريق آخر
+The type of a destination cannot change; add a new destination instead,لا يمكن تغيير نوع الوجهة؛ أضف وجهة جديدة بدلًا من ذلك
+"Choose S3, Google Drive, OneDrive or Dropbox",اختر S3 أو Google Drive أو OneDrive أو Dropbox
+Secret access key is required,مفتاح الوصول السري مطلوب
+Connecting {0} is not available yet; ask the platform operator,ربط {0} غير متاح بعد؛ تواصل مع مشغّل المنصة
+"Only Google Drive, OneDrive and Dropbox destinations can be disconnected",يمكن فصل وجهات Google Drive وOneDrive وDropbox فقط
+Connect the account first,اربط الحساب أولًا
+Server {0} is not active,الخادم {0} غير نشط
+Add an active server to your team to test this destination,أضف خادمًا نشطًا إلى فريقك لاختبار هذه الوجهة
+Connect {0} first,اربط {0} أولًا
+Site {0} belongs to another team,الموقع {0} تابع لفريق آخر
+Backup {0} belongs to another team,النسخة الاحتياطية {0} تابعة لفريق آخر
+The target server uses another backup storage; restore on a server with the same destination,الخادم الهدف يستخدم تخزين نسخ احتياطي آخر؛ استعد على خادم يستخدم الوجهة نفسها
+Unknown backup destination type {0},نوع وجهة النسخ الاحتياطي {0} غير معروف
+Servers still use this backup destination; choose another one for them first,ما زالت خوادم تستخدم هذه الوجهة؛ اختر لها وجهة أخرى أولًا
+Backup retention limits must be 0 or more,يجب أن تكون حدود الاحتفاظ بالنسخ 0 أو أكثر
+The sign-in link is invalid. Start again from this page.,رابط تسجيل الدخول غير صالح. ابدأ من جديد من هذه الصفحة.
+The sign-in took too long. Please connect again.,استغرق تسجيل الدخول وقتًا طويلًا. يرجى الربط مرة أخرى.
+Only team Owners and Admins can connect backup storage.,يمكن لمالكي الفريق ومسؤوليه فقط ربط تخزين النسخ الاحتياطية.
+The backup destination no longer exists.,وجهة النسخ الاحتياطي لم تعد موجودة.
+The connection was cancelled at the provider.,أُلغي الربط لدى المزوّد.
+Connecting failed. See the destination's error and try again.,فشل الربط. راجع خطأ الوجهة وحاول مرة أخرى.
+Connected,متصل
+Not Connected,غير متصل
+database,قاعدة البيانات
+public,الملفات العامة
+site_config,إعدادات الموقع
+"Folder may only contain letters, digits, '.', '_', '-' and '/'",يمكن أن يحتوي المجلد على حروف وأرقام و'.' و'_' و'-' و'/' فقط
+Invalid bucket name,اسم حاوية غير صالح
+Access key ID is required,معرّف مفتاح الوصول مطلوب
+Invalid region,منطقة غير صالحة
+Invalid endpoint,نقطة اتصال غير صالحة
+Invalid S3 provider,مزوّد S3 غير صالح
+Invalid Google Drive folder id,معرّف مجلد Google Drive غير صالح
+"Restore what: all, database or files",ما الذي تريد استعادته: الكل أو قاعدة البيانات أو الملفات
+This backup was not uploaded and cannot be restored,لم تُرفع هذه النسخة ولا يمكن استعادتها
+A new site needs the database: restore everything or the database,يحتاج الموقع الجديد إلى قاعدة البيانات: استعد الكل أو قاعدة البيانات
+Safe update,تحديث آمن
+Open this page from a site.,افتح هذه الصفحة من موقع.
+Test the update before applying it,اختبر التحديث قبل تطبيقه
+"A copy of the site is created on a bench running the new version, migrated and checked (ping, login page, database). Your site is not changed until you apply the update.",تُنشأ نسخة من الموقع على منصة تعمل بالإصدار الجديد، ثم تُرحَّل وتُفحص (ping وصفحة الدخول وقاعدة البيانات). لا يتغير موقعك حتى تطبّق التحديث.
+Current bench,المنصة الحالية
+Current version,الإصدار الحالي
+Newest build,أحدث بناء
+This is a staging copy; test updates on the production site.,هذه نسخة تجريبية؛ اختبر التحديثات على موقع الإنتاج.
+Your role can view tests but not start them.,يمكن لدورك عرض الاختبارات دون تشغيلها.
+Target bench,المنصة الهدف
+Newest build of this bench group,أحدث بناء لمجموعة المنصات هذه
+Test update,اختبار التحديث
+The site already runs the newest build.,الموقع يعمل بالفعل بأحدث بناء.
+A test is already running.,يوجد اختبار قيد التشغيل بالفعل.
+Automatic updates,التحديثات التلقائية
+Only update automatically after every site passed an update test,لا تحدّث تلقائيًا إلا بعد نجاح اختبار التحديث لكل موقع
+This setting belongs to the bench group owner.,هذا الإعداد يخص مالك مجموعة المنصات.
+Update test,اختبار التحديث
+Automatic,تلقائي
+New version,الإصدار الجديد
+Test site,موقع الاختبار
+deleted,محذوف
+Started,بدأ
+Finished,انتهى
+Your site was not changed.,لم يتغير موقعك.
+Check,الفحص
+Result,النتيجة
+Passed,نجح
+Delete the test site afterwards,احذف موقع الاختبار بعد ذلك
+Apply update,تطبيق التحديث
+A fresh backup is taken first.,تؤخذ نسخة احتياطية جديدة أولًا.
+Delete test site,حذف موقع الاختبار
+Cancel test,إلغاء الاختبار
+Hide log,إخفاء السجل
+Show log,عرض السجل
+Previous tests,الاختبارات السابقة
+View,عرض
+Only team Owners and Admins can manage console access.,يمكن لمالكي الفريق ومسؤوليه فقط إدارة صلاحيات وحدة التحكم.
+Console permissions,صلاحيات وحدة التحكم
+"Who may view logs, run SQL and use the Python console on the team's sites. Owners always have every permission; other members get their role's defaults unless you customise them.",من يمكنه عرض السجلات وتشغيل SQL واستخدام وحدة تحكم بايثون على مواقع الفريق. للمالكين كل الصلاحيات دائمًا؛ ويحصل باقي الأعضاء على افتراضيات دورهم ما لم تخصصها.
+Require two-factor authentication for SQL and the console,اشتراط المصادقة الثنائية لـ SQL ووحدة التحكم
+Role defaults,افتراضيات الدور
+Reset,إعادة تعيين
+Console audit log,سجل تدقيق وحدة التحكم
+"Every SQL query, console run and log view on the team's sites, including refused attempts. Entries cannot be edited or deleted.",كل استعلام SQL وتشغيل لوحدة التحكم وعرض للسجلات على مواقع الفريق، بما في ذلك المحاولات المرفوضة. لا يمكن تعديل الإدخالات أو حذفها.
+All sites,كل المواقع
+Kind,النوع
+All kinds,كل الأنواع
+All statuses,كل الحالات
+Nothing recorded yet.,لم يُسجَّل شيء بعد.
+Duration,المدة
+Command,الأمر
+write,كتابة
+commit,حفظ
+Less,أقل
+More,المزيد
+(truncated),(مقتطع)
+Your team requires two-factor authentication for SQL and the console. Enable it for your account and sign in again.,يشترط فريقك المصادقة الثنائية لـ SQL ووحدة التحكم. فعّلها لحسابك ثم سجّل الدخول مجددًا.
+Console access,صلاحيات وحدة التحكم
+"Copy {0} onto bench {1}, migrate it and check it? The site itself is not changed.",نسخ {0} إلى المنصة {1} وترحيله وفحصه؟ لن يتغير الموقع نفسه.
+"Copy {0} onto the newest version, migrate it and check it? The site itself is not changed.",نسخ {0} إلى أحدث إصدار وترحيله وفحصه؟ لن يتغير الموقع نفسه.
+Update test started,بدأ اختبار التحديث
+"Apply the update to {0}? A fresh backup is taken first, then the site moves to bench {1}. Expect a short downtime.",تطبيق التحديث على {0}؟ تؤخذ نسخة احتياطية جديدة أولًا ثم ينتقل الموقع إلى المنصة {1}. توقّع توقفًا قصيرًا.
+Applying the update,جارٍ تطبيق التحديث
+Delete the test site {0}?,حذف موقع الاختبار {0}؟
+Deleting the test site,جارٍ حذف موقع الاختبار
+Cancel this update test?,إلغاء اختبار التحديث هذا؟
+Update test cancelled,أُلغي اختبار التحديث
+Automatic updates now wait for passing tests,التحديثات التلقائية تنتظر الآن نجاح الاختبارات
+Automatic updates no longer wait for tests,لم تعد التحديثات التلقائية تنتظر الاختبارات
+Prepare a bench with the new version,تجهيز منصة بالإصدار الجديد
+Copy the site and run the migration,نسخ الموقع وتشغيل الترحيل
+"Smoke check (ping, login page, database)",فحص سريع (ping وصفحة الدخول وقاعدة البيانات)
+Permissions saved,حُفظت الصلاحيات
+Back to the role defaults,أُعيدت افتراضيات الدور
+Two-factor authentication is now required for SQL and the console,أصبحت المصادقة الثنائية مطلوبة لـ SQL ووحدة التحكم
+Two-factor authentication is no longer required for SQL and the console,لم تعد المصادقة الثنائية مطلوبة لـ SQL ووحدة التحكم
+Two-factor login is not enabled on this platform yet; members without it are refused.,تسجيل الدخول الثنائي غير مفعّل على المنصة بعد؛ سيُرفض الأعضاء الذين لا يستخدمونه.
+"Test the update on the production site, not on a copy",اختبر التحديث على موقع الإنتاج وليس على نسخة
+An update test is already running for {0}: {1},يوجد اختبار تحديث قيد التشغيل للموقع {0}: {1}
+Site {0} has no bench,الموقع {0} ليس له منصة
+Release group {0} has no successful build to test,مجموعة الإصدارات {0} ليس لها بناء ناجح لاختباره
+The site already runs the newest build of {0},الموقع يعمل بالفعل بأحدث بناء من {0}
+"No bench with the new version exists on this server yet. Ask support to prepare one, or wait for the next platform update.",لا توجد بعد منصة بالإصدار الجديد على هذا الخادم. اطلب من الدعم تجهيز واحدة، أو انتظر تحديث المنصة القادم.
+"The site changed (status {0}, bench {1}) before the copy was made",تغير الموقع (الحالة {0}، المنصة {1}) قبل إنشاء النسخة
+An earlier test copy {0} still exists on bench {1}; delete it first,ما زالت نسخة اختبار سابقة {0} موجودة على المنصة {1}؛ احذفها أولًا
+The earlier test copy {0} is busy ({1}),نسخة الاختبار السابقة {0} مشغولة ({1})
+Creating bench {0} with the new image failed,فشل إنشاء المنصة {0} بالصورة الجديدة
+Creating the test copy failed,فشل إنشاء نسخة الاختبار
+Passed; applying automatically failed: {0},نجح الاختبار؛ وفشل التطبيق التلقائي: {0}
+Smoke check failed,فشل الفحص السريع
+The test site is busy ({0}); try again in a moment,موقع الاختبار مشغول ({0})؛ حاول بعد قليل
+A test that is {0} cannot be cancelled,لا يمكن إلغاء اختبار حالته {0}
+Update applied: the site runs on {0},طُبّق التحديث: الموقع يعمل على {0}
+The move failed after the site was removed from the old bench; restore backup {0} or retry the failed job,فشل النقل بعد إزالة الموقع من المنصة القديمة؛ استعد النسخة الاحتياطية {0} أو أعد تشغيل المهمة الفاشلة
+The move was aborted; the site keeps running on {0},أُلغي النقل؛ يستمر الموقع في العمل على {0}
+Applied by the automatic update of bench {0},طُبّق ضمن التحديث التلقائي للمنصة {0}
+Update test {0} not found,اختبار التحديث {0} غير موجود
+"Wait for the test to finish, or cancel it first",انتظر انتهاء الاختبار أو ألغِه أولًا
+Release group {0} not found,مجموعة الإصدارات {0} غير موجودة
+Only the platform can change shared release groups,المنصة وحدها يمكنها تغيير مجموعات الإصدارات المشتركة
+Your team permissions do not include: {0},صلاحياتك في الفريق لا تشمل: {0}
+Team {0} requires two-factor authentication for SQL and the console. Enable it for your account and sign in again.,يشترط الفريق {0} المصادقة الثنائية لـ SQL ووحدة التحكم. فعّلها لحسابك ثم سجّل الدخول مجددًا.
+{0} is not a member of this team,{0} ليس عضوًا في هذا الفريق
+You cannot change the console permissions of a team {0},لا يمكنك تغيير صلاحيات وحدة التحكم لعضو بدور {0}
+capabilities must be an object,يجب أن تكون الصلاحيات كائنًا
+Unknown capability {0},صلاحية غير معروفة {0}
+Unknown kind {0},نوع غير معروف {0}
+View logs,عرض السجلات
+Run read-only SQL,تشغيل SQL للقراءة فقط
+Run SQL that changes data,تشغيل SQL يغيّر البيانات
+Use the Python console,استخدام وحدة تحكم بايثون
+Denied,مرفوض
+Preparing Bench,تجهيز المنصة
+Cloning,جارٍ النسخ
+Testing,جارٍ الاختبار
+Applying,جارٍ التطبيق
+Applied,مُطبَّق
+Apply Failed,فشل التطبيق
+Only a passed test can be applied,لا يمكن تطبيق إلا اختبار ناجح
+The site must be Active,يجب أن يكون الموقع نشطًا
+The site moved since the test ran; run a new test,انتقل الموقع منذ تشغيل الاختبار؛ شغّل اختبارًا جديدًا
+The tested bench is no longer active; run a new test,المنصة المختبرة لم تعد نشطة؛ شغّل اختبارًا جديدًا
+Migration failed on the new version,فشل الترحيل على الإصدار الجديد
+Backing up the production site failed,فشل النسخ الاحتياطي لموقع الإنتاج
+Restoring the copy on the new bench failed,فشلت استعادة النسخة على المنصة الجديدة
+Preparing the copy (muting emails) failed,فشل تجهيز النسخة (إيقاف البريد)
+Target bench not found,المنصة الهدف غير موجودة
+The site already runs on this bench,الموقع يعمل بالفعل على هذه المنصة
+Target bench is not active,المنصة الهدف غير نشطة
+"The test copy is created on the site's own server: choose a bench on the same server (move the site to another server first, then test the update there)",تُنشأ نسخة الاختبار على خادم الموقع نفسه: اختر منصة على الخادم نفسه (أو انقل الموقع إلى خادم آخر أولًا ثم اختبر التحديث هناك)
+Site name is too long for an update test copy,اسم الموقع طويل جدًا لنسخة اختبار التحديث
+Restore to a point in time,الاستعادة إلى نقطة زمنية
+Bring the database back to how it was at any minute of the window below: the nearest earlier backup is restored and the database changes recorded since then are replayed up to that time.,أعد قاعدة البيانات إلى حالتها في أي دقيقة ضمن النافذة أدناه: تُستعاد أقرب نسخة احتياطية سابقة ثم تُعاد تغييرات قاعدة البيانات المسجّلة بعدها حتى ذلك الوقت.
+Available from,متاح من
+to,إلى
+"(last {0} days, up to {1} minutes ago)",(آخر {0} أيام، حتى ما قبل {1} دقائق)
+Restore to,الاستعادة إلى
+Choose a time inside the available window.,اختر وقتًا ضمن النافذة المتاحة.
+Restore into a new site to inspect it first (recommended),الاستعادة إلى موقع جديد لفحصه أولًا (موصى به)
+New site,الموقع الجديد
+Outgoing emails are muted and the scheduler is paused on the copy. It is billed like any site until you drop it.,الرسائل الصادرة مكتومة والمجدول متوقف على النسخة. تُحتسب تكلفتها مثل أي موقع حتى تحذفها.
+Overwrite this site,الكتابة فوق هذا الموقع
+All changes made after the chosen time are lost. A backup of the current state is taken first and the site is in maintenance mode during the restore.,ستُفقد كل التغييرات التي أُجريت بعد الوقت المختار. تؤخذ أولًا نسخة احتياطية من الحالة الحالية ويكون الموقع في وضع الصيانة أثناء الاستعادة.
+The copy is being restored:,تجري استعادة النسخة:
+Uploaded files come from the backup; files uploaded after it are kept from the current site.,تأتي الملفات المرفوعة من النسخة الاحتياطية؛ وتُحفظ الملفات المرفوعة بعدها من الموقع الحالي.
+Replace ALL current data of {0} with its state at {1}? A backup of the current state is taken first.,استبدال كل البيانات الحالية للموقع {0} بحالتها في {1}؟ تؤخذ أولًا نسخة احتياطية من الحالة الحالية.
+Restore {0} as it was at {1} into a new site? The current site is not changed.,استعادة {0} كما كان في {1} إلى موقع جديد؟ لن يتغير الموقع الحالي.
+Point-in-time restore started,بدأت الاستعادة إلى نقطة زمنية
+Restoring into {0},جارٍ الاستعادة إلى {0}
+Point-in-time restore failed. Check the jobs log.,فشلت الاستعادة إلى نقطة زمنية. راجع سجل المهام.
+Unknown restore mode {0},وضع استعادة غير معروف {0}
+Type the site name to confirm that its current data will be replaced,اكتب اسم الموقع لتأكيد استبدال بياناته الحالية
+The server of this site is not active,خادم هذا الموقع غير نشط
+A point-in-time restore of this site is already running,هناك استعادة إلى نقطة زمنية قيد التنفيذ لهذا الموقع بالفعل
+No backup can be used for this time,لا توجد نسخة احتياطية يمكن استخدامها لهذا الوقت
+Choose a valid date and time,اختر تاريخًا ووقتًا صالحين
+No backup with a binlog position yet. Point-in-time recovery starts with the next backup.,لا توجد بعد نسخة احتياطية تحمل موضع سجل ثنائي. تبدأ الاستعادة إلى نقطة زمنية مع النسخة الاحتياطية التالية.
+The first restorable point is only a few minutes old. Try again shortly.,أول نقطة قابلة للاستعادة عمرها دقائق قليلة فقط. حاول مرة أخرى بعد قليل.
+Point-in-time recovery is not available for this site,الاستعادة إلى نقطة زمنية غير متاحة لهذا الموقع
+The earliest time you can restore to is {0} (UTC),أقدم وقت يمكنك الاستعادة إليه هو {0} (UTC)
+The latest time you can restore to is {0} (UTC),أحدث وقت يمكنك الاستعادة إليه هو {0} (UTC)
+Cannot build a site name for the restored copy,تعذّر إنشاء اسم موقع للنسخة المستعادة
+This backup cannot be restored,لا يمكن استعادة هذه النسخة الاحتياطية
+A restored copy needs its own name,تحتاج النسخة المستعادة إلى اسم خاص بها
+Point-in-time restore to {0} failed: {1},فشلت الاستعادة إلى النقطة الزمنية {0}: {1}
+latest,الأحدث
+Upgrade agent,ترقية الوكيل
+Roll back agent,استرجاع إصدار الوكيل السابق
+In Progress,قيد التنفيذ
+Succeeded,نجحت
+Rolling Back,جارٍ الاسترجاع
+Rolled Back,تم الاسترجاع
+Upgrade the agent from {0} to {1}? Benches and sites keep running; the agent restarts.,ترقية الوكيل من {0} إلى {1}؟ تستمر البنشات والمواقع في العمل؛ ويُعاد تشغيل الوكيل.
+Agent upgrade started,بدأت ترقية الوكيل
+Put the previous agent version back on this server?,إعادة الإصدار السابق للوكيل على هذا الخادم؟
+Agent rollback started,بدأ استرجاع إصدار الوكيل
+No published agent release for this server's channel,لا يوجد إصدار منشور للوكيل لقناة هذا الخادم
+The server must be Active (online) to upgrade its agent,يجب أن يكون الخادم نشطًا (متصلًا) لترقية وكيله
+An agent upgrade or rollback is already in progress on this server,توجد ترقية أو استرجاع للوكيل قيد التنفيذ بالفعل على هذا الخادم
+The agent is already on this version or newer,الوكيل يعمل بالفعل بهذا الإصدار أو بإصدار أحدث
+You are not allowed to upgrade the agent on this server,غير مسموح لك بترقية الوكيل على هذا الخادم
+Agent release {0} is not published,إصدار الوكيل {0} غير منشور
+The agent is not online. Run `nexaploy-agent rollback` on the server (see the documentation).,الوكيل غير متصل. نفّذ `nexaploy-agent rollback` على الخادم (راجع التوثيق).
+Only platform administrators can upgrade agents in bulk,يمكن لمسؤولي المنصة فقط ترقية الوكلاء دفعة واحدة
+The agent did not report version {0} within {1} minutes (it reports {2}). The agent rolls back by itself when the new version does not start; otherwise use Roll back agent or run `nexaploy-agent rollback` on the server.,لم يُبلغ الوكيل عن الإصدار {0} خلال {1} دقيقة (يُبلغ عن {2}). يسترجع الوكيل الإصدار السابق تلقائيًا إذا لم يعمل الإصدار الجديد؛ وإلا فاستخدم «استرجاع إصدار الوكيل السابق» أو نفّذ `nexaploy-agent rollback` على الخادم.
+The agent job failed,فشلت مهمة الوكيل
+Agent {0} · latest {1} ({2}),الوكيل {0} · الأحدث {1} ({2})
+Upgrade agent to {0},ترقية الوكيل إلى {0}
+Upgrade the agent on {0} from {1} to {2}? Benches and sites keep running; the agent restarts.,ترقية الوكيل على {0} من {1} إلى {2}؟ تستمر البنشات والمواقع في العمل؛ ويُعاد تشغيل الوكيل.
+Agent,الوكيل
+Put the previous agent version back on {0}?,إعادة الإصدار السابق للوكيل على {0}؟
+Upgrade outdated servers,ترقية الخوادم ذات الوكيل القديم
+Every active server already runs the latest agent of its channel.,كل الخوادم النشطة تعمل بالفعل بأحدث وكيل في قناتها.
+Upgrade the agent on {0} servers?,ترقية الوكيل على {0} خوادم؟
+Agent upgrade queued on {0} servers,تمت جدولة ترقية الوكيل على {0} خوادم
+stable,مستقر
+beta,تجريبي
+Agent Release,إصدار الوكيل
+Agent Upgrades,ترقيات الوكيل
+Allow customers to upgrade the agent on their BYOS servers,السماح للعملاء بترقية الوكيل على خوادمهم الخاصة (BYOS)
+A storage change is already in progress for {0},يوجد تغيير في التخزين قيد التنفيذ بالفعل لـ {0}
+A storage profile cannot be renamed,لا يمكن إعادة تسمية ملف تعريف التخزين
+Access key is required,مفتاح الوصول مطلوب
+Add-ons,الإضافات
+Add-on,إضافة
+Attachments storage,تخزين المرفقات
+Cache size must look like 512M or 2G,يجب أن يكون حجم التخزين المؤقت مثل 512M أو 2G
+Check status,فحص الحالة
+Choose a primary storage profile,اختر ملف تعريف التخزين الأساسي
+Choose…,اختر…
+"Compare mode must be size, modtime or checksum",يجب أن يكون وضع المقارنة size أو modtime أو checksum
+Copy all attachments back to the server's disk and stop using object storage?,نسخ جميع المرفقات إلى قرص الخادم وإيقاف استخدام التخزين السحابي؟
+Customer buckets are not enabled on this platform,حاويات العملاء غير مفعّلة على هذه المنصة
+Database backups now go to {0},النسخ الاحتياطية لقواعد البيانات تُحفظ الآن في {0}
+Deleted files are removed from the primary and the replica and kept in the trash bin. Files created and deleted between two replications are not kept.,تُحذف الملفات المحذوفة من الحاوية الأساسية والنسخة المتماثلة وتُحفظ في سلة المحذوفات. لا تُحفظ الملفات التي أُنشئت وحُذفت بين عمليتي نسخ متتاليتين.
+Fail over to replica,التحويل إلى النسخة المتماثلة
+Failover needs offloaded attachments with a replica,يتطلب التحويل مرفقات على التخزين السحابي مع نسخة متماثلة
+File,الملف
+File restored,تمت استعادة الملف
+Files are served from the replica (failover). Replication is paused until you switch back.,تُقدَّم الملفات من النسخة المتماثلة (تحويل احتياطي). النسخ المتماثل متوقف حتى تعود إلى الأساسية.
+Files in the bucket,الملفات في الحاوية
+"If the primary region is down, serve the files from the replica.",إذا تعطلت المنطقة الأساسية، قدّم الملفات من النسخة المتماثلة.
+Invalid path prefix,بادئة المسار غير صالحة
+Invalid trash path,مسار سلة المحذوفات غير صالح
+Job {0} not found,المهمة {0} غير موجودة
+Keep deleted files for (days),الاحتفاظ بالملفات المحذوفة لمدة (أيام)
+"Keep this site's uploaded files on S3-compatible object storage instead of the server's disk, optionally with a replica in another region and a trash bin for deleted files.",احفظ الملفات المرفوعة لهذا الموقع على تخزين سحابي متوافق مع S3 بدلاً من قرص الخادم، مع نسخة متماثلة اختيارية في منطقة أخرى وسلة للملفات المحذوفة.
+Last replication,آخر نسخ متماثل
+Local,محلي
+Max trash retention must be at least 1 day,يجب ألا تقل أقصى مدة للاحتفاظ في سلة المحذوفات عن يوم واحد
+Migrating,جارٍ النقل
+Migrating Back,جارٍ الإرجاع
+Mounts healthy,نقاط التركيب سليمة
+Move the files back to the server before changing the primary bucket,أعد الملفات إلى الخادم قبل تغيير الحاوية الأساسية
+"Move this site's attachments to object storage? Existing files are copied, verified and then removed from the server.",نقل مرفقات هذا الموقع إلى التخزين السحابي؟ تُنسخ الملفات الحالية ويُتحقق منها ثم تُحذف من الخادم.
+Moving files. The site stays online; this can take a while for many files.,جارٍ نقل الملفات. يبقى الموقع متاحاً؛ قد يستغرق ذلك وقتاً مع كثرة الملفات.
+No plan is linked for add-on {0},لا توجد خطة مرتبطة بالإضافة {0}
+No replica,بدون نسخة متماثلة
+No trash bin,بدون سلة محذوفات
+Offloaded,على التخزين السحابي
+Failed Over,محوّل إلى النسخة المتماثلة
+Offsite attachments are not available,المرفقات الخارجية غير متاحة
+Offsite attachments are not available on this platform yet.,المرفقات الخارجية غير متاحة على هذه المنصة بعد.
+Offsite attachments are not set up for {0},المرفقات الخارجية غير مُعدّة لـ {0}
+On object storage,على التخزين السحابي
+On the server's disk,على قرص الخادم
+Only a platform profile can hold the platform's database backups,يمكن لملف تعريف تابع للمنصة فقط استضافة النسخ الاحتياطية لقواعد بيانات المنصة
+Only platform administrators can do this,هذا الإجراء متاح لمسؤولي المنصة فقط
+"Only team owners, admins and billing members can change paid add-ons.",يمكن لمالكي الفريق والمسؤولين وأعضاء الفوترة فقط تغيير الإضافات المدفوعة.
+Only the first files are shown.,تُعرض الملفات الأولى فقط.
+Primary bucket,الحاوية الأساسية
+Profile name is required,اسم ملف التعريف مطلوب
+"Profile name must be 2-41 lowercase letters, numbers or dashes",يجب أن يتكون اسم ملف التعريف من 2 إلى 41 حرفاً صغيراً أو رقماً أو شرطة
+Replica,النسخة المتماثلة
+Replica (disaster recovery),نسخة متماثلة (التعافي من الكوارث)
+Replication,النسخ المتماثل
+Replication error,خطأ النسخ المتماثل
+Replication interval must be at least 5 minutes,يجب ألا تقل فترة النسخ المتماثل عن 5 دقائق
+Restore {0}?,استعادة {0}؟
+Secret key is required,المفتاح السري مطلوب
+Serve this site's files from the replica? Use this when the primary region is down. Files written since the last replication are not on the replica.,تقديم ملفات هذا الموقع من النسخة المتماثلة؟ استخدم ذلك عند تعطل المنطقة الأساسية. الملفات المكتوبة منذ آخر نسخ متماثل ليست على النسخة المتماثلة.
+Serving from,تُقدَّم من
+Show deleted files,عرض الملفات المحذوفة
+Skipped,تم التخطي
+Storage,التخزين
+Storage change queued,تمت جدولة تغيير التخزين
+Storage profile {0} belongs to someone else,ملف تعريف التخزين {0} يخص جهة أخرى
+Storage profile {0} is not available,ملف تعريف التخزين {0} غير متاح
+Storage profile {0} is set in Storage Settings,ملف تعريف التخزين {0} مستخدم في إعدادات التخزين
+Storage profile {0} is used by {1},ملف تعريف التخزين {0} مستخدم من قبل {1}
+Storage profile {0} not found,ملف تعريف التخزين {0} غير موجود
+Switch back to primary,العودة إلى الأساسية
+Switch back to the primary? Files written during the failover are copied to the primary first.,العودة إلى الحاوية الأساسية؟ تُنسخ الملفات المكتوبة أثناء التحويل إلى الأساسية أولاً.
+Target must be primary or replica,يجب أن يكون الهدف الأساسية أو النسخة المتماثلة
+The DR replica is not available,النسخة المتماثلة للتعافي من الكوارث غير متاحة
+The replica must be a different profile than the primary,يجب أن تكون النسخة المتماثلة ملف تعريف مختلفاً عن الأساسي
+The site is already served from the {0},الموقع يُقدَّم بالفعل من {0}
+The site is served from its replica; switch back to the primary first,الموقع يُقدَّم من نسخته المتماثلة؛ عد إلى الأساسية أولاً
+The trash bin is empty.,سلة المحذوفات فارغة.
+The trash bin is not available,سلة المحذوفات غير متاحة
+The trash bin is not enabled for {0},سلة المحذوفات غير مفعّلة لـ {0}
+The trash bin needs a replica,تتطلب سلة المحذوفات نسخة متماثلة
+The trash must be a different profile than the primary and the replica,يجب أن تكون سلة المحذوفات ملف تعريف مختلفاً عن الأساسي والنسخة المتماثلة
+Timed out waiting for the server,انتهت مهلة انتظار الخادم
+Trash bin,سلة المحذوفات
+Trash bin for deleted files,سلة المحذوفات للملفات المحذوفة
+Trash retention must be between 1 and {0} days,يجب أن تكون مدة الاحتفاظ في سلة المحذوفات بين 1 و{0} يوماً
+Unknown add-on {0},إضافة غير معروفة {0}
+Unknown attachments mode,وضع المرفقات غير معروف
+Unknown setting {0},إعداد غير معروف {0}
+Unknown storage provider,مزود التخزين غير معروف
+month,شهر
+primary,الأساسية
+replica,النسخة المتماثلة
+{0} cannot be negative,لا يمكن أن تكون قيمة {0} سالبة
+{0} must be a number,يجب أن تكون قيمة {0} رقماً
+{0} must be a platform profile (no team),يجب أن يكون {0} ملف تعريف تابعاً للمنصة (بدون فريق)
+{0} must be an Add-on plan,يجب أن تكون {0} خطة إضافة
+{0} needs a {1},{0} يحتاج إلى {1}
+API base URL,عنوان URL الأساسي للواجهة البرمجية
+Access key,مفتاح الوصول
+Add-on prices (per site and month),أسعار الإضافات (لكل موقع شهرياً)
+Addressing,طريقة العنونة
+Administration,الإدارة
+Agent release {0} not found,إصدار الوكيل {0} غير موجود
+Agent releases,إصدارات الوكيل
+Agent repository URL,عنوان مستودع الوكيل
+Agent upgrade timeout (minutes),مهلة ترقية الوكيل (بالدقائق)
+Agent upgrades started,بدأت ترقيات الوكيل
+Agent versions,إصدارات الوكيل
+Agents on servers,الوكلاء على الخوادم
+Alert e-mail,بريد التنبيهات
+All servers,كل الخوادم
+Amount is too large,المبلغ كبير جداً
+Amount must be a number,يجب أن يكون المبلغ رقماً
+Amount must not be zero,يجب ألا يكون المبلغ صفراً
+Apply,تطبيق
+Approve,موافقة
+Are you sure?,هل أنت متأكد؟
+BYOS server plan,خطة خادم BYOS
+Backup storage updated,تم تحديث تخزين النسخ الاحتياطية
+Backups and agents,النسخ الاحتياطية والوكلاء
+Billing enabled,الفوترة مفعّلة
+Billing exempt,معفى من الفوترة
+Brand,العلامة التجارية
+Brand ID,معرّف العلامة التجارية
+Brand ID is required,معرّف العلامة التجارية مطلوب
+Brand deleted,تم حذف العلامة التجارية
+Brand saved,تم حفظ العلامة التجارية
+Brand {0} not found,العلامة التجارية {0} غير موجودة
+Brands (white label),العلامات التجارية (العلامة البيضاء)
+By Frappe version,حسب إصدار Frappe
+CPU s/day,ث معالج/يوم
+CPU seconds per day,ثواني المعالج يومياً
+Cache size per mount,حجم الذاكرة المؤقتة لكل تركيب
+Channel,القناة
+Compare files by,مقارنة الملفات حسب
+Control plane,لوحة التحكم المركزية
+"Credit type must be Promo, Refund or Adjustment",يجب أن يكون نوع الرصيد ترويجياً أو استرداداً أو تسوية
+Credits to add to {0} ({1}); negative = adjustment,الرصيد المراد إضافته إلى {0} ({1})؛ القيمة السالبة = تسوية
+Credits updated,تم تحديث الرصيد
+Currency,العملة
+Customers may upgrade the agent on their own servers,يمكن للعملاء ترقية الوكيل على خوادمهم الخاصة
+Customers may use their own buckets,يمكن للعملاء استخدام حاوياتهم الخاصة
+DKIM record type,نوع سجل DKIM
+DKIM selector,محدد DKIM
+DKIM value,قيمة DKIM
+DMARC policy,سياسة DMARC
+DMARC reports to,إرسال تقارير DMARC إلى
+DR replica,نسخة التعافي من الكوارث
+Daily send limit per site,حد الإرسال اليومي لكل موقع
+Default primary bucket,الحاوية الأساسية الافتراضية
+Default replica bucket,حاوية النسخة الافتراضية
+Default sender domain,نطاق المرسل الافتراضي
+Default site plan,خطة الموقع الافتراضية
+Default trash bucket,حاوية سلة المحذوفات الافتراضية
+Default trash retention (days),مدة الاحتفاظ الافتراضية في سلة المحذوفات (أيام)
+Delete brand {0}?,حذف العلامة التجارية {0}؟
+Delete storage profile {0}?,حذف ملف التخزين {0}؟
+Disk,القرص
+Disk alerts,تنبيهات القرص
+Dropbox app key,مفتاح تطبيق Dropbox
+Dropbox app secret,سر تطبيق Dropbox
+E-mail & brands,البريد والعلامات التجارية
+Encryption,التشفير
+Every active server runs the latest agent of its channel.,كل خادم نشط يشغّل أحدث وكيل في قناته.
+Every release is verified.,كل الإصدارات موثّقة.
+Every server will upload its backups to the selected bucket. Continue?,سترفع كل الخوادم نسخها الاحتياطية إلى الحاوية المحددة. هل تريد المتابعة؟
+Exchange rate,سعر الصرف
+Extended retention,احتفاظ ممتد
+Failed agent jobs in the last 24 hours,مهام الوكيل الفاشلة خلال آخر 24 ساعة
+Failed jobs (24 h),المهام الفاشلة (24 ساعة)
+Favicon URL,عنوان أيقونة الموقع
+Features & pricing,الميزات والأسعار
+Footer text,نص التذييل
+Frappe,Frappe
+Git ref,مرجع Git
+"Google Drive, OneDrive and Dropbox apps",تطبيقات Google Drive وOneDrive وDropbox
+Google client ID,معرّف عميل Google
+Google client secret,سر عميل Google
+Grace days,أيام السماح
+Granted by a platform administrator,منحه مسؤول المنصة
+Included retention (days),مدة الاحتفاظ المضمّنة (أيام)
+Included retention cannot exceed the maximum,لا يمكن أن تتجاوز مدة الاحتفاظ المضمّنة الحد الأقصى
+Integration ID,معرّف التكامل
+Invalid request,طلب غير صالح
+Invalid value for {0},قيمة غير صالحة لـ {0}
+Invoice day,يوم الفوترة
+Invoice day must be between 1 and 31,يجب أن يكون يوم الفوترة بين 1 و31
+Keep a local copy after offloading,الاحتفاظ بنسخة محلية بعد النقل
+Latest,الأحدث
+Leave empty to keep,اتركه فارغاً للإبقاء عليه
+Lift the billing suspension of {0}?,رفع إيقاف الفوترة عن {0}؟
+Limits,الحدود
+Listing updated,تم تحديث الإدراج
+Listings in review,إدراجات قيد المراجعة
+Listings waiting for review,إدراجات بانتظار المراجعة
+MRR,الإيراد الشهري المتكرر
+Managed e-mail relay,مرحّل البريد المُدار
+Marketplace review,مراجعة المتجر
+Max database (MB),أقصى حجم لقاعدة البيانات (ميغابايت)
+Max deletions per sync,أقصى عدد حذف لكل مزامنة
+Max local retention (days),أقصى احتفاظ محلي (أيام)
+Max monthly backups kept,أقصى عدد للنسخ الشهرية المحتفظ بها
+Max sites,أقصى عدد للمواقع
+Max storage (MB),أقصى تخزين (ميغابايت)
+Max trash retention (days),أقصى احتفاظ في سلة المحذوفات (أيام)
+Maximum retention (days),أقصى مدة احتفاظ (أيام)
+Maximum top-up,أقصى مبلغ شحن
+Microsoft client ID,معرّف عميل Microsoft
+Microsoft client secret,سر عميل Microsoft
+Microsoft tenant,مستأجر Microsoft
+Minimum retention (days),أدنى مدة احتفاظ (أيام)
+Minimum retention cannot exceed the maximum,لا يمكن أن تتجاوز أدنى مدة احتفاظ الحد الأقصى
+Minimum top-up,أدنى مبلغ شحن
+Minimum top-up cannot exceed the maximum,لا يمكن أن يتجاوز أدنى مبلغ شحن الحد الأقصى
+New brand,علامة تجارية جديدة
+New plan,خطة جديدة
+New profile,ملف جديد
+New release,إصدار جديد
+No active server can test this bucket,لا يوجد خادم نشط يمكنه اختبار هذه الحاوية
+No brands yet: the portal uses the built-in Nexaploy look.,لا توجد علامات تجارية بعد: تستخدم البوابة مظهر Nexaploy المدمج.
+No failed jobs.,لا توجد مهام فاشلة.
+No plan is linked,لا توجد خطة مرتبطة
+No platform changes yet.,لا توجد تغييرات على المنصة بعد.
+No server is above 85 % disk usage.,لا يوجد خادم تجاوز استخدام القرص فيه 85 %.
+No storage profiles yet.,لا توجد ملفات تخزين بعد.
+None (manual settings),لا شيء (إعدادات يدوية)
+Not set,غير معيّن
+Notes to the publisher,ملاحظات للناشر
+Nothing to review.,لا يوجد ما يُراجع.
+Offsite attachments,المرفقات خارج الخادم
+"Offsite attachments, DR replica and trash bin",المرفقات خارج الخادم ونسخة التعافي وسلة المحذوفات
+Only an adjustment can remove credits,التسوية فقط يمكنها خصم الرصيد
+Open tickets,التذاكر المفتوحة
+Order,الترتيب
+Outdated,قديم
+Outdated agents,وكلاء قديمون
+Over the limit,عند تجاوز الحد
+Overdue invoices,الفواتير المتأخرة
+Override,تجاوز
+Path prefix,بادئة المسار
+Path style,نمط المسار
+Plan saved,تم حفظ الخطة
+Plan title is required,عنوان الخطة مطلوب
+Plan title must be 2-80 characters,يجب أن يكون عنوان الخطة بين 2 و80 حرفاً
+Plan type is required,نوع الخطة مطلوب
+Plan {0} not found,الخطة {0} غير موجودة
+Plans and add-ons,الخطط والإضافات
+Platform,المنصة
+Platform backup storage,تخزين النسخ الاحتياطية للمنصة
+Platform default brand,العلامة التجارية الافتراضية للمنصة
+Portal domains,نطاقات البوابة
+Portal domains (one per line),نطاقات البوابة (واحد في كل سطر)
+Preset default,الإعداد الافتراضي
+Preview outdated,معاينة القديمة
+Price per month,السعر الشهري
+Primary colour,اللون الأساسي
+Profile ID,معرّف الملف
+Publish,نشر
+Publishable key,المفتاح القابل للنشر
+Reason (shown in the team's credit ledger),السبب (يظهر في سجل رصيد الفريق)
+Recent platform changes,أحدث تغييرات المنصة
+Redirect URI to register with each provider,عنوان إعادة التوجيه لتسجيله لدى كل مزوّد
+Reference,المرجع
+Region label,تسمية المنطقة
+Registry,السجل
+Registry password,كلمة مرور السجل
+Registry user,مستخدم السجل
+Reject,رفض
+Release notes,ملاحظات الإصدار
+Release published,تم نشر الإصدار
+Release saved,تم حفظ الإصدار
+Release unpublished,تم إلغاء نشر الإصدار
+Release updated,تم تحديث الإصدار
+Released,تاريخ الإصدار
+Releases waiting for or failing verification,إصدارات بانتظار التحقق أو فشل التحقق منها
+Remove the stored value of {0}?,إزالة القيمة المخزنة لـ {0}؟
+Replication interval (minutes),فترة النسخ المتماثل (دقائق)
+Return URL after payment,عنوان العودة بعد الدفع
+Return-Path host,مضيف Return-Path
+Return-Path value,قيمة Return-Path
+Review updated,تم تحديث المراجعة
+Reviews,المراجعات
+SMTP host,مضيف SMTP
+SMTP port,منفذ SMTP
+SPF include,تضمين SPF
+Saving a change re-configures the relay on every site that uses it.,حفظ أي تغيير يعيد إعداد المرحّل على كل موقع يستخدمه.
+Search teams,البحث في الفرق
+Secret key,المفتاح السري
+Secrets are never shown. Leave a secret empty to keep it.,لا تُعرض الأسرار أبداً. اترك الحقل فارغاً للإبقاء على القيمة.
+Sender address,عنوان المرسل
+Sender name,اسم المرسل
+Server BYOS,خادم BYOS
+Server Hosted,خادم مستضاف
+Server health,صحة الخوادم
+Server {0} cannot be used to test this bucket,لا يمكن استخدام الخادم {0} لاختبار هذه الحاوية
+Set,معيّن
+Set status,تعيين الحالة
+Settings saved,تم حفظ الإعدادات
+Sign-up credits,رصيد التسجيل
+Sites by status,المواقع حسب الحالة
+Storage & backups,التخزين والنسخ الاحتياطية
+Storage profile deleted,تم حذف ملف التخزين
+Storage profile saved,تم حفظ ملف التخزين
+Storage profiles (S3-compatible buckets),ملفات التخزين (حاويات متوافقة مع S3)
+Submitted,تاريخ الإرسال
+Support e-mail,بريد الدعم
+Suspend after (days),الإيقاف بعد (أيام)
+Suspend every active site of {0}?,إيقاف كل المواقع النشطة لـ {0}؟
+Tax (%),الضريبة (%)
+Tax must be between 0 and 100 %,يجب أن تكون الضريبة بين 0 و100 %
+Team suspended,تم إيقاف الفريق
+Team unsuspended,تم رفع الإيقاف عن الفريق
+Team updated,تم تحديث الفريق
+Teams,الفرق
+Teams & servers,الفرق والخوادم
+Teams still use brand {0}; disable it instead,ما زالت فرق تستخدم العلامة التجارية {0}؛ عطّلها بدلاً من ذلك
+Teams with the extended retention add-on,الفرق التي لديها إضافة الاحتفاظ الممتد
+Unknown review action {0},إجراء مراجعة غير معروف {0}
+Unknown secret {0},سر غير معروف {0}
+Unpublish,إلغاء النشر
+Unsuspend,رفع الإيقاف
+Upgrade,ترقية
+Upgrade all outdated servers,ترقية كل الخوادم القديمة
+Upgrade the agent on every outdated server now?,ترقية الوكيل على كل الخوادم القديمة الآن؟
+Upgrade the agent on {0} to {1}?,ترقية الوكيل على {0} إلى {1}؟
+Use this storage profile for database backups,استخدام ملف التخزين هذا لنسخ قواعد البيانات الاحتياطية
+Username,اسم المستخدم
+Verify the SMTP login when sites are configured,التحقق من تسجيل دخول SMTP عند إعداد المواقع
+Version is required,الإصدار مطلوب
+Virtual-hosted style,نمط الاستضافة الافتراضية
+Wheel SHA-256,SHA-256 لحزمة Wheel
+Wheel URL,عنوان حزمة Wheel
+active subscriptions,اشتراكات نشطة
+first response overdue,الرد الأول متأخر
+iframe ID,معرّف iframe
+online,متصل
+overdue,متأخرة
+published,منشورة
+sites,مواقع
+suspended,موقوفة
+teams,فرق
+{0} is too long,{0} طويل جداً
+{0} must be a 3-letter currency code,يجب أن يكون {0} رمز عملة من 3 أحرف
+{0} must be an e-mail address,يجب أن يكون {0} عنوان بريد إلكتروني
+{0} must be an https URL,يجب أن يكون {0} عنوان https
+{0} must be one of {1},يجب أن يكون {0} أحد: {1}
+1-minute checks and more than 3 monitors per site need the advanced monitoring plan feature.,تتطلب الفحوصات كل دقيقة وأكثر من 3 مراقبين لكل موقع ميزة المراقبة المتقدمة في الخطة.
+24 hours,24 ساعة
+30 days,30 يومًا
+7 days,7 أيام
+"A code (200), a range (200-299) or a class (2xx); comma separated.",رمز (200) أو نطاق (200-299) أو فئة (2xx)؛ مفصولة بفواصل.
+A keyword check needs the GET method,يتطلب فحص الكلمة المفتاحية طريقة GET
+"A public page showing the current status, 90-day uptime and incident history of the monitors you choose. Visitors only see the public names: never URLs or error details. The logo and colors come from your brand.",صفحة عامة تعرض الحالة الحالية ونسبة التشغيل خلال 90 يومًا وسجل الحوادث للمراقبين الذين تختارهم. لا يرى الزوار سوى الأسماء العامة: لا تظهر الروابط أو تفاصيل الأخطاء أبدًا. الشعار والألوان مأخوذة من علامتك التجارية.
+A status page can show at most 50 monitors,يمكن لصفحة الحالة عرض 50 مراقبًا كحد أقصى
+Add monitor,إضافة مراقب
+Address,العنوان
+All systems operational,جميع الأنظمة تعمل
+Average response time,متوسط زمن الاستجابة
+Cause,السبب
+"Checks currently run from the control plane, which shares a host with some of your sites (all-in-one install). Ask your operator to add an external probe for a real outside view.",تُجرى الفحوصات حاليًا من لوحة التحكم التي تشترك في الخادم نفسه مع بعض مواقعك (تثبيت الكل في واحد). اطلب من المشغّل إضافة مسبار خارجي للحصول على رؤية خارجية حقيقية.
+Checks more often than every 5 minutes need the advanced monitoring plan feature,تتطلب الفحوصات الأكثر تكرارًا من كل 5 دقائق ميزة المراقبة المتقدمة في الخطة
+Choose a site,اختر موقعًا
+Choose a status for the update,اختر حالة للتحديث
+Create a CNAME record to the control plane and ask your operator to route the domain; it then shows this page.,أنشئ سجل CNAME يشير إلى لوحة التحكم واطلب من المشغّل توجيه النطاق؛ وعندها سيعرض هذه الصفحة.
+Custom domain (optional),نطاق مخصص (اختياري)
+Delete the monitor {0}? Its history is deleted too.,هل تريد حذف المراقب {0}؟ سيُحذف سجله أيضًا.
+Description (optional),الوصف (اختياري)
+Down,متوقف
+Edit monitor,تعديل المراقب
+"Enter a valid domain name, e.g. status.example.com",أدخل اسم نطاق صالحًا، مثل status.example.com
+Every active site gets a default monitor automatically within a few minutes.,يحصل كل موقع نشط على مراقب افتراضي تلقائيًا خلال بضع دقائق.
+Every {0} min,كل {0} دقيقة
+Expected status,الحالة المتوقعة
+"Expected status: a code (200), a range (200-299) or a class (2xx)",الحالة المتوقعة: رمز (200) أو نطاق (200-299) أو فئة (2xx)
+Failures before alerting,عدد الإخفاقات قبل التنبيه
+Failures before alerting must be between 1 and 10,يجب أن يكون عدد الإخفاقات قبل التنبيه بين 1 و10
+Hidden from the status page,مخفي من صفحة الحالة
+Hide from the status page,إخفاء من صفحة الحالة
+Identified,تم تحديد السبب
+Incident,الحادثة
+Incident saved,تم حفظ الحادثة
+Incident {0} not found,الحادثة {0} غير موجودة
+Incidents,الحوادث
+Interval,الفاصل الزمني
+"Interval must be 1, 5 or 15 minutes",يجب أن يكون الفاصل الزمني 1 أو 5 أو 15 دقيقة
+Invalid probe token,رمز المسبار غير صالح
+Invalid {0},{0} غير صالح
+Investigating,قيد التحقيق
+Keyword (optional),الكلمة المفتاحية (اختياري)
+Last 90 days,آخر 90 يومًا
+Last check,آخر فحص
+Last result,آخر نتيجة
+Last updated,آخر تحديث
+Major outage,انقطاع كبير
+Message is required,الرسالة مطلوبة
+Method must be GET or HEAD,يجب أن تكون الطريقة GET أو HEAD
+Monitor,المراقب
+Monitor back up,المراقب يعمل مجددًا
+Monitor deleted,تم حذف المراقب
+Monitor down,المراقب متوقف
+Monitor saved,تم حفظ المراقب
+Monitor {0} not found,المراقب {0} غير موجود
+Monitoring,المراقبة
+Monitors,المراقبون
+Monitors can only check the site's own address or its active custom domains,يمكن للمراقبين فحص عنوان الموقع نفسه أو نطاقاته المخصصة النشطة فقط
+Monitors check the site's own address or one of its active custom domains.,يفحص المراقبون عنوان الموقع نفسه أو أحد نطاقاته المخصصة النشطة.
+Monitors on the page,المراقبون في الصفحة
+Monitors per site,المراقبون لكل موقع
+More than 3 monitors per site need the advanced monitoring plan feature,يتطلب أكثر من 3 مراقبين لكل موقع ميزة المراقبة المتقدمة في الخطة
+Move down,نقل للأسفل
+Move up,نقل للأعلى
+Name is required,الاسم مطلوب
+Name is too long,الاسم طويل جدًا
+New monitor,مراقب جديد
+No data for this period yet.,لا توجد بيانات لهذه الفترة بعد.
+No incidents. All good!,لا توجد حوادث. كل شيء على ما يرام!
+No result yet,لا توجد نتيجة بعد
+No services are listed on this page yet.,لا توجد خدمات مدرجة في هذه الصفحة بعد.
+None selected = every probe.,عدم التحديد = جميع المسابير.
+Ongoing incidents,الحوادث الجارية
+Only monitors of the same team can be shown,يمكن عرض مراقبي الفريق نفسه فقط
+Open status page,فتح صفحة الحالة
+Operational,يعمل
+Outage,انقطاع
+Partial outage,انقطاع جزئي
+Past incidents,الحوادث السابقة
+Pause,إيقاف مؤقت
+Paused,متوقف مؤقتًا
+Post an update,نشر تحديث
+Post update,نشر التحديث
+Powered by {0},مدعوم من {0}
+Probe,المسبار
+"Probe names are 1-40 lowercase letters, digits or hyphens",أسماء المسابير من 1 إلى 40 حرفًا لاتينيًا صغيرًا أو رقمًا أو شرطة
+Probe token (shown only once): {0},رمز المسبار (يُعرض مرة واحدة فقط): {0}
+Probes,المسابير
+Probes that must agree; 0 = majority.,عدد المسابير التي يجب أن تتفق؛ 0 = الأغلبية.
+Public name,الاسم العام
+Public status page,صفحة الحالة العامة
+Public title,العنوان العام
+Quorum,النصاب
+Quorum cannot exceed the number of probes,لا يمكن أن يتجاوز النصاب عدد المسابير
+Response time,زمن الاستجابة
+Resume,استئناف
+Same host,الخادم نفسه
+Save monitor,حفظ المراقب
+Save status page,حفظ صفحة الحالة
+Shop front page,الصفحة الرئيسية للمتجر
+Show incident history,عرض سجل الحوادث
+Since,منذ
+Status page,صفحة الحالة
+Status page saved,تم حفظ صفحة الحالة
+Status unknown,الحالة غير معروفة
+TLS certificate,شهادة TLS
+The built-in probe cannot be deleted; disable it instead,لا يمكن حذف المسبار المدمج؛ عطّله بدلًا من ذلك
+The built-in probe has no token,لا يملك المسبار المدمج رمزًا
+The check fails when the response body does not contain this text.,يفشل الفحص عندما لا يحتوي نص الاستجابة على هذا النص.
+The default monitor of a site cannot be deleted; disable it instead,لا يمكن حذف المراقب الافتراضي للموقع؛ عطّله بدلًا من ذلك
+The description is too long,الوصف طويل جدًا
+The keyword is too long,الكلمة المفتاحية طويلة جدًا
+The message is too long,الرسالة طويلة جدًا
+The monitor and its site must belong to the same team,يجب أن ينتمي المراقب وموقعه إلى الفريق نفسه
+The path must start with / and contain no spaces or quotes,يجب أن يبدأ المسار بـ / وألا يحتوي على مسافات أو علامات اقتباس
+"The slug must be 3-50 lowercase letters, digits or hyphens",يجب أن يتكون المعرّف من 3 إلى 50 حرفًا لاتينيًا صغيرًا أو رقمًا أو شرطة
+This domain is already used by another status page,هذا النطاق مستخدم بالفعل في صفحة حالة أخرى
+This probe is disabled,هذا المسبار معطّل
+This slug is already taken,هذا المعرّف مستخدم بالفعل
+This slug is reserved,هذا المعرّف محجوز
+This status page does not exist,صفحة الحالة هذه غير موجودة
+Timeout (seconds),المهلة (بالثواني)
+Timeout must be between 2 and 30 seconds,يجب أن تكون المهلة بين 2 و30 ثانية
+Title is too long,العنوان طويل جدًا
+Today,اليوم
+Too many monitors for this site,عدد كبير جدًا من المراقبين لهذا الموقع
+Unknown,غير معروف
+Unknown monitor,مراقب غير معروف
+Unknown probe,مسبار غير معروف
+Up,يعمل
+Update posted,تم نشر التحديث
+Uptime (30 days),نسبة التشغيل (30 يومًا)
+Uptime (90 days),نسبة التشغيل (90 يومًا)
+Uptime monitors,مراقبو التشغيل
+Uptime probe created,تم إنشاء مسبار التشغيل
+Uptime probe {0} not found,مسبار التشغيل {0} غير موجود
+What happened and what you are doing about it,ما الذي حدث وما الذي تفعله حياله
+monitor,المراقب
+ongoing,جارٍ
+results must be a list,يجب أن تكون النتائج قائمة
+status page,صفحة الحالة
+update,التحديث
+uptime,نسبة التشغيل
+{0} d,{0} يوم
+{0} days,{0} يوم
+{0} days ago,قبل {0} يوم
+{0} h,{0} ساعة
+{0} min,{0} دقيقة
+{0} s,{0} ث
+Resource usage,استهلاك الموارد
+CPU load,حمل المعالج
+Memory,الذاكرة
+Now,الآن
+Peak,الذروة
+No measurements yet: the agent reports them every 5 minutes.,لا توجد قياسات بعد: يرسلها الـ agent كل 5 دقائق.
+Could not load the charts,تعذّر تحميل الرسوم البيانية
+Setup checklist,قائمة الإعداد
+Dismiss,إخفاء
+Done,تم
+To do,مطلوب
+Platform name and root domain,اسم المنصة والنطاق الرئيسي
+Billing currency,عملة الفوترة
+Payment gateway (Stripe or Paymob),بوابة الدفع (Stripe أو Paymob)
+Backup storage,تخزين النسخ الاحتياطية
+Outgoing e-mail,البريد الصادر
+First plans,الباقات الأولى
+External uptime probe,مسبار مراقبة خارجي
+Create and verify a test site,إنشاء موقع تجريبي والتحقق منه
+Check for updates,التحقق من التحديثات
+Latest release,أحدث إصدار
+Version or image (empty = latest release),الإصدار أو الصورة (فارغ = أحدث إصدار)
+Update control plane,تحديث لوحة التحكم
+"A backup of the control plane is taken first. The panel restarts during the update; if migrating or the health check fails, the previous version and database are restored automatically.",تُؤخذ نسخة احتياطية من لوحة التحكم أولاً. تُعاد تشغيل اللوحة أثناء التحديث؛ وإذا فشل الترحيل أو فحص السلامة تُستعاد النسخة السابقة وقاعدة البيانات تلقائياً.
+Step,الخطوة
+The control plane is restarting…,لوحة التحكم قيد إعادة التشغيل…
+Update the control plane now? It restarts during the update.,تحديث لوحة التحكم الآن؟ ستُعاد تشغيلها أثناء التحديث.
+Updating,جارٍ التحديث
+Already up to date,محدّثة بالفعل
+Rolled back,تم التراجع
+Rollback incomplete,التراجع غير مكتمل
+prepare,التحضير
+backup,النسخ الاحتياطي
+pull,تنزيل الصورة
+switch,تبديل الصورة
+migrate,الترحيل
+health,فحص السلامة
+finalize,الإنهاء
+No release found; enter an image or a version,لم يُعثر على إصدار؛ أدخل صورة أو إصداراً
+A control plane update is already in progress ({0}),يوجد تحديث للوحة التحكم قيد التنفيذ ({0})
+Invalid image {0},صورة غير صالحة {0}
+Invalid version {0},إصدار غير صالح {0}
+"This control plane does not run on a server managed by Nexaploy (it was not installed with install.sh --with-control-plane), so it cannot update itself. Update it where it runs: back up the site, pull the new image (docker compose pull), restart (docker compose up -d) and run bench --site <site> migrate.",لوحة التحكم هذه لا تعمل على خادم يديره Nexaploy (لم تُثبَّت بـ install.sh --with-control-plane)، لذا لا يمكنها تحديث نفسها. حدّثها حيث تعمل: انسخ الموقع احتياطياً، ونزّل الصورة الجديدة (docker compose pull)، وأعد التشغيل (docker compose up -d)، ثم شغّل bench --site <site> migrate.
+Server health critical,صحة الخادم حرجة
+Server health back to OK,عادت صحة الخادم إلى الوضع السليم
+The server must be Active (online) for this action,يجب أن يكون الخادم نشطًا (متصلًا) لتنفيذ هذا الإجراء
+You are not allowed to run maintenance on this server,غير مسموح لك بإجراء الصيانة على هذا الخادم
+A system update or reboot is already in progress on this server,يجري بالفعل تحديث للنظام أو إعادة تشغيل على هذا الخادم
+Invalid maintenance day,يوم صيانة غير صالح
+Maintenance hour must be between 0 and 23 (UTC),يجب أن تكون ساعة الصيانة بين 0 و23 (UTC)
+Update mode must be all or security,يجب أن يكون نوع التحديث: الكل أو الأمنية
+"Reboot must be never, if_required or always",يجب أن تكون إعادة التشغيل: أبدًا أو عند الحاجة أو دائمًا
+A cleanup is already running on this server,يجري تنظيف بالفعل على هذا الخادم
+Job not found,المهمة غير موجودة
+The server did not report back within 2 hours after the update / reboot.,لم يرسل الخادم أي تقرير خلال ساعتين بعد التحديث أو إعادة التشغيل.
+System updates,تحديثات النظام
+Update now,حدّث الآن
+Reboot now,أعد التشغيل الآن
+Maintenance window,نافذة الصيانة
+Automatic security updates,التحديثات الأمنية التلقائية
+Reboot required,إعادة التشغيل مطلوبة
+Health,الصحة
+Run full check,تشغيل فحص كامل
+Clean up,تنظيف
+Pending updates,تحديثات معلقة
+Security updates,تحديثات أمنية
+Running kernel,النواة العاملة
+Newest kernel,أحدث نواة
+Last boot,آخر إقلاع
+Last checked,آخر فحص
+Security updates only,التحديثات الأمنية فقط
+All updates,كل التحديثات
+Reboot,إعادة التشغيل
+If required,عند الحاجة
+Always,دائمًا
+Day,اليوم
+Hour (UTC),الساعة (UTC)
+Every day,كل يوم
+Monday,الاثنين
+Tuesday,الثلاثاء
+Wednesday,الأربعاء
+Thursday,الخميس
+Friday,الجمعة
+Saturday,السبت
+Sunday,الأحد
+Automatic cleanup,التنظيف التلقائي
+System updates are only available on Ubuntu and Debian servers.,تحديثات النظام متاحة فقط على خوادم Ubuntu وDebian.
+No issues found.,لم يتم العثور على مشكلات.
+Last full check,آخر فحص كامل
+Last cleanup,آخر تنظيف
+Freed,تم تحرير
+Estimate space (dry run),تقدير المساحة (تجربة دون تنفيذ)
+Clean up now,نظّف الآن
+Estimated space to free,المساحة المقدّرة للتحرير
+Space freed,المساحة المحررة
+Items,العناصر
+Waiting for the server agent…,في انتظار وكيل الخادم…
+"Choose what to clean. Site files, databases, certificates and configuration are never touched.",اختر ما تريد تنظيفه. لا يتم المساس أبدًا بملفات المواقع وقواعد البيانات والشهادات والإعدادات.
+Install updates on this server now?,تثبيت التحديثات على هذا الخادم الآن؟
+Reboot this server? Sites are unavailable for a few minutes.,إعادة تشغيل هذا الخادم؟ ستكون المواقع غير متاحة لبضع دقائق.
+System update started,بدأ تحديث النظام
+Reboot scheduled,تمت جدولة إعادة التشغيل
+Full check started,بدأ الفحص الكامل
+Cleanup started,بدأ التنظيف
+Unused Docker images,صور Docker غير المستخدمة
+Docker build cache,ذاكرة بناء Docker المؤقتة
+Exited one-off containers,الحاويات المؤقتة المتوقفة
+Oversized container logs,سجلات الحاويات كبيرة الحجم
+Old bench and site logs,سجلات البنش والمواقع القديمة
+Uploaded local backups,النسخ الاحتياطية المحلية المرفوعة
+Agent job history and build logs,سجل مهام الوكيل وسجلات البناء
+System journal,سجل النظام
+Package cache,ذاكرة الحزم المؤقتة
+Temporary files,الملفات المؤقتة
+Warning,تحذير
+Critical,حرج
+Rebooting,يعاد التشغيل
+Update all servers,حدّث كل الخوادم
+Clean up all servers,نظّف كل الخوادم
+Install security updates (no reboot) on every server with pending updates?,تثبيت التحديثات الأمنية (دون إعادة تشغيل) على كل خادم لديه تحديثات معلقة؟
+Run the cleanup policy on every active server now?,تشغيل سياسة التنظيف على كل الخوادم النشطة الآن؟
+Jobs created: {0},المهام المنشأة: {0}
+Maintenance & cleanup policy,سياسة الصيانة والتنظيف
+Customers may run updates and cleanup on their own servers,يمكن للعملاء تشغيل التحديثات والتنظيف على خوادمهم الخاصة
+Disk warning (%),تحذير القرص (%)
+Disk critical (%),القرص حرج (%)
+Inodes warning (%),تحذير inodes (%)
+Memory warning (%),تحذير الذاكرة (%)
+Load per CPU,الحمل لكل معالج
+Weekly automatic cleanup,تنظيف تلقائي أسبوعي
+Clean up automatically when a disk is critical,التنظيف تلقائيًا عندما يكون القرص في حالة حرجة
+"Cleanup targets (one per line, empty = all)",أهداف التنظيف (واحد في كل سطر، فارغ = الكل)
+Log retention (days),مدة الاحتفاظ بالسجلات (أيام)
+"Local backups kept (days, 0 = agent default)",مدة الاحتفاظ بالنسخ المحلية (أيام، 0 = افتراضي الوكيل)
+No servers yet.,لا توجد خوادم بعد.
+Issues,المشكلات
+Checked,تم الفحص
+Unknown cleanup target: {0},هدف تنظيف غير معروف: {0}
+Not permitted,غير مسموح
+Two-factor authentication for administrators,التحقق بخطوتين للمسؤولين
+Required,إلزامي
+Not required,غير إلزامي
+Authenticator app (OTP),تطبيق المصادقة (OTP)
+E-mail code,رمز عبر البريد
+SMS code,رمز عبر SMS
+Require 2FA for administrators,إلزام المسؤولين بالتحقق بخطوتين
+Save method,حفظ الطريقة
+Stop requiring 2FA,إيقاف إلزام التحقق بخطوتين
+Administrator,المسؤول
+Authenticator app,تطبيق المصادقة
+Set up,مُعدّ
+Asked at next login,سيُطلب عند الدخول القادم
+Keep this session open until you have logged in once with 2FA in another browser window.,أبقِ هذه الجلسة مفتوحة حتى تسجّل الدخول مرة بالتحقق بخطوتين في نافذة متصفح أخرى.
+Stop requiring two-factor authentication for administrators?,إيقاف إلزام المسؤولين بالتحقق بخطوتين؟
+Could not save,تعذّر الحفظ
+Two-factor authentication is not required for administrators.,التحقق بخطوتين غير مطلوب من المسؤولين.
+Some administrators will set up their authenticator app at their next login.,بعض المسؤولين سيُعدّون تطبيق المصادقة عند دخولهم القادم.
+Administrators must use two-factor authentication.,يجب على المسؤولين استخدام التحقق بخطوتين.
+Set up an outgoing e-mail account first: Frappe e-mails the authenticator QR code (or the login code) to administrators.,اضبط حساب بريد صادر أولًا: يرسل Frappe رمز QR لتطبيق المصادقة (أو رمز الدخول) إلى المسؤولين بالبريد.
+Set up SMS Settings first: Frappe texts the login code to administrators.,اضبط إعدادات SMS أولًا: يرسل Frappe رمز الدخول إلى المسؤولين برسالة نصية.
+Could not check GitHub for new releases (see the Error Log).,تعذّر التحقق من وجود إصدارات جديدة على GitHub (راجع سجل الأخطاء).

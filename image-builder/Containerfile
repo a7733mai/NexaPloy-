@@ -1,0 +1,260 @@
+# syntax=docker/dockerfile:1.7
+#
+# Nexaploy bench image — one image per Release Group (ARCHITECTURE.md §4).
+#
+# Modelled on frappe_docker's images/custom/Containerfile. The BUILD CONTEXT is an
+# upstream frappe_docker checkout (see build.sh: `-f image-builder/Containerfile
+# <frappe_docker>`), so the nginx template / entrypoint are taken from its
+# `resources/` tree. Paths are overridable for older/newer upstream layouts.
+#
+# Stages: base (runtime deps) -> builder (bench init + apps + assets) -> backend (final).
+# Requires BuildKit (docker buildx or Docker >= 23 default builder).
+
+ARG PYTHON_VERSION=3.11.6
+ARG DEBIAN_BASE=bookworm
+
+###############################################################################
+# base: runtime dependencies shared by builder and final image
+###############################################################################
+FROM python:${PYTHON_VERSION}-slim-${DEBIAN_BASE} AS base
+
+ARG NODE_VERSION=18.20.2
+ARG NVM_VERSION=0.40.6
+ARG WKHTMLTOPDF_VERSION=0.12.6.1-3
+# wkhtmltopdf only publishes bookworm packages for 0.12.6.1-3; they work on trixie too.
+ARG WKHTMLTOPDF_DISTRO=bookworm
+ARG FRAPPE_UID=3113
+ARG FRAPPE_GID=3113
+# Optional pin for frappe-bench (empty = latest from PyPI)
+ARG BENCH_VERSION=""
+# Location of frappe_docker resources inside the build context. Current upstream keeps
+# them under resources/core/nginx/; older checkouts had them directly under resources/.
+ARG RESOURCES_DIR=resources
+ARG NGINX_TEMPLATE_PATH=core/nginx/nginx-template.conf
+ARG NGINX_ENTRYPOINT_PATH=core/nginx/nginx-entrypoint.sh
+ARG NGINX_SECURITY_HEADERS_PATH=core/nginx/security_headers.conf
+
+ENV NVM_DIR=/home/frappe/.nvm \
+    NVM_SYMLINK_CURRENT=true \
+    PYTHONUNBUFFERED=1
+ENV PATH=${NVM_DIR}/current/bin/:${PATH}
+
+# Whole resources tree is copied to a scratch dir, then the files we need are picked
+# (with fallbacks for the old flat layout) so a layout change fails loudly in one place.
+COPY ${RESOURCES_DIR}/ /tmp/frappe_docker_resources/
+
+# NB: no `set -u` here, nvm.sh is not nounset-safe.
+RUN set -ex; \
+    groupadd -g "${FRAPPE_GID}" frappe; \
+    useradd -u "${FRAPPE_UID}" -g "${FRAPPE_GID}" -d /home/frappe -ms /bin/bash frappe; \
+    apt-get update; \
+    DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
+        ca-certificates curl git vim-tiny less file gettext-base gpg \
+        nginx \
+        mariadb-client \
+        redis-tools \
+        restic rclone \
+        jq wait-for-it \
+        media-types \
+        fontconfig libxrender1 libxext6 xfonts-75dpi xfonts-base \
+        libpango-1.0-0 libharfbuzz0b libpangoft2-1.0-0 libpangocairo-1.0-0; \
+    . /etc/os-release; \
+    if [ "${VERSION_CODENAME}" = "trixie" ]; then \
+        DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y tzdata-legacy; \
+    fi; \
+    # trixie moved the `mysql`/`mysqldump` compat names into a separate package
+    DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y mariadb-client-compat 2>/dev/null || true; \
+    # ---- Node via nvm + yarn ------------------------------------------------
+    mkdir -p "${NVM_DIR}"; \
+    curl -fsSL "https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/install.sh" | bash; \
+    . "${NVM_DIR}/nvm.sh"; \
+    nvm install "${NODE_VERSION}"; \
+    nvm use "${NODE_VERSION}"; \
+    npm install -g yarn; \
+    nvm alias default "${NODE_VERSION}"; \
+    rm -rf "${NVM_DIR}/.cache"; \
+    echo 'export NVM_DIR="/home/frappe/.nvm"' >> /home/frappe/.bashrc; \
+    echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"' >> /home/frappe/.bashrc; \
+    # ---- wkhtmltopdf with patched qt (skip on arches without a package) ------
+    case "$(uname -m)" in \
+        x86_64) WK_ARCH=amd64 ;; \
+        aarch64) WK_ARCH=arm64 ;; \
+        *) WK_ARCH="" ;; \
+    esac; \
+    if [ -n "${WK_ARCH}" ]; then \
+        deb="wkhtmltox_${WKHTMLTOPDF_VERSION}.${WKHTMLTOPDF_DISTRO}_${WK_ARCH}.deb"; \
+        if curl -fsSLO "https://github.com/wkhtmltopdf/packaging/releases/download/${WKHTMLTOPDF_VERSION}/${deb}"; then \
+            DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y "./${deb}"; \
+            rm -f "${deb}"; \
+        elif [ "${WK_ARCH}" = "amd64" ]; then \
+            echo "wkhtmltopdf download failed for amd64" >&2; exit 1; \
+        else \
+            echo "WARNING: no wkhtmltopdf package for ${WK_ARCH}; PDF generation via wkhtmltopdf unavailable" >&2; \
+        fi; \
+    else \
+        echo "WARNING: unsupported arch $(uname -m) for wkhtmltopdf; skipping" >&2; \
+    fi; \
+    # ---- frappe-bench CLI ---------------------------------------------------
+    if [ -n "${BENCH_VERSION}" ]; then pip3 install --no-cache-dir "frappe-bench==${BENCH_VERSION}"; \
+    else pip3 install --no-cache-dir frappe-bench; fi; \
+    # ---- nginx (frontend container runs nginx-entrypoint.sh as frappe) -------
+    R=/tmp/frappe_docker_resources; \
+    pick() { for c in "$@"; do if [ -f "$R/$c" ]; then echo "$R/$c"; return 0; fi; done; return 1; }; \
+    mkdir -p /templates/nginx /etc/nginx/snippets; \
+    cp "$(pick "${NGINX_TEMPLATE_PATH}" nginx-template.conf)" /templates/nginx/frappe.conf.template; \
+    cp "$(pick "${NGINX_ENTRYPOINT_PATH}" nginx-entrypoint.sh)" /usr/local/bin/nginx-entrypoint.sh; \
+    if sh_hdr="$(pick "${NGINX_SECURITY_HEADERS_PATH}" security_headers.conf)"; then \
+        cp "${sh_hdr}" /etc/nginx/snippets/security_headers.conf; \
+    else \
+        : > /etc/nginx/snippets/security_headers.conf; \
+    fi; \
+    chmod 755 /usr/local/bin/nginx-entrypoint.sh; \
+    chmod 644 /templates/nginx/frappe.conf.template /etc/nginx/snippets/security_headers.conf; \
+    rm -rf /tmp/frappe_docker_resources; \
+    rm -f /etc/nginx/sites-enabled/default; \
+    sed -i '/user www-data/d' /etc/nginx/nginx.conf; \
+    ln -sf /dev/stdout /var/log/nginx/access.log; \
+    ln -sf /dev/stderr /var/log/nginx/error.log; \
+    touch /run/nginx.pid; \
+    chown -R frappe:frappe /home/frappe /etc/nginx/conf.d /var/log/nginx /var/lib/nginx /run/nginx.pid; \
+    # ---- cleanup --------------------------------------------------------------
+    rm -rf /var/lib/apt/lists/*; \
+    # sanity: the tools the agent relies on exist
+    for b in node yarn nginx mariadb mariadb-dump rclone restic jq wait-for-it git bench; do \
+        command -v "$b" >/dev/null || { echo "missing $b" >&2; exit 1; }; \
+    done
+
+###############################################################################
+# builder: bench init with the Release Group apps, build assets
+###############################################################################
+FROM base AS builder
+
+RUN set -eux; \
+    apt-get update; \
+    DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
+        wget gcc build-essential pkg-config cron rlwrap \
+        libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev \
+        libffi-dev liblcms2-dev libldap2-dev libmariadb-dev libsasl2-dev \
+        libtiff-dev libwebp-dev libbz2-dev libpq-dev tk8.6-dev; \
+    rm -rf /var/lib/apt/lists/*
+
+ARG FRAPPE_BRANCH=version-15
+ARG FRAPPE_PATH=https://github.com/frappe/frappe
+# base64 of a JSON array [{"url": "...", "branch": "..."}]; empty = frappe only.
+ARG APPS_JSON_BASE64=""
+# Changing this forces a rebuild of the bench layer (e.g. to pick up new commits).
+ARG CACHE_BUST=""
+
+RUN set -eu; \
+    mkdir -p /opt/frappe; \
+    if [ -n "${APPS_JSON_BASE64}" ]; then \
+        echo "${APPS_JSON_BASE64}" | base64 -d > /opt/frappe/apps.json; \
+    fi; \
+    chown -R frappe:frappe /opt/frappe
+
+USER frappe
+
+RUN set -eu; \
+    : "${CACHE_BUST}"; \
+    APP_INSTALL_ARGS=""; \
+    if [ -s /opt/frappe/apps.json ]; then APP_INSTALL_ARGS="--apps_path=/opt/frappe/apps.json"; fi; \
+    bench init ${APP_INSTALL_ARGS} \
+        --frappe-branch="${FRAPPE_BRANCH}" \
+        --frappe-path="${FRAPPE_PATH}" \
+        --no-procfile \
+        --no-backups \
+        --skip-redis-config-generation \
+        --verbose \
+        /home/frappe/frappe-bench; \
+    cd /home/frappe/frappe-bench; \
+    echo "{}" > sites/common_site_config.json; \
+    # strip VCS metadata (also removes any credentials embedded in remote URLs)
+    find apps -mindepth 1 -path "*/.git" -prune -exec rm -rf {} +; \
+    # bake apps.txt / assets outside the sites volume (bind mounts hide image content)
+    mkdir -p .nexaploy; \
+    cp sites/apps.txt .nexaploy/apps.txt; \
+    if [ -f sites/apps.json ]; then cp sites/apps.json .nexaploy/apps.json; fi; \
+    mv sites/assets assets; \
+    rm -f /opt/frappe/apps.json
+
+###############################################################################
+# backend: final runtime image (backend, workers, scheduler, websocket, frontend)
+###############################################################################
+FROM base AS backend
+
+ARG FRAPPE_MAJOR=""
+ARG FRAPPE_BRANCH=""
+ARG RELEASE_GROUP=""
+ARG BUILD_ID=""
+ARG BUILD_DATE=""
+ARG IMAGE_VERSION=""
+ARG FRAPPE_DOCKER_REF=""
+
+LABEL org.opencontainers.image.title="nexaploy-bench" \
+      org.opencontainers.image.description="Nexaploy Frappe bench image for one Release Group" \
+      org.opencontainers.image.vendor="Nexaploy" \
+      org.opencontainers.image.source="https://github.com/frappe/frappe_docker" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      org.opencontainers.image.revision="${FRAPPE_DOCKER_REF}" \
+      io.nexaploy.frappe-major="${FRAPPE_MAJOR}" \
+      io.nexaploy.frappe-branch="${FRAPPE_BRANCH}" \
+      io.nexaploy.release-group="${RELEASE_GROUP}" \
+      io.nexaploy.build-id="${BUILD_ID}"
+
+# Entrypoint: link the baked assets and apps.txt into the (bind-mounted) sites dir,
+# then exec the command. Idempotent and safe when several containers start at once.
+COPY --chmod=755 <<'EOF' /usr/local/bin/nexaploy-entrypoint.sh
+#!/bin/bash
+set -e
+umask 0002
+BENCH=/home/frappe/frappe-bench
+SITES="$BENCH/sites"
+if [ -d "$SITES" ] && [ -w "$SITES" ]; then
+  if [ "$(readlink "$SITES/assets" 2>/dev/null || true)" != "$BENCH/assets" ]; then
+    # sites/assets may be a mount point (e.g. a VOLUME inherited from a base image):
+    # never let that stop the container, just warn.
+    if rm -rf "$SITES/assets" 2>/dev/null; then
+      ln -sfn "$BENCH/assets" "$SITES/assets" 2>/dev/null || true
+    else
+      echo "nexaploy-entrypoint: warning: cannot replace $SITES/assets (mount point?)" >&2
+    fi
+  fi
+  for f in apps.txt apps.json; do
+    if [ -f "$BENCH/.nexaploy/$f" ] && ! cmp -s "$BENCH/.nexaploy/$f" "$SITES/$f"; then
+      tmp="$(mktemp "$SITES/.$f.XXXXXX")" && cp "$BENCH/.nexaploy/$f" "$tmp" && mv -f "$tmp" "$SITES/$f" || true
+    fi
+  done
+  [ -f "$SITES/common_site_config.json" ] || echo "{}" > "$SITES/common_site_config.json" || true
+fi
+exec "$@"
+EOF
+
+USER frappe
+
+COPY --from=builder --chown=frappe:frappe /home/frappe/frappe-bench /home/frappe/frappe-bench
+
+WORKDIR /home/frappe/frappe-bench
+
+VOLUME [ \
+  "/home/frappe/frappe-bench/sites", \
+  "/home/frappe/frappe-bench/logs" \
+]
+
+EXPOSE 8000 8080 9000
+
+ENTRYPOINT ["/usr/local/bin/nexaploy-entrypoint.sh"]
+
+CMD [ \
+  "/home/frappe/frappe-bench/env/bin/gunicorn", \
+  "--chdir=/home/frappe/frappe-bench/sites", \
+  "--bind=0.0.0.0:8000", \
+  "--threads=4", \
+  "--workers=2", \
+  "--worker-class=gthread", \
+  "--worker-tmp-dir=/dev/shm", \
+  "--timeout=120", \
+  "--preload", \
+  "frappe.app:application" \
+]

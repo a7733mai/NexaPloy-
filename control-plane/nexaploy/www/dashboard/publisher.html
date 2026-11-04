@@ -1,0 +1,286 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block head %}
+<!-- synchronous on purpose: registers its alpine:init listener before Alpine (deferred) starts -->
+<script src="/assets/nexaploy/js/publisher.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="stack" x-data="nxPublisher" x-cloak>
+	<template x-if="loading"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+	<template x-if="error"><div class="alert danger" x-text="error"></div></template>
+
+	<!-- Publisher profile -->
+	<section class="card" x-show="!loading">
+		<div class="card-head">
+			<h2>{{ _("Publisher profile") }}</h2>
+			<template x-if="pub && perms.manage && !editing"><button class="btn sm" type="button" @click="editProfile()">{{ _("Edit") }}</button></template>
+		</div>
+		<div class="card-body stack">
+			<template x-if="!pub && !editing">
+				<div class="stack">
+					<p class="muted" style="margin: 0">{{ _("Publish your team's custom apps on the Nexaploy marketplace and earn a share of the revenue of paid apps.") }}</p>
+					<template x-if="perms.manage"><div><button class="btn primary" type="button" @click="editProfile()">{{ _("Become a publisher") }}</button></div></template>
+					<template x-if="!perms.manage"><p class="small muted" style="margin: 0">{{ _("Only team Owners and Admins can manage the publisher profile.") }}</p></template>
+				</div>
+			</template>
+			<template x-if="pub && !editing">
+				<div class="kv">
+					<div><span class="muted">{{ _("Publisher name") }}</span> <strong x-text="pub.title"></strong> <template x-if="pub.verified"><span class="badge success">{{ _("Verified") }}</span></template></div>
+					<div x-show="pub.website"><span class="muted">{{ _("Website") }}</span> <a class="ltr" :href="pub.website" target="_blank" rel="noopener" x-text="pub.website"></a></div>
+					<div x-show="pub.support_email"><span class="muted">{{ _("Support email") }}</span> <span class="ltr" x-text="pub.support_email"></span></div>
+					<div><span class="muted">{{ _("Payout method") }}</span> <span x-text="__(pub.payout_method)"></span> <template x-if="pub.has_account"><span class="badge plain">{{ _("Account on file") }}</span></template></div>
+					<div><span class="muted">{{ _("Your revenue share") }}</span> <span x-text="pub.revenue_share_percent + '%'"></span></div>
+				</div>
+			</template>
+			<template x-if="editing">
+				<form class="form-grid" @submit.prevent="saveProfile()">
+					<label class="field"><span>{{ _("Publisher name") }}</span>
+						<input class="input" type="text" maxlength="140" x-model="form.title" required>
+					</label>
+					<label class="field"><span>{{ _("Website") }}</span>
+						<input class="input ltr" type="url" x-model="form.website" placeholder="https://">
+					</label>
+					<label class="field"><span>{{ _("Support email") }}</span>
+						<input class="input ltr" type="email" x-model="form.support_email">
+					</label>
+					<label class="field"><span>{{ _("Payout method") }}</span>
+						<select class="input" x-model="form.payout_method">
+							<template x-for="m in payoutMethods" :key="m"><option :value="m" x-text="__(m)" :selected="m === form.payout_method"></option></template>
+						</select>
+						<span class="hint" x-show="form.payout_method === 'Credits'">{{ _("Your share is added to your team's prepaid credits.") }}</span>
+					</label>
+					<label class="field" x-show="form.payout_method !== 'Credits'"><span>{{ _("Payout details") }}</span>
+						<textarea class="input" rows="3" x-model="form.payout_details" placeholder="{{ _('Account holder, bank name and SWIFT, or your PayPal email') }}"></textarea>
+					</label>
+					<label class="field" x-show="form.payout_method === 'Bank'"><span>{{ _("Account number / IBAN") }}</span>
+						<input class="input ltr" type="password" autocomplete="off" x-model="form.payout_account" :placeholder="pub && pub.has_account ? '********' : ''">
+						<span class="hint">{{ _("Stored encrypted. Leave empty to keep the saved account.") }}</span>
+					</label>
+					<div class="row">
+						<button class="btn primary" type="submit" :disabled="busy"><span class="spinner" x-show="busy"></span> {{ _("Save") }}</button>
+						<button class="btn ghost" type="button" @click="editing = false">{{ _("Cancel") }}</button>
+					</div>
+				</form>
+			</template>
+		</div>
+	</section>
+
+	<!-- Listings -->
+	<section class="card" x-show="!loading && pub">
+		<div class="card-head">
+			<h2>{{ _("My listings") }}</h2>
+			<template x-if="perms.manage"><button class="btn sm primary" type="button" @click="openNew()">{{ _("New listing") }}</button></template>
+		</div>
+		<div class="card-body flush table-wrap">
+			<template x-if="!listings.length"><div class="empty">{{ _("No listings yet. Create one from one of your custom apps.") }}</div></template>
+			<table class="nx-table" x-show="listings.length">
+				<thead><tr><th>{{ _("App") }}</th><th>{{ _("Status") }}</th><th>{{ _("Price") }}</th><th>{{ _("Installs") }}</th><th>{{ _("Frappe versions") }}</th><th></th></tr></thead>
+				<tbody>
+					<template x-for="l in listings" :key="l.name">
+						<tr>
+							<td>
+								<div x-text="l.title"></div>
+								<div class="small muted ltr" x-text="l.app_name"></div>
+								<template x-if="l.review_notes && (l.status === 'Rejected' || l.status === 'Draft')"><div class="small" style="color: var(--nx-danger)"><span>{{ _("Review notes") }}:</span> <span x-text="l.review_notes"></span></div></template>
+							</td>
+							<td><span :class="statusClass(l.status)" x-text="__(l.status)"></span></td>
+							<td class="nowrap" x-text="l.pricing === 'Paid' ? nx.money(l.price_monthly) + ' ' + __('/ month') : __('Free')"></td>
+							<td x-text="l.installs"></td>
+							<td class="small">
+								<template x-if="!l.releases.length"><span>—</span></template>
+								<div class="chips">
+									<template x-for="r in l.releases" :key="r.frappe_major">
+										<span :class="releaseClass(r.status)" :title="__(r.status)" x-text="'v' + r.frappe_major"></span>
+									</template>
+								</div>
+							</td>
+							<td class="actions nowrap">
+								<button class="btn sm" type="button" @click="openReleases(l)">{{ _("Releases") }}</button>
+								<template x-if="perms.manage && l.editable.length"><button class="btn sm" type="button" @click="openEdit(l)">{{ _("Edit") }}</button></template>
+								<template x-if="perms.manage && (l.status === 'Draft' || l.status === 'Rejected')"><button class="btn sm primary" type="button" @click="submit(l)" :disabled="busy">{{ _("Submit for review") }}</button></template>
+								<template x-if="perms.manage && l.status === 'In Review'"><button class="btn sm" type="button" @click="withdraw(l)" :disabled="busy">{{ _("Withdraw") }}</button></template>
+							</td>
+						</tr>
+					</template>
+				</tbody>
+			</table>
+		</div>
+	</section>
+
+	<!-- Create / edit listing -->
+	<section class="card" x-show="listingForm">
+		<div class="card-head">
+			<h2 x-text="listingForm && listingForm.name ? __('Edit listing') : __('New listing')"></h2>
+			<button class="btn sm ghost" type="button" @click="listingForm = null">{{ _("Close") }}</button>
+		</div>
+		<template x-if="listingForm">
+			<form class="card-body form-grid" @submit.prevent="saveListing()">
+				<template x-if="!listingForm.name">
+					<label class="field"><span>{{ _("Custom app") }}</span>
+						<select class="input" x-model="listingForm.custom_app" required>
+							<option value="">{{ _("Select…") }}</option>
+							<template x-for="a in customApps" :key="a.name"><option :value="a.name" :disabled="a.name_taken" x-text="a.title + ' (' + a.app_name + ')' + (a.name_taken ? ' — ' + __('name already listed') : '')"></option></template>
+						</select>
+						<span class="hint" x-show="!customApps.length">{{ _("Add a custom app on the Bench Groups page first.") }}</span>
+						<span class="hint">{{ _("The repository must be public: marketplace builds clone it without credentials.") }}</span>
+					</label>
+				</template>
+				<label class="field" x-show="canEdit('title')"><span>{{ _("Title") }}</span>
+					<input class="input" type="text" maxlength="140" x-model="listingForm.title">
+				</label>
+				<label class="field" x-show="canEdit('category')"><span>{{ _("Category") }}</span>
+					<select class="input" x-model="listingForm.category">
+						<option value="">—</option>
+						<template x-for="c in categories" :key="c"><option :value="c" x-text="__(c)" :selected="c === listingForm.category"></option></template>
+					</select>
+				</label>
+				<div class="grid cols-2" x-show="canEdit('pricing')">
+					<label class="field"><span>{{ _("Pricing") }}</span>
+						<select class="input" x-model="listingForm.pricing">
+							<option value="Free">{{ _("Free") }}</option>
+							<option value="Paid">{{ _("Paid") }}</option>
+						</select>
+					</label>
+					<label class="field" x-show="listingForm.pricing === 'Paid'"><span>{{ _("Price per site per month") }}</span>
+						<input class="input ltr" type="number" min="0" step="0.01" x-model="listingForm.price_monthly">
+					</label>
+				</div>
+				<template x-if="listingForm.name && !canEdit('pricing')"><p class="small muted" style="margin: 0">{{ _("Pricing of a published app cannot be changed. Contact support to unpublish it first.") }}</p></template>
+				<label class="field" x-show="canEdit('description')"><span>{{ _("Description") }}</span>
+					<textarea class="input" rows="6" x-model="listingForm.description"></textarea>
+				</label>
+				<label class="field" x-show="canEdit('logo')"><span>{{ _("Logo URL") }}</span>
+					<input class="input ltr" type="text" x-model="listingForm.logo" placeholder="https://">
+				</label>
+				<label class="field" x-show="canEdit('documentation_url')"><span>{{ _("Documentation URL") }}</span>
+					<input class="input ltr" type="url" x-model="listingForm.documentation_url" placeholder="https://">
+				</label>
+				<label class="field" x-show="canEdit('required_apps')"><span>{{ _("Required apps") }}</span>
+					<input class="input ltr" type="text" x-model="listingForm.required_apps" placeholder="erpnext, payments" autocomplete="off" spellcheck="false">
+					<span class="hint">{{ _("Python app names your app needs, separated by commas. Bench groups add them automatically and sites install them first.") }}</span>
+				</label>
+				<label class="field" x-show="canEdit('screenshots')"><span>{{ _("Screenshots") }}</span>
+					<textarea class="input ltr" rows="3" x-model="listingForm.screenshots" placeholder="https://…"></textarea>
+					<span class="hint">{{ _("Public image URLs, one per line (max 8).") }}</span>
+				</label>
+				<div class="row">
+					<button class="btn primary" type="submit" :disabled="busy"><span class="spinner" x-show="busy"></span> {{ _("Save") }}</button>
+				</div>
+			</form>
+		</template>
+	</section>
+
+	<!-- Releases of a listing: one per Frappe version, verified by a test build -->
+	<section class="card" x-show="relApp">
+		<div class="card-head">
+			<h2 x-text="relApp ? __('Releases of {0}', [relApp.title]) : ''"></h2>
+			<button class="btn sm ghost" type="button" @click="relApp = null; relLog = null">{{ _("Close") }}</button>
+		</div>
+		<template x-if="relApp">
+			<div class="card-body stack">
+				<p class="small muted" style="margin: 0">{{ _("Each new or changed release is test-built (Frappe, the required apps and your app) before customers can install it. Only verified releases are shown in the marketplace.") }}</p>
+				<table class="nx-table">
+					<thead><tr><th>{{ _("Frappe version") }}</th><th>{{ _("Branch") }}</th><th>{{ _("Status") }}</th><th></th></tr></thead>
+					<tbody>
+						<template x-if="!relApp.releases.length"><tr><td colspan="4" class="muted">{{ _("No releases yet.") }}</td></tr></template>
+						<template x-for="r in relApp.releases" :key="r.frappe_major">
+							<tr>
+								<td class="ltr" x-text="'v' + r.frappe_major"></td>
+								<td class="mono small"><span x-text="r.branch"></span><template x-if="r.commit"><span class="muted" x-text="' @ ' + r.commit.slice(0, 10)"></span></template></td>
+								<td>
+									<span :class="releaseClass(r.status)" x-text="__(r.status)"></span>
+									<template x-if="r.verification_note"><div class="small muted" x-text="r.verification_note"></div></template>
+								</td>
+								<td class="actions nowrap">
+									<button class="btn sm ghost" type="button" x-show="r.verification_job" @click="showLog(r)">{{ _("Build log") }}</button>
+									<template x-if="perms.manage">
+										<button class="btn sm ghost" type="button" :disabled="busy" @click="editRelease(r)">{{ _("Change") }}</button>
+									</template>
+									<template x-if="perms.manage && r.status !== 'Verified'">
+										<button class="btn sm ghost" type="button" :disabled="busy" @click="reverify(r)">{{ _("Test again") }}</button>
+									</template>
+									<template x-if="perms.manage">
+										<button class="btn sm ghost" type="button" :disabled="busy" @click="removeRelease(r)">{{ _("Remove") }}</button>
+									</template>
+								</td>
+							</tr>
+						</template>
+					</tbody>
+				</table>
+				<template x-if="perms.manage">
+					<form class="grid cols-2" @submit.prevent="saveRelease()">
+						<label class="field"><span>{{ _("Frappe version") }}</span>
+							<select class="input" x-model="relForm.frappe_major">
+								<template x-for="m in ['14', '15', '16']" :key="m"><option :value="m" :selected="m === relForm.frappe_major" x-text="'v' + m"></option></template>
+							</select>
+						</label>
+						<label class="field"><span>{{ _("Branch") }}</span>
+							<input class="input ltr" type="text" x-model="relForm.branch" placeholder="version-16" required autocomplete="off" spellcheck="false">
+						</label>
+						<label class="field"><span>{{ _("Commit (optional)") }}</span>
+							<input class="input ltr" type="text" x-model="relForm.commit" placeholder="a1b2c3d" autocomplete="off" spellcheck="false">
+						</label>
+						<div class="row" style="align-items: end">
+							<button class="btn primary" type="submit" :disabled="busy || !relForm.branch">{{ _("Save and test") }}</button>
+						</div>
+					</form>
+				</template>
+				<template x-if="relLog">
+					<div class="stack">
+						<div class="row between">
+							<strong x-text="__('Build log') + ' · v' + relLog.frappe_major"></strong>
+							<span :class="releaseClass(relLog.status)" x-text="__(relLog.status)"></span>
+						</div>
+						<template x-if="!relLog.log"><p class="small muted">{{ _("The build has not started yet.") }}</p></template>
+						<template x-if="relLog.log">
+							<pre class="mono small" style="max-height: 360px; overflow: auto; white-space: pre-wrap" x-text="formatLog(relLog.log)"></pre>
+						</template>
+					</div>
+				</template>
+			</div>
+		</template>
+	</section>
+
+	<!-- Revenue & payouts -->
+	<template x-if="pub && perms.revenue">
+		<div class="grid cols-2">
+			<section class="card">
+				<div class="card-head"><h2>{{ _("Revenue by month") }}</h2></div>
+				<div class="card-body flush table-wrap">
+					<template x-if="!revenue.months.length"><div class="empty">{{ _("No paid installs yet.") }}</div></template>
+					<table class="nx-table" x-show="revenue.months.length">
+						<thead><tr><th>{{ _("Month") }}</th><th>{{ _("Sales") }}</th><th>{{ _("Gross") }}</th><th>{{ _("Your share") }}</th></tr></thead>
+						<tbody>
+							<template x-for="m in revenue.months" :key="m.month + m.currency">
+								<tr><td class="ltr" x-text="m.month"></td><td x-text="m.sales"></td><td x-text="nx.money(m.gross, m.currency)"></td><td x-text="nx.money(m.share, m.currency)"></td></tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+			<section class="card">
+				<div class="card-head"><h2>{{ _("Payouts") }}</h2></div>
+				<div class="card-body flush table-wrap">
+					<template x-if="!revenue.payouts.length"><div class="empty">{{ _("No payouts yet. Payouts are calculated monthly for the previous month's payments.") }}</div></template>
+					<table class="nx-table" x-show="revenue.payouts.length">
+						<thead><tr><th>{{ _("Period") }}</th><th>{{ _("Status") }}</th><th>{{ _("Gross") }}</th><th>{{ _("Platform fee") }}</th><th>{{ _("Net") }}</th></tr></thead>
+						<tbody>
+							<template x-for="p in revenue.payouts" :key="p.name">
+								<tr>
+									<td class="small nowrap ltr" x-text="p.period_start + ' → ' + p.period_end"></td>
+									<td><span :class="statusClass(p.status)" x-text="__(p.status)"></span></td>
+									<td x-text="nx.money(p.gross, p.currency)"></td>
+									<td x-text="nx.money(p.platform_fee, p.currency)"></td>
+									<td x-text="nx.money(p.net, p.currency)"></td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</div>
+	</template>
+	<p class="small muted" x-show="!loading">{{ _("Listings are reviewed by Nexaploy staff before they appear on the marketplace. On approval, one release per Frappe version is created from your app's version branches.") }}</p>
+</div>
+{% endblock %}

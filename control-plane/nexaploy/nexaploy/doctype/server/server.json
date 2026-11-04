@@ -1,0 +1,708 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:server_id",
+ "creation": "2026-11-03 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "server_id",
+  "hostname",
+  "ownership",
+  "status",
+  "column_break_1",
+  "team",
+  "plan",
+  "is_build_server",
+  "hosts_control_plane",
+  "control_plane_bench",
+  "control_plane_site",
+  "backup_destination",
+  "section_break_agent",
+  "agent_version",
+  "last_heartbeat",
+  "column_break_2",
+  "token_hash",
+  "section_break_monitoring",
+  "cpu_count",
+  "memory_total_mb",
+  "disk_total_gb",
+  "column_break_monitoring",
+  "disk_used_percent",
+  "unhealthy_containers",
+  "last_alert_at",
+  "alert_state",
+  "section_break_facts",
+  "facts",
+  "benches_report",
+  "section_break_provisioning",
+  "provider",
+  "region",
+  "size",
+  "provisioning_status",
+  "column_break_provisioning",
+  "provider_server_id",
+  "public_ipv4",
+  "public_ipv6",
+  "dns_target_ips",
+  "agent_ip",
+  "provisioning_started_at",
+  "provisioning_error",
+  "section_break_agent_upgrade",
+  "agent_channel",
+  "agent_upgrade_status",
+  "agent_upgrade_target",
+  "column_break_agent_upgrade",
+  "agent_upgrade_job",
+  "agent_upgrade_started_at",
+  "agent_upgrade_error",
+  "section_break_os",
+  "os_updates_supported",
+  "os_pending_updates",
+  "os_security_updates",
+  "os_reboot_required",
+  "os_running_kernel",
+  "os_newest_kernel",
+  "os_boot_time",
+  "os_updates_checked_at",
+  "unattended_security",
+  "column_break_os",
+  "os_update_status",
+  "os_update_job",
+  "os_update_started_at",
+  "os_update_error",
+  "last_os_update_at",
+  "section_break_maintenance",
+  "maintenance_enabled",
+  "maintenance_day",
+  "maintenance_hour",
+  "column_break_maintenance",
+  "maintenance_mode",
+  "maintenance_reboot",
+  "last_maintenance_at",
+  "auto_cleanup_enabled",
+  "section_break_health",
+  "health_status",
+  "health_checked_at",
+  "health_diagnosed_at",
+  "column_break_health",
+  "health_issues",
+  "health_diagnose",
+  "health_alert_state",
+  "section_break_cleanup",
+  "last_cleanup_at",
+  "last_cleanup_freed",
+  "last_cleanup_job",
+  "column_break_cleanup",
+  "last_auto_cleanup_at",
+  "last_scheduled_cleanup_at"
+ ],
+ "fields": [
+  {
+   "description": "Assigned on registration (srv-xxxxxxxx). Used as the document name.",
+   "fieldname": "server_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Server ID",
+   "read_only": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "hostname",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Hostname"
+  },
+  {
+   "default": "BYOS",
+   "fieldname": "ownership",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Ownership",
+   "options": "Hosted\nBYOS",
+   "reqd": 1
+  },
+  {
+   "default": "Pending",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Pending\nActive\nOffline\nArchived",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Customer user that owns this server.",
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Team",
+   "options": "Team"
+  },
+  {
+   "fieldname": "plan",
+   "fieldtype": "Link",
+   "label": "Plan",
+   "options": "Nexaploy Plan"
+  },
+  {
+   "description": "May be chosen as build server for Release Groups.",
+   "fieldname": "is_build_server",
+   "fieldtype": "Check",
+   "label": "Is Build Server"
+  },
+  {
+   "default": "0",
+   "description": "Set by the all-in-one installer: the control plane itself runs on this server.",
+   "fieldname": "hosts_control_plane",
+   "fieldtype": "Check",
+   "label": "Hosts Control Plane",
+   "read_only": 1
+  },
+  {
+   "depends_on": "hosts_control_plane",
+   "fieldname": "control_plane_bench",
+   "fieldtype": "Data",
+   "label": "Control Plane Bench",
+   "read_only": 1
+  },
+  {
+   "depends_on": "hosts_control_plane",
+   "fieldname": "control_plane_site",
+   "fieldtype": "Data",
+   "label": "Control Plane Site",
+   "read_only": 1
+  },
+  {
+   "fieldname": "backup_destination",
+   "fieldtype": "Link",
+   "label": "Backup Destination",
+   "options": "Backup Destination",
+   "description": "Where this server uploads backups. Empty: the team's default destination, else the platform storage (Nexaploy Settings)."
+  },
+  {
+   "fieldname": "section_break_agent",
+   "fieldtype": "Section Break",
+   "label": "Agent"
+  },
+  {
+   "fieldname": "agent_version",
+   "fieldtype": "Data",
+   "label": "Agent Version",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_heartbeat",
+   "fieldtype": "Datetime",
+   "label": "Last Heartbeat",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "sha256 of the server token. The plaintext token is never stored.",
+   "fieldname": "token_hash",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Token Hash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_monitoring",
+   "fieldtype": "Section Break",
+   "label": "Monitoring"
+  },
+  {
+   "fieldname": "cpu_count",
+   "fieldtype": "Int",
+   "label": "CPU Count",
+   "read_only": 1
+  },
+  {
+   "fieldname": "memory_total_mb",
+   "fieldtype": "Int",
+   "label": "Memory Total (MB)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "disk_total_gb",
+   "fieldtype": "Float",
+   "label": "Disk Total (GB)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_monitoring",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "disk_used_percent",
+   "fieldtype": "Float",
+   "in_list_view": 0,
+   "label": "Disk Used (%)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "unhealthy_containers",
+   "fieldtype": "Int",
+   "label": "Unhealthy Containers",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_alert_at",
+   "fieldtype": "Datetime",
+   "label": "Last Alert At",
+   "read_only": 1
+  },
+  {
+   "description": "Last alert time per kind (rate limit: 1 per 6 h per kind).",
+   "fieldname": "alert_state",
+   "fieldtype": "JSON",
+   "hidden": 1,
+   "label": "Alert State",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_facts",
+   "fieldtype": "Section Break",
+   "label": "Facts"
+  },
+  {
+   "fieldname": "facts",
+   "fieldtype": "JSON",
+   "label": "Facts",
+   "read_only": 1
+  },
+  {
+   "fieldname": "benches_report",
+   "fieldtype": "JSON",
+   "label": "Benches (reported)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_provisioning",
+   "fieldtype": "Section Break",
+   "label": "Provisioning",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "provider",
+   "fieldtype": "Link",
+   "label": "Cloud Provider",
+   "options": "Cloud Provider",
+   "read_only": 1
+  },
+  {
+   "fieldname": "region",
+   "fieldtype": "Link",
+   "label": "Cloud Region",
+   "options": "Cloud Region",
+   "read_only": 1
+  },
+  {
+   "fieldname": "size",
+   "fieldtype": "Link",
+   "label": "Cloud Server Size",
+   "options": "Cloud Server Size",
+   "read_only": 1
+  },
+  {
+   "fieldname": "provisioning_status",
+   "fieldtype": "Select",
+   "label": "Provisioning Status",
+   "options": "Not Provisioned\nCreating\nBootstrapping\nReady\nFailed\nDeleting\nDeleted",
+   "default": "Not Provisioned",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_provisioning",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "provider_server_id",
+   "fieldtype": "Data",
+   "label": "Provider Server ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "public_ipv4",
+   "fieldtype": "Data",
+   "label": "Public IPv4",
+   "read_only": 1
+  },
+  {
+   "fieldname": "public_ipv6",
+   "fieldtype": "Data",
+   "label": "Public IPv6",
+   "read_only": 1
+  },
+  {
+   "fieldname": "dns_target_ips",
+   "fieldtype": "Small Text",
+   "label": "DNS Target IPs (override)",
+   "description": "Custom domains must point here (A/AAAA). Comma separated. Leave empty to use the public IPv4/IPv6 above and the addresses the agent reports; set it for a floating IP, load balancer or NAT."
+  },
+  {
+   "fieldname": "agent_ip",
+   "fieldtype": "Data",
+   "label": "Agent Source IP",
+   "read_only": 1,
+   "description": "Address the agent's last heartbeat came from (fallback DNS target)."
+  },
+  {
+   "fieldname": "provisioning_started_at",
+   "fieldtype": "Datetime",
+   "label": "Provisioning Started At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "provisioning_error",
+   "fieldtype": "Small Text",
+   "label": "Provisioning Error",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_agent_upgrade",
+   "fieldtype": "Section Break",
+   "label": "Agent Upgrade",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "agent_channel",
+   "fieldtype": "Select",
+   "label": "Agent Channel",
+   "options": "stable\nbeta",
+   "default": "stable",
+   "description": "Agent releases offered to this server (beta also gets stable releases)."
+  },
+  {
+   "fieldname": "agent_upgrade_status",
+   "fieldtype": "Select",
+   "label": "Agent Upgrade Status",
+   "options": "\nIn Progress\nSucceeded\nFailed\nRolling Back\nRolled Back",
+   "read_only": 1
+  },
+  {
+   "fieldname": "agent_upgrade_target",
+   "fieldtype": "Data",
+   "label": "Agent Upgrade Target",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_agent_upgrade",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "agent_upgrade_job",
+   "fieldtype": "Link",
+   "label": "Agent Upgrade Job",
+   "options": "Agent Job",
+   "read_only": 1
+  },
+  {
+   "fieldname": "agent_upgrade_started_at",
+   "fieldtype": "Datetime",
+   "label": "Agent Upgrade Started At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "agent_upgrade_error",
+   "fieldtype": "Small Text",
+   "label": "Agent Upgrade Error",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_os",
+   "fieldtype": "Section Break",
+   "label": "System Updates",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "os_updates_supported",
+   "fieldtype": "Check",
+   "label": "OS Updates Supported",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os_pending_updates",
+   "fieldtype": "Int",
+   "label": "Pending Updates",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os_security_updates",
+   "fieldtype": "Int",
+   "label": "Security Updates",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os_reboot_required",
+   "fieldtype": "Check",
+   "label": "Reboot Required",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os_running_kernel",
+   "fieldtype": "Data",
+   "label": "Running Kernel",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os_newest_kernel",
+   "fieldtype": "Data",
+   "label": "Newest Kernel",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os_boot_time",
+   "fieldtype": "Datetime",
+   "label": "Boot Time",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os_updates_checked_at",
+   "fieldtype": "Datetime",
+   "label": "Updates Checked At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "unattended_security",
+   "fieldtype": "Check",
+   "label": "Automatic Security Updates",
+   "read_only": 1,
+   "description": "Reported by the agent (20auto-upgrades)."
+  },
+  {
+   "fieldname": "column_break_os",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "os_update_status",
+   "fieldtype": "Select",
+   "label": "OS Update Status",
+   "options": "\nIn Progress\nRebooting\nSucceeded\nFailed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os_update_job",
+   "fieldtype": "Link",
+   "label": "OS Update Job",
+   "options": "Agent Job",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os_update_started_at",
+   "fieldtype": "Datetime",
+   "label": "OS Update Started At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os_update_error",
+   "fieldtype": "Small Text",
+   "label": "OS Update Error",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_os_update_at",
+   "fieldtype": "Datetime",
+   "label": "Last OS Update At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_maintenance",
+   "fieldtype": "Section Break",
+   "label": "Maintenance Window",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "maintenance_enabled",
+   "fieldtype": "Check",
+   "label": "Maintenance Window Enabled",
+   "default": "0",
+   "description": "Install updates automatically in the window below (UTC)."
+  },
+  {
+   "fieldname": "maintenance_day",
+   "fieldtype": "Select",
+   "label": "Maintenance Day",
+   "options": "Every day\nMonday\nTuesday\nWednesday\nThursday\nFriday\nSaturday\nSunday",
+   "default": "Sunday"
+  },
+  {
+   "fieldname": "maintenance_hour",
+   "fieldtype": "Int",
+   "label": "Maintenance Hour (UTC)",
+   "default": "3"
+  },
+  {
+   "fieldname": "column_break_maintenance",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "maintenance_mode",
+   "fieldtype": "Select",
+   "label": "Maintenance Updates",
+   "options": "security\nall",
+   "default": "security"
+  },
+  {
+   "fieldname": "maintenance_reboot",
+   "fieldtype": "Select",
+   "label": "Maintenance Reboot",
+   "options": "never\nif_required\nalways",
+   "default": "if_required"
+  },
+  {
+   "fieldname": "last_maintenance_at",
+   "fieldtype": "Datetime",
+   "label": "Last Maintenance At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "auto_cleanup_enabled",
+   "fieldtype": "Check",
+   "label": "Automatic Cleanup",
+   "default": "1",
+   "description": "Off: the platform cleanup policy skips this server."
+  },
+  {
+   "fieldname": "section_break_health",
+   "fieldtype": "Section Break",
+   "label": "Health",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "health_status",
+   "fieldtype": "Select",
+   "label": "Health Status",
+   "options": "\nOK\nWarning\nCritical\nUnknown\nOffline",
+   "read_only": 1
+  },
+  {
+   "fieldname": "health_checked_at",
+   "fieldtype": "Datetime",
+   "label": "Health Checked At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "health_diagnosed_at",
+   "fieldtype": "Datetime",
+   "label": "Last Full Check At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_health",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "health_issues",
+   "fieldtype": "JSON",
+   "label": "Health Issues",
+   "read_only": 1
+  },
+  {
+   "fieldname": "health_diagnose",
+   "fieldtype": "JSON",
+   "label": "Last Full Check",
+   "read_only": 1
+  },
+  {
+   "fieldname": "health_alert_state",
+   "fieldtype": "JSON",
+   "label": "Health Alert State",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_cleanup",
+   "fieldtype": "Section Break",
+   "label": "Cleanup",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "last_cleanup_at",
+   "fieldtype": "Datetime",
+   "label": "Last Cleanup At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_cleanup_freed",
+   "fieldtype": "Float",
+   "label": "Last Cleanup Freed (bytes)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_cleanup_job",
+   "fieldtype": "Link",
+   "label": "Last Cleanup Job",
+   "options": "Agent Job",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_cleanup",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_auto_cleanup_at",
+   "fieldtype": "Datetime",
+   "label": "Last Automatic Cleanup (disk critical)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_scheduled_cleanup_at",
+   "fieldtype": "Datetime",
+   "label": "Last Scheduled Cleanup",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-12-09 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Server",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Nexaploy Customer",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "search_fields": "hostname,team",
+ "show_title_field_in_link": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "hostname",
+ "track_changes": 1
+}

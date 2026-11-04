@@ -1,0 +1,87 @@
+# Nexaploy shared MariaDB  (/opt/nexaploy/db/docker-compose.yml)
+# Compose project "nexaploy-db"; one per server, used by every bench.
+# See ARCHITECTURE.md §3.4. No published ports: reachable only on the
+# external `nexaploy-db` network.
+name: nexaploy-db
+
+services:
+  mariadb:
+    # 11.8 LTS: Frappe v16 ships the 11.8 client, which requires TLS; 11.4+ servers offer TLS
+    # with an auto-generated certificate (zero-config). 10.6 data dirs upgrade in place
+    # (MARIADB_AUTO_UPGRADE). Older bench images (10.x clients) connect as before.
+    image: ${MARIADB_IMAGE:-mariadb:11.8}
+    container_name: nexaploy-db
+    user: "3101:3101"
+    # db.env carries DB_ROOT_PASSWORD; map it to the name the image expects
+    # without ever writing the secret into this file or the project .env.
+    env_file:
+      - ${DB_ENV_FILE:-/opt/nexaploy/config/db.env}
+    entrypoint:
+      - sh
+      - -c
+      - 'export MARIADB_ROOT_PASSWORD="$$DB_ROOT_PASSWORD"; exec docker-entrypoint.sh "$$@"'
+      - docker-entrypoint
+    command:
+      - mariadbd
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+      - --skip-innodb-read-only-compressed
+      - --innodb-buffer-pool-size=${DB_BUFFER_POOL:-1G}
+      - --max-allowed-packet=256M
+      - --skip-name-resolve
+      # slow query log for the portal's "Slow queries" view (agent job site.slow_queries reads
+      # ./data/slow.log on the host and filters it by the site's schema)
+      - --slow-query-log=1
+      - --slow-query-log-file=/var/lib/mysql/slow.log
+      - --long-query-time=${DB_LONG_QUERY_TIME:-1}
+      # binary log for point-in-time recovery (agent jobs site.backup records the position,
+      # server.archive_binlogs uploads closed files, site.restore_pitr replays them).
+      # Files live in the data dir as mysql-bin.NNNNNN (+ mysql-bin.index): never in a
+      # sub-directory, which MariaDB would list as a database. ROW format is required: the
+      # replay filters and renames by database (mariadb-binlog --database / --rewrite-db).
+      - --log-bin=mysql-bin
+      - --binlog-format=ROW
+      - --server-id=${DB_SERVER_ID:-1}
+      - --binlog-expire-logs-seconds=${DB_BINLOG_EXPIRE_SECONDS:-604800}
+      - --max-binlog-size=${DB_MAX_BINLOG_SIZE:-100M}
+      - --sync-binlog=${DB_SYNC_BINLOG:-1}
+    environment:
+      TZ: ${TZ:-UTC}
+      MARIADB_AUTO_UPGRADE: "1"
+    volumes:
+      - ./data:/var/lib/mysql
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=512m
+      - /run/mysqld:uid=3101,gid=3101,mode=0755
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - nexaploy-db
+    healthcheck:
+      # mysqladmin ping exits 0 whenever the server answers (even on access
+      # denied), so no credentials are needed here.
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "--silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "${DB_CPUS:-2}"
+          memory: ${DB_MEM:-2G}
+
+networks:
+  nexaploy-db:
+    name: nexaploy-db
+    external: true

@@ -1,0 +1,536 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:site_name",
+ "creation": "2026-11-03 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "site_name",
+  "bench",
+  "server",
+  "column_break_1",
+  "status",
+  "team",
+  "plan",
+  "suspended_for_billing",
+  "admin_password",
+  "section_break_apps",
+  "apps",
+  "section_break_domains",
+  "domains",
+  "section_break_tls",
+  "tls_status",
+  "tls_issuer",
+  "tls_expires_on",
+  "column_break_tls",
+  "tls_checked_at",
+  "tls_message",
+  "tls_detail",
+  "tls_alert_marker",
+  "section_break_backups",
+  "backup_frequency",
+  "backup_retention_custom",
+  "backup_retention_days",
+  "backup_keep_daily",
+  "backup_keep_weekly",
+  "backup_keep_monthly",
+  "backup_local_retention_days",
+  "backup_with_files",
+  "last_backup_at",
+  "column_break_monitoring",
+  "is_up",
+  "last_uptime_check",
+  "section_break_usage",
+  "current_cpu_seconds_today",
+  "database_mb",
+  "storage_mb",
+  "usage_updated_at",
+  "column_break_usage",
+  "over_limit",
+  "throttled",
+  "usage_suspended",
+  "usage_alert_state",
+  "section_break_move",
+  "move_target_bench",
+  "move_backup",
+  "column_break_move",
+  "move_steps",
+  "move_step_idx",
+  "section_break_lifecycle",
+  "is_staging",
+  "staging_of",
+  "column_break_lifecycle",
+  "staging_site",
+  "move_options",
+  "pitr_of",
+  "section_break_trial",
+  "saas_product",
+  "trial_end_date",
+  "column_break_trial",
+  "trial_state"
+ ],
+ "fields": [
+  {
+   "description": "Lowercase FQDN (ARCHITECTURE.md section 2).",
+   "fieldname": "site_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Site Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "bench",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Bench",
+   "options": "Bench",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "bench.server",
+   "fieldname": "server",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Server",
+   "options": "Server",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Pending",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Pending\nActive\nMoving\nRenaming\nBroken\nSuspended\nArchived",
+   "read_only": 1
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "label": "Team",
+   "options": "Team"
+  },
+  {
+   "fieldname": "plan",
+   "fieldtype": "Link",
+   "label": "Plan",
+   "options": "Nexaploy Plan"
+  },
+  {
+   "default": "0",
+   "description": "Set only by billing (nexaploy.billing) when the site is suspended for non-payment.",
+   "fieldname": "suspended_for_billing",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Suspended For Billing",
+   "read_only": 1
+  },
+  {
+   "fieldname": "admin_password",
+   "fieldtype": "Password",
+   "label": "Administrator Password",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_apps",
+   "fieldtype": "Section Break",
+   "label": "Apps"
+  },
+  {
+   "fieldname": "apps",
+   "fieldtype": "Table",
+   "label": "Apps",
+   "options": "Site App"
+  },
+  {
+   "fieldname": "section_break_domains",
+   "fieldtype": "Section Break",
+   "label": "Domains"
+  },
+  {
+   "fieldname": "domains",
+   "fieldtype": "Table",
+   "label": "Domains",
+   "options": "Site Domain"
+  },
+  {
+   "fieldname": "section_break_tls",
+   "fieldtype": "Section Break",
+   "label": "TLS (primary hostname)",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "tls_status",
+   "fieldtype": "Select",
+   "label": "TLS Status",
+   "read_only": 1,
+   "options": "\nValid\nExpiring\nExpired\nDefault Certificate\nPending\nUntrusted\nError"
+  },
+  {
+   "fieldname": "tls_issuer",
+   "fieldtype": "Data",
+   "label": "Certificate Issuer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tls_expires_on",
+   "fieldtype": "Datetime",
+   "label": "Certificate Expires On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_tls",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "tls_checked_at",
+   "fieldtype": "Datetime",
+   "label": "TLS Checked At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tls_message",
+   "fieldtype": "Small Text",
+   "label": "TLS Message",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tls_detail",
+   "fieldtype": "JSON",
+   "label": "TLS Detail",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "tls_alert_marker",
+   "fieldtype": "Int",
+   "label": "TLS Alert Marker",
+   "read_only": 1,
+   "hidden": 1,
+   "description": "Lowest expiry threshold (days + 1) already notified; 0 = none"
+  },
+  {
+   "fieldname": "section_break_backups",
+   "fieldtype": "Section Break",
+   "label": "Backups & Monitoring"
+  },
+  {
+   "default": "Daily",
+   "fieldname": "backup_frequency",
+   "fieldtype": "Select",
+   "label": "Backup Frequency",
+   "options": "Daily\nEvery 12 hours\nWeekly\nOff"
+  },
+  {
+   "fieldname": "backup_retention_custom",
+   "fieldtype": "Check",
+   "label": "Custom Backup Retention",
+   "default": "0",
+   "description": "Use this site's retention below instead of the team default."
+  },
+  {
+   "default": "14",
+   "description": "Remote copies older than this are deleted (0 = forever). Used when Custom Backup Retention is set.",
+   "fieldname": "backup_retention_days",
+   "fieldtype": "Int",
+   "label": "Backup Retention (days)"
+  },
+  {
+   "fieldname": "backup_keep_daily",
+   "fieldtype": "Int",
+   "label": "Keep Daily Backups",
+   "default": "0",
+   "description": "Also keep the newest backup of each of the last N days (0 = off)."
+  },
+  {
+   "fieldname": "backup_keep_weekly",
+   "fieldtype": "Int",
+   "label": "Keep Weekly Backups",
+   "default": "0",
+   "description": "Also keep the newest backup of each of the last N weeks (0 = off)."
+  },
+  {
+   "fieldname": "backup_keep_monthly",
+   "fieldtype": "Int",
+   "label": "Keep Monthly Backups",
+   "default": "0",
+   "description": "Also keep the newest backup of each of the last N months (0 = off)."
+  },
+  {
+   "fieldname": "backup_local_retention_days",
+   "fieldtype": "Int",
+   "label": "Keep On Server (days)",
+   "default": "14",
+   "description": "Days uploaded backups stay on the server; 0 = delete right after upload."
+  },
+  {
+   "default": "1",
+   "fieldname": "backup_with_files",
+   "fieldtype": "Check",
+   "label": "Back Up Files"
+  },
+  {
+   "fieldname": "last_backup_at",
+   "fieldtype": "Datetime",
+   "label": "Last Backup At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_monitoring",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_up",
+   "fieldtype": "Check",
+   "label": "Is Up",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_uptime_check",
+   "fieldtype": "Datetime",
+   "label": "Last Uptime Check",
+   "read_only": 1
+  },
+  {
+   "collapsible": 0,
+   "fieldname": "section_break_usage",
+   "fieldtype": "Section Break",
+   "label": "Usage"
+  },
+  {
+   "fieldname": "current_cpu_seconds_today",
+   "fieldtype": "Float",
+   "label": "CPU Seconds Today (UTC)",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "database_mb",
+   "fieldtype": "Float",
+   "label": "Database (MB)",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "storage_mb",
+   "fieldtype": "Float",
+   "label": "Storage (MB)",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "usage_updated_at",
+   "fieldtype": "Datetime",
+   "label": "Usage Updated At",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_usage",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "over_limit",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Over Plan Limit",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "throttled",
+   "fieldtype": "Check",
+   "label": "Throttled",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Suspended by plan limit enforcement (lifted automatically when under the limits)",
+   "fieldname": "usage_suspended",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Suspended for Usage",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "usage_alert_state",
+   "fieldtype": "Small Text",
+   "hidden": 1,
+   "label": "Usage Alert State",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "description": "State of an in-progress move to another bench (backup -> restore).",
+   "fieldname": "section_break_move",
+   "fieldtype": "Section Break",
+   "label": "Move"
+  },
+  {
+   "fieldname": "move_target_bench",
+   "fieldtype": "Link",
+   "label": "Move Target Bench",
+   "options": "Bench",
+   "read_only": 1
+  },
+  {
+   "fieldname": "move_backup",
+   "fieldtype": "Link",
+   "label": "Move Backup",
+   "options": "Site Backup",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_move",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "move_steps",
+   "fieldtype": "JSON",
+   "label": "Move Steps",
+   "read_only": 1
+  },
+  {
+   "fieldname": "move_step_idx",
+   "fieldtype": "Int",
+   "label": "Move Step Index",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_lifecycle",
+   "fieldtype": "Section Break",
+   "label": "Lifecycle",
+   "collapsible": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "is_staging",
+   "fieldtype": "Check",
+   "label": "Is Staging",
+   "read_only": 1,
+   "in_standard_filter": 1,
+   "description": "Staging copy of another site (site.clone): emails muted, scheduler paused, not billed."
+  },
+  {
+   "fieldname": "staging_of",
+   "fieldtype": "Link",
+   "label": "Staging Of",
+   "options": "Site",
+   "read_only": 1,
+   "depends_on": "is_staging"
+  },
+  {
+   "fieldname": "column_break_lifecycle",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "staging_site",
+   "fieldtype": "Link",
+   "label": "Staging Site",
+   "options": "Site",
+   "read_only": 1
+  },
+  {
+   "fieldname": "move_options",
+   "fieldtype": "JSON",
+   "label": "Move Options",
+   "read_only": 1,
+   "hidden": 1,
+   "description": "In-flight move state: backup_id, allow_upgrade, source bench/server, cross_server."
+  },
+  {
+   "fieldname": "pitr_of",
+   "fieldtype": "Link",
+   "label": "Point-in-time Copy Of",
+   "options": "Site",
+   "read_only": 1,
+   "description": "Set on a site restored to a point in time of another site (site.restore_pitr)"
+  },
+  {
+   "fieldname": "section_break_trial",
+   "fieldtype": "Section Break",
+   "label": "Trial",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "saas_product",
+   "fieldtype": "Link",
+   "label": "SaaS Product",
+   "options": "SaaS Product",
+   "read_only": 1
+  },
+  {
+   "fieldname": "trial_end_date",
+   "fieldtype": "Date",
+   "label": "Trial End Date",
+   "description": "First billable day. Subscriptions start on this date."
+  },
+  {
+   "fieldname": "column_break_trial",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "trial_state",
+   "fieldtype": "Select",
+   "label": "Trial State",
+   "options": "\nNotified\nSuspended\nConverted",
+   "read_only": 1,
+   "description": "Set by expire_trials: Notified (trial over, grace period), Suspended, Converted (team can pay)."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-12-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Site",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Nexaploy Customer",
+   "share": 0,
+   "write": 1
+  }
+ ],
+ "show_title_field_in_link": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "site_name",
+ "track_changes": 1
+}

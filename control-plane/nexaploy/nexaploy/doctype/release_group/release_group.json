@@ -1,0 +1,149 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:title",
+ "creation": "2026-11-03 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "frappe_major",
+  "frappe_branch",
+  "column_break_1",
+  "team",
+  "build_server",
+  "auto_update",
+  "update_window",
+  "test_before_auto_update",
+  "update_available",
+  "section_break_apps",
+  "apps"
+ ],
+ "fields": [
+  {
+   "description": "Slug, e.g. erp-v15-main (^[a-z][a-z0-9-]{2,30}$). Used in image tags.",
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Title",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "16",
+   "fieldname": "frappe_major",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Frappe Major",
+   "options": "14\n15\n16",
+   "reqd": 1
+  },
+  {
+   "description": "Defaults to version-<major>.",
+   "fieldname": "frappe_branch",
+   "fieldtype": "Data",
+   "label": "Frappe Branch"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "label": "Team",
+   "options": "Team"
+  },
+  {
+   "description": "Server whose agent runs image.build for this group.",
+   "fieldname": "build_server",
+   "fieldtype": "Link",
+   "label": "Build Server",
+   "options": "Server"
+  },
+  {
+   "default": "0",
+   "description": "Roll benches of this group to every new successful build (inside the update window).",
+   "fieldname": "auto_update",
+   "fieldtype": "Check",
+   "label": "Auto Update"
+  },
+  {
+   "depends_on": "auto_update",
+   "description": "Server-local time, e.g. 02:00-05:00. Empty = any time.",
+   "fieldname": "update_window",
+   "fieldtype": "Data",
+   "label": "Update Window"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.auto_update",
+   "description": "Before an automatic update, every site of the bench is cloned onto the new image, migrated and smoke-checked; the bench is updated only when all tests pass.",
+   "fieldname": "test_before_auto_update",
+   "fieldtype": "Check",
+   "label": "Test Sites Before Auto Update"
+  },
+  {
+   "default": "0",
+   "description": "Set when a tracked branch of a custom app received new commits since the last successful build.",
+   "fieldname": "update_available",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Update Available",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_apps",
+   "fieldtype": "Section Break",
+   "label": "Apps"
+  },
+  {
+   "fieldname": "apps",
+   "fieldtype": "Table",
+   "label": "Apps",
+   "options": "Release Group App"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-12-01 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Release Group",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Nexaploy Customer",
+   "share": 0,
+   "write": 1
+  }
+ ],
+ "show_title_field_in_link": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}

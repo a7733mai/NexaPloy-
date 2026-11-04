@@ -1,0 +1,58 @@
+{% extends "templates/status_base.html" %}
+{#- public uptime status page (nexaploy/www/status.py); layout, brand and footer in templates/status_base.html -#}
+
+{% block content %}
+	<div class="stack">
+		<div class="nx-banner {{ status.overall }}" role="status">
+			{% if status.overall == "operational" %}{{ _("All systems operational") }}
+			{% elif status.overall == "partial" %}{{ _("Partial outage") }}
+			{% elif status.overall == "major" %}{{ _("Major outage") }}
+			{% else %}{{ _("Status unknown") }}{% endif %}
+		</div>
+
+		{% if status.active_incidents %}
+		<section class="card">
+			<div class="card-head"><h2>{{ _("Ongoing incidents") }}</h2></div>
+			{% for inc in status.active_incidents %}
+			<div class="nx-inc">
+				<strong>{{ inc.title | e }}</strong>
+				<div class="small muted">{{ inc.service | e }} · {{ _("Since") }} <span class="ltr">{{ inc.started_display }}</span></div>
+				{% if inc.updates %}<ul>{% for u in inc.updates %}<li><strong>{{ _(u.status) }}</strong> <span class="small muted ltr">{{ u.posted_display }}</span><br>{{ u.message | e }}</li>{% endfor %}</ul>{% endif %}
+			</div>
+			{% endfor %}
+		</section>
+		{% endif %}
+
+		<section class="card">
+			{% for m in status.monitors %}
+			<div class="nx-svc">
+				<div class="nx-svc-head">
+					<strong>{{ m.name | e }}</strong>
+					{% if m.uptime is not none %}<span class="small muted"><span class="ltr">{{ "%.2f" | format(m.uptime) }}%</span> {{ _("uptime") }}</span>{% endif %}
+					{% if m.status == "Up" %}<span class="badge success">{{ _("Operational") }}</span>
+					{% elif m.status == "Down" %}<span class="badge danger">{{ _("Outage") }}</span>
+					{% elif m.status == "Paused" %}<span class="badge plain">{{ _("Paused") }}</span>
+					{% else %}<span class="badge plain">{{ _("Unknown") }}</span>{% endif %}
+				</div>
+				<div class="nx-bars" aria-hidden="true">{% for d in m.days %}<span class="{{ d.level }}" title="{{ d.date }}{% if d.uptime is not none %}: {{ "%.2f" | format(d.uptime) }}%{% if d.down %} ({{ d.down }}){% endif %}{% endif %}"></span>{% endfor %}</div>
+				<div class="nx-bars-legend small muted"><span>{{ _("{0} days ago").format(status.days) }}</span><span>{{ _("Today") }}</span></div>
+			</div>
+			{% else %}
+			<div class="nx-svc muted">{{ _("No services are listed on this page yet.") }}</div>
+			{% endfor %}
+		</section>
+
+		{% if status.past_incidents %}
+		<section class="card">
+			<div class="card-head"><h2>{{ _("Past incidents") }}</h2></div>
+			{% for inc in status.past_incidents %}
+			<div class="nx-inc">
+				<strong>{{ inc.title | e }}</strong>
+				<div class="small muted">{{ inc.service | e }} · <span class="ltr">{{ inc.started_display }}</span>{% if inc.duration %} · {{ _("Duration") }} <span class="ltr">{{ inc.duration }}</span>{% endif %} · {{ _("Resolved") }}</div>
+				{% if inc.updates %}<ul>{% for u in inc.updates %}<li><strong>{{ _(u.status) }}</strong> <span class="small muted ltr">{{ u.posted_display }}</span><br>{{ u.message | e }}</li>{% endfor %}</ul>{% endif %}
+			</div>
+			{% endfor %}
+		</section>
+		{% endif %}
+	</div>
+{% endblock %}

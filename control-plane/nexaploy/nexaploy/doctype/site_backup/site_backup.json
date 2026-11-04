@@ -1,0 +1,199 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-11-03 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "site",
+  "with_files",
+  "purpose",
+  "column_break_1",
+  "status",
+  "created_at",
+  "size",
+  "section_break_2",
+  "remote_path",
+  "team",
+  "section_break_files",
+  "files",
+  "section_break_pitr",
+  "binlog_file",
+  "binlog_position",
+  "binlog_gtid",
+  "column_break_pitr",
+  "binlog_db",
+  "binlog_ready_at",
+  "binlog_server"
+ ],
+ "fields": [
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Site",
+   "options": "Site",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "with_files",
+   "fieldtype": "Check",
+   "label": "With Files"
+  },
+  {
+   "default": "Manual",
+   "fieldname": "purpose",
+   "fieldtype": "Select",
+   "label": "Purpose",
+   "options": "Manual\nScheduled\nMove"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Pending",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Pending\nRunning\nSuccess\nFailure\nDeleted",
+   "read_only": 1
+  },
+  {
+   "fieldname": "created_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Created At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "size",
+   "fieldtype": "Int",
+   "label": "Size (bytes)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_2",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "remote_path",
+   "fieldtype": "Data",
+   "label": "Remote Path",
+   "read_only": 1,
+   "length": 1000
+  },
+  {
+   "fetch_from": "site.team",
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "label": "Team",
+   "options": "Team",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_files",
+   "fieldtype": "Section Break",
+   "label": "Files"
+  },
+  {
+   "fieldname": "files",
+   "fieldtype": "Table",
+   "label": "Files",
+   "options": "Site Backup File",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_pitr",
+   "fieldtype": "Section Break",
+   "label": "Point-in-time Recovery"
+  },
+  {
+   "fieldname": "binlog_file",
+   "fieldtype": "Data",
+   "label": "Binlog File",
+   "read_only": 1,
+   "description": "Binary log coordinates of the database dump (mariadb-dump --master-data); empty when binary logging was off"
+  },
+  {
+   "fieldname": "binlog_position",
+   "fieldtype": "Int",
+   "label": "Binlog Position",
+   "read_only": 1
+  },
+  {
+   "fieldname": "binlog_gtid",
+   "fieldtype": "Data",
+   "label": "Binlog GTID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_pitr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "binlog_db",
+   "fieldtype": "Data",
+   "label": "Database",
+   "read_only": 1
+  },
+  {
+   "fieldname": "binlog_ready_at",
+   "fieldtype": "Datetime",
+   "label": "Restorable From (UTC)",
+   "read_only": 1,
+   "description": "Earliest point in time this backup can be restored to"
+  },
+  {
+   "fieldname": "binlog_server",
+   "fieldtype": "Link",
+   "label": "Binlog Server",
+   "options": "Server",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-12-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Site Backup",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Nexaploy Customer",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

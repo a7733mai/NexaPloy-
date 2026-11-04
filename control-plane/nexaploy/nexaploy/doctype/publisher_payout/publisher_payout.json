@@ -1,0 +1,193 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "format:PAYOUT-{YYYY}-{#####}",
+ "creation": "2026-11-04 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "publisher",
+  "team",
+  "status",
+  "payout_method",
+  "column_break_1",
+  "period_start",
+  "period_end",
+  "currency",
+  "revenue_share_percent",
+  "section_break_totals",
+  "gross",
+  "platform_fee",
+  "net",
+  "column_break_2",
+  "paid_on",
+  "payment_reference",
+  "credit_transaction",
+  "section_break_items",
+  "items"
+ ],
+ "fields": [
+  {
+   "fieldname": "publisher",
+   "fieldtype": "Link",
+   "label": "Publisher",
+   "options": "Marketplace Publisher",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "label": "Team",
+   "options": "Team",
+   "read_only": 1,
+   "fetch_from": "publisher.team"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nApproved\nPaid",
+   "default": "Draft",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "payout_method",
+   "fieldtype": "Select",
+   "label": "Payout Method",
+   "options": "Bank\nPayPal\nCredits",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "period_start",
+   "fieldtype": "Date",
+   "label": "Period Start",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "period_end",
+   "fieldtype": "Date",
+   "label": "Period End",
+   "reqd": 1
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "revenue_share_percent",
+   "fieldtype": "Float",
+   "label": "Revenue Share (%)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_totals",
+   "fieldtype": "Section Break",
+   "label": "Totals"
+  },
+  {
+   "fieldname": "gross",
+   "fieldtype": "Currency",
+   "label": "Gross Revenue",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "platform_fee",
+   "fieldtype": "Currency",
+   "label": "Platform Fee",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "net",
+   "fieldtype": "Currency",
+   "label": "Net Payout",
+   "options": "currency",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "paid_on",
+   "fieldtype": "Datetime",
+   "label": "Paid On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "payment_reference",
+   "fieldtype": "Data",
+   "label": "Payment Reference",
+   "description": "Bank / PayPal transfer reference. Credits payouts are referenced automatically."
+  },
+  {
+   "fieldname": "credit_transaction",
+   "fieldtype": "Link",
+   "label": "Credit Transaction",
+   "options": "Team Credit Transaction",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_items",
+   "fieldtype": "Section Break",
+   "label": "Items"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Items",
+   "options": "Publisher Payout Item",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-04 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Publisher Payout",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Nexaploy Customer",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

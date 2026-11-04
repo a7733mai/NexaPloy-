@@ -1,0 +1,257 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:app_name",
+ "creation": "2026-11-03 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "app_name",
+  "title",
+  "repo_url",
+  "publisher",
+  "publisher_profile",
+  "source_custom_app",
+  "column_break_1",
+  "category",
+  "pricing",
+  "price_monthly",
+  "approved",
+  "status",
+  "required_apps",
+  "section_break_desc",
+  "description",
+  "section_break_media",
+  "logo",
+  "documentation_url",
+  "column_break_media",
+  "screenshots",
+  "section_break_review",
+  "review_notes",
+  "column_break_review",
+  "submitted_on",
+  "reviewed_by",
+  "reviewed_on",
+  "section_break_releases",
+  "releases"
+ ],
+ "fields": [
+  {
+   "description": "Python package name, e.g. erpnext, hrms.",
+   "fieldname": "app_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "App Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Title",
+   "reqd": 1
+  },
+  {
+   "fieldname": "repo_url",
+   "fieldtype": "Data",
+   "label": "Repository URL",
+   "options": "URL",
+   "reqd": 1,
+   "length": 1000
+  },
+  {
+   "fieldname": "publisher",
+   "fieldtype": "Data",
+   "label": "Publisher",
+   "description": "Display name; filled from the publisher profile when one is linked."
+  },
+  {
+   "fieldname": "publisher_profile",
+   "fieldtype": "Link",
+   "label": "Publisher Profile",
+   "options": "Marketplace Publisher",
+   "in_standard_filter": 1,
+   "description": "Marketplace Publisher that receives the revenue share. Empty = platform-owned app."
+  },
+  {
+   "fieldname": "source_custom_app",
+   "fieldtype": "Link",
+   "label": "Source Custom App",
+   "options": "Custom App",
+   "read_only": 1,
+   "description": "The publisher's Custom App this listing was created from."
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Category",
+   "options": "\nERP\nHR\nCRM\nSupport\nAnalytics\nEducation\nWebsite\nProductivity\nE-commerce\nIntegration\nUtility\nOther"
+  },
+  {
+   "default": "Free",
+   "fieldname": "pricing",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Pricing",
+   "options": "Free\nPaid"
+  },
+  {
+   "depends_on": "eval:doc.pricing=='Paid'",
+   "fieldname": "price_monthly",
+   "fieldtype": "Currency",
+   "label": "Price (Monthly)"
+  },
+  {
+   "fieldname": "approved",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Approved"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Listing Status",
+   "options": "Draft\nIn Review\nPublished\nRejected",
+   "default": "Draft",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Published <=> Approved. Review submitted listings with the Approve / Reject buttons."
+  },
+  {
+   "fieldname": "required_apps",
+   "fieldtype": "Small Text",
+   "label": "Required Apps",
+   "description": "Python app names this app needs, one per line (e.g. erpnext for hrms). Bench groups add them automatically; sites install them first."
+  },
+  {
+   "fieldname": "section_break_desc",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text Editor",
+   "label": "Description"
+  },
+  {
+   "fieldname": "section_break_media",
+   "fieldtype": "Section Break",
+   "label": "Listing"
+  },
+  {
+   "fieldname": "logo",
+   "fieldtype": "Attach Image",
+   "label": "Logo"
+  },
+  {
+   "fieldname": "documentation_url",
+   "fieldtype": "Data",
+   "label": "Documentation URL",
+   "options": "URL",
+   "length": 1000
+  },
+  {
+   "fieldname": "column_break_media",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "screenshots",
+   "fieldtype": "Small Text",
+   "label": "Screenshots",
+   "description": "Public image URLs, one per line (max 8)."
+  },
+  {
+   "fieldname": "section_break_review",
+   "fieldtype": "Section Break",
+   "label": "Review"
+  },
+  {
+   "fieldname": "review_notes",
+   "fieldtype": "Small Text",
+   "label": "Review Notes",
+   "description": "Shown to the publisher (required when rejecting)."
+  },
+  {
+   "fieldname": "column_break_review",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "submitted_on",
+   "fieldtype": "Datetime",
+   "label": "Submitted On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reviewed_by",
+   "fieldtype": "Link",
+   "label": "Reviewed By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reviewed_on",
+   "fieldtype": "Datetime",
+   "label": "Reviewed On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_releases",
+   "fieldtype": "Section Break",
+   "label": "Releases"
+  },
+  {
+   "fieldname": "releases",
+   "fieldtype": "Table",
+   "label": "Releases",
+   "options": "Marketplace App Release"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-04 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Marketplace App",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Nexaploy Customer",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "search_fields": "title,category",
+ "show_title_field_in_link": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}

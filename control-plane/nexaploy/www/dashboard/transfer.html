@@ -1,0 +1,63 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block page_title %}<a href="/dashboard/sites" class="muted">{{ _("Sites") }}</a> <span class="muted">/</span> {{ _("Site transfer") }}{% endblock %}
+
+{% block head %}
+{# nxTransfer lives in site_tools.js: plain script so it registers before Alpine starts #}
+<script src="/assets/nexaploy/js/site_tools.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="stack" x-data="nxTransfer" x-cloak>
+	<section class="card">
+		<div class="card-head"><h2>{{ _("Site transfer") }}</h2></div>
+		<div class="card-body stack">
+			<template x-if="loading && !tr"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+			<template x-if="error"><div class="alert danger" x-text="error"></div></template>
+			<template x-if="tr">
+				<div class="stack">
+					<p style="margin: 0">
+						<b x-text="tr.from_team_title"></b> {{ _("wants to transfer the site") }}
+						<b class="ltr" x-text="tr.site"></b>
+						<template x-if="tr.to_team_title"><span>{{ _("to team") }} <b x-text="tr.to_team_title"></b></span></template>.
+					</p>
+					<template x-if="tr.status !== 'Pending'">
+						<div class="alert warning">{{ _("This transfer is no longer valid.") }} <span class="badge plain" x-text="__(tr.status)"></span></div>
+					</template>
+					<template x-if="tr.status === 'Pending' && done">
+						<div class="alert success">{{ _("The site now belongs to your team. Opening it…") }}</div>
+					</template>
+					<template x-if="tr.status === 'Pending' && !done">
+						<div class="stack">
+							<template x-if="tr.block_reason"><div class="alert warning" x-text="__(tr.block_reason)"></div></template>
+							<template x-if="!tr.matches && tr.to_email">
+								<div class="alert warning">{{ _("This transfer was sent to another email address, or you are not an owner or admin of a team that can receive it:") }} <span class="ltr" x-text="tr.to_email"></span></div>
+							</template>
+							<template x-if="!tr.matches && !tr.to_email">
+								<div class="alert warning">{{ _("Only owners and admins of the receiving team can accept this transfer.") }}</div>
+							</template>
+							<template x-if="tr.matches">
+								<div class="stack">
+									<div class="small muted">{{ _("Once accepted, your team owns the site and is billed for it from today. Its backups move with it.") }}</div>
+									<div class="row">
+										<template x-if="!tr.to_team">
+											<select class="input" style="max-width: 320px" x-model="team">
+												<template x-for="t in tr.teams" :key="t.name"><option :value="t.name" x-text="t.title"></option></template>
+											</select>
+										</template>
+										<button class="btn primary" type="button" :disabled="busy || !!tr.block_reason || (!tr.to_team && !team)" @click="accept()">
+											<span class="spinner" x-show="busy"></span> {{ _("Accept transfer") }}
+										</button>
+										<button class="btn ghost" type="button" :disabled="busy" @click="reject()">{{ _("Decline") }}</button>
+									</div>
+								</div>
+							</template>
+							<div class="small muted"><span>{{ _("Expires") }}:</span> <span x-text="nx.fmtDate(tr.expires_on)"></span></div>
+						</div>
+					</template>
+				</div>
+			</template>
+		</div>
+	</section>
+</div>
+{% endblock %}

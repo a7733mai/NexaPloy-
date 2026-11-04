@@ -1,0 +1,84 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-03 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "user",
+  "role",
+  "custom_capabilities",
+  "can_view_logs",
+  "can_run_sql",
+  "can_run_sql_write",
+  "can_use_console"
+ ],
+ "fields": [
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "User",
+   "options": "User",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "default": "Developer",
+   "fieldname": "role",
+   "fieldtype": "Select",
+   "label": "Role",
+   "options": "Owner\nAdmin\nDeveloper\nBilling",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "default": "0",
+   "description": "Off: the role's defaults (Owner/Admin: everything; Developer: logs + read-only SQL; Billing: nothing).",
+   "fieldname": "custom_capabilities",
+   "fieldtype": "Check",
+   "label": "Custom Console Permissions"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.custom_capabilities",
+   "fieldname": "can_view_logs",
+   "fieldtype": "Check",
+   "label": "Can View Logs"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.custom_capabilities",
+   "fieldname": "can_run_sql",
+   "fieldtype": "Check",
+   "label": "Can Run Read-only SQL"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.custom_capabilities",
+   "fieldname": "can_run_sql_write",
+   "fieldtype": "Check",
+   "label": "Can Run SQL That Writes"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.custom_capabilities",
+   "fieldname": "can_use_console",
+   "fieldtype": "Check",
+   "label": "Can Use Python Console"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-12-01 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Team Member",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

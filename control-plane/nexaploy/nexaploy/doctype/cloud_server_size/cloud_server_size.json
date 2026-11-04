@@ -1,0 +1,113 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "",
+ "creation": "2026-11-28 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "provider",
+  "code",
+  "title",
+  "enabled",
+  "plan",
+  "column_break_1",
+  "vcpu",
+  "memory_gb",
+  "disk_gb",
+  "monthly_cost"
+ ],
+ "fields": [
+  {
+   "fieldname": "provider",
+   "fieldtype": "Link",
+   "label": "Cloud Provider",
+   "options": "Cloud Provider",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Code",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Provider server type / size slug, e.g. cx32 (Hetzner) or s-2vcpu-4gb (DigitalOcean)."
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title"
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "plan",
+   "fieldtype": "Link",
+   "label": "Plan",
+   "options": "Nexaploy Plan",
+   "in_list_view": 1,
+   "description": "Server Hosted plan the customer is billed on. Sizes without an enabled plan are not offered."
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "vcpu",
+   "fieldtype": "Int",
+   "label": "vCPU"
+  },
+  {
+   "fieldname": "memory_gb",
+   "fieldtype": "Float",
+   "label": "Memory (GB)"
+  },
+  {
+   "fieldname": "disk_gb",
+   "fieldtype": "Int",
+   "label": "Disk (GB)"
+  },
+  {
+   "fieldname": "monthly_cost",
+   "fieldtype": "Currency",
+   "label": "Monthly Cost",
+   "description": "What the provider charges us (for margin reports; the customer pays the plan price)."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-28 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Cloud Server Size",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "title_field": "title",
+ "show_title_field_in_link": 0,
+ "naming_rule": "By script"
+}

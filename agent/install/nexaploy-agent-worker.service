@@ -1,0 +1,26 @@
+[Unit]
+Description=Nexaploy agent worker (jobs, control-plane heartbeat/poll)
+Documentation=https://github.com/a7733mai/NexaPloy-
+After=network-online.target docker.service
+Wants=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+# Root: drives docker / docker compose and chowns bench directories.
+User=root
+Environment=NEXAPLOY_CONFIG=/opt/nexaploy/config/agent.toml
+Environment=PYTHONUNBUFFERED=1
+WorkingDirectory=/opt/nexaploy/agent
+ExecStart=/opt/nexaploy/agent/.venv/bin/nexaploy-agent worker
+Restart=always
+RestartSec=5
+# Let the current step finish; interrupted jobs are resumed on restart anyway.
+KillSignal=SIGTERM
+TimeoutStopSec=120
+KillMode=mixed
+UMask=0022
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

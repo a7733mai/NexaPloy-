@@ -1,0 +1,63 @@
+{%- set b = status_brand or {} -%}
+{%- set s = status -%}
+<!doctype html>
+<html lang="{{ lang or 'en' }}" dir="{{ dir or 'ltr' }}">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta http-equiv="refresh" content="120">
+	<title>{{ s.title | e }}</title>
+	<link rel="stylesheet" href="/assets/nexaploy/css/dashboard.css">
+	{% if b.get("favicon") %}<link rel="icon" href="{{ b.get("favicon") | e }}">{% endif %}
+	{% if b.get("css") %}<style id="nx-brand-css">{{ b.get("css") }}</style>{% endif %}
+	<style>
+		.nx-status { max-width: 860px; margin: 0 auto; padding: 32px 16px 48px; }
+		.nx-status header { display: flex; align-items: center; gap: 12px; margin-block-end: 20px; }
+		.nx-status header img { max-height: 40px; max-width: 180px; }
+		.nx-status h1 { font-size: 24px; margin: 0; }
+		.nx-status h2 { font-size: 17px; margin: 0; }
+		.nx-banner { border-radius: var(--nx-radius); padding: 16px 18px; font-weight: 600; font-size: 17px; }
+		.nx-banner.operational { background: var(--nx-success-soft); color: var(--nx-success); }
+		.nx-banner.partial { background: var(--nx-warning-soft); color: var(--nx-warning); }
+		.nx-banner.major { background: var(--nx-danger-soft); color: var(--nx-danger); }
+		.nx-banner.unknown { background: var(--nx-surface-2, var(--nx-bg)); color: var(--nx-muted); }
+		.nx-svc { padding: 14px 18px; border-block-end: 1px solid var(--nx-border); }
+		.nx-svc:last-child { border-block-end: 0; }
+		.nx-svc-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-block-end: 8px; }
+		.nx-svc-head strong { flex: 1; }
+		.nx-bars { display: flex; gap: 2px; height: 34px; align-items: stretch; }
+		.nx-bars span { flex: 1; border-radius: 2px; min-width: 2px; background: var(--nx-border); }
+		.nx-bars span.up { background: var(--nx-success); }
+		.nx-bars span.minor { background: #e3b341; }
+		.nx-bars span.major { background: var(--nx-warning); }
+		.nx-bars span.down { background: var(--nx-danger); }
+		.nx-bars-legend { display: flex; justify-content: space-between; margin-block-start: 4px; }
+		.nx-inc { padding: 14px 18px; border-block-end: 1px solid var(--nx-border); }
+		.nx-inc:last-child { border-block-end: 0; }
+		.nx-inc ul { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 8px; }
+		.nx-inc li { border-inline-start: 3px solid var(--nx-border); padding-inline-start: 10px; white-space: pre-line; }
+		.nx-status footer { margin-block-start: 28px; text-align: center; }
+		@media (max-width: 560px) { .nx-bars span:nth-child(-n+60) { display: none; } }
+	</style>
+</head>
+<body class="nx">
+<main class="nx-status">
+	<header>
+		{% if b.get("logo") %}<img src="{{ b.get("logo") | e }}" alt="{{ (b.get("title") or "") | e }}">{% endif %}
+		<div>
+			<h1>{{ s.title | e }}</h1>
+			{% if s.description %}<div class="muted">{{ s.description | e }}</div>{% endif %}
+		</div>
+	</header>
+
+	{% block content %}{% endblock %}
+
+	<footer class="small muted">
+		<div>{{ _("Last updated") }} <span class="ltr">{{ s.updated_at }}</span></div>
+		{% if b.get("support_email") %}<div><a class="ltr" href="mailto:{{ b.get("support_email") | e }}">{{ b.get("support_email") | e }}</a></div>{% endif %}
+		{% if b.get("footer_text") %}<div>{{ b.get("footer_text") | e }}</div>{% endif %}
+		<div>{{ _("Powered by {0}").format((b.get("title") or "Nexaploy") | e) }}</div>
+	</footer>
+</main>
+</body>
+</html>

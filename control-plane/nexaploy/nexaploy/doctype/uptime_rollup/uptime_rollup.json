@@ -1,0 +1,119 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-04 18:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "rollup_key",
+  "monitor",
+  "team",
+  "hour",
+  "column_break_1",
+  "checks",
+  "failures",
+  "response_ms_sum",
+  "response_count",
+  "max_response_ms"
+ ],
+ "fields": [
+  {
+   "fieldname": "rollup_key",
+   "fieldtype": "Data",
+   "label": "Key",
+   "unique": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "monitor",
+   "fieldtype": "Link",
+   "label": "Monitor",
+   "options": "Uptime Monitor",
+   "reqd": 1,
+   "search_index": 1,
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "label": "Team",
+   "options": "Team",
+   "read_only": 1
+  },
+  {
+   "fieldname": "hour",
+   "fieldtype": "Datetime",
+   "label": "Hour (UTC)",
+   "search_index": 1,
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "checks",
+   "fieldtype": "Int",
+   "label": "Checks",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "failures",
+   "fieldtype": "Int",
+   "label": "Failures",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "response_ms_sum",
+   "fieldtype": "Int",
+   "label": "Response time sum (ms)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "response_count",
+   "fieldtype": "Int",
+   "label": "Timed responses",
+   "read_only": 1
+  },
+  {
+   "fieldname": "max_response_ms",
+   "fieldtype": "Int",
+   "label": "Max response time (ms)",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-12-07 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Uptime Rollup",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 0,
+   "delete": 1,
+   "email": 0,
+   "export": 1,
+   "print": 0,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "sort_field": "hour",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0,
+ "autoname": "field:rollup_key",
+ "naming_rule": "By fieldname",
+ "title_field": "monitor",
+ "search_fields": "monitor"
+}

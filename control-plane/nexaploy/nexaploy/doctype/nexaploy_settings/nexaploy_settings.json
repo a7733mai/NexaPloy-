@@ -1,0 +1,471 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-03 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_registry",
+  "registry_url",
+  "registry_username",
+  "registry_password",
+  "column_break_general",
+  "root_domain",
+  "default_build_server",
+  "alert_email",
+  "section_break_backups",
+  "backup_remote_type",
+  "backup_provider",
+  "backup_endpoint",
+  "backup_region",
+  "column_break_backups",
+  "backup_bucket",
+  "backup_prefix",
+  "backup_access_key",
+  "backup_secret_key",
+  "backup_config_hash",
+  "section_break_oauth",
+  "google_client_id",
+  "google_client_secret",
+  "microsoft_client_id",
+  "microsoft_client_secret",
+  "microsoft_tenant",
+  "column_break_oauth",
+  "dropbox_app_key",
+  "dropbox_app_secret",
+  "oauth_config_hash",
+  "section_break_retention",
+  "backup_retention_min_days",
+  "backup_retention_max_days",
+  "column_break_retention",
+  "backup_retention_included_days",
+  "backup_local_retention_max_days",
+  "backup_keep_monthly_max",
+  "section_break_agent_releases",
+  "allow_customer_agent_upgrade",
+  "agent_upgrade_timeout_minutes",
+  "column_break_agent_releases",
+  "agent_repo_url",
+  "section_break_control_plane",
+  "control_plane_release_channel",
+  "control_plane_image_repo",
+  "column_break_control_plane",
+  "control_plane_release_repo",
+  "setup_checklist_dismissed",
+  "section_break_maintenance",
+  "allow_customer_os_updates",
+  "health_disk_warning_percent",
+  "health_disk_critical_percent",
+  "health_inode_warning_percent",
+  "column_break_maintenance",
+  "health_memory_warning_percent",
+  "health_load_per_cpu",
+  "auto_cleanup_on_disk_critical",
+  "section_break_cleanup_policy",
+  "auto_cleanup_policy_enabled",
+  "auto_cleanup_day",
+  "auto_cleanup_hour",
+  "column_break_cleanup_policy",
+  "auto_cleanup_targets",
+  "cleanup_log_retention_days",
+  "cleanup_backup_local_keep_days"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_registry",
+   "fieldtype": "Section Break",
+   "label": "Image Registry"
+  },
+  {
+   "description": "e.g. ghcr.io/org or registry.example.com. When set, images are tagged <registry_url>/nexaploy/bench:<group>-<build_id>, pushed after build and pulled by benches on other servers.",
+   "fieldname": "registry_url",
+   "fieldtype": "Data",
+   "label": "Registry URL",
+   "length": 1000
+  },
+  {
+   "fieldname": "registry_username",
+   "fieldtype": "Data",
+   "label": "Registry Username"
+  },
+  {
+   "fieldname": "registry_password",
+   "fieldtype": "Password",
+   "label": "Registry Password / Token"
+  },
+  {
+   "fieldname": "column_break_general",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "nexaploy.cloud",
+   "fieldname": "root_domain",
+   "fieldtype": "Data",
+   "label": "Root Domain"
+  },
+  {
+   "description": "Used by Release Groups without a Build Server.",
+   "fieldname": "default_build_server",
+   "fieldtype": "Link",
+   "label": "Default Build Server",
+   "options": "Server"
+  },
+  {
+   "description": "Always copied on server and site alerts.",
+   "fieldname": "alert_email",
+   "fieldtype": "Data",
+   "label": "Operations Alert Email",
+   "options": "Email"
+  },
+  {
+   "description": "Pushed to every Active server as rclone remote \"nexaploy-backups\" (server.configure_backups) whenever these fields change.",
+   "fieldname": "section_break_backups",
+   "fieldtype": "Section Break",
+   "label": "Backup Storage (rclone)"
+  },
+  {
+   "default": "s3",
+   "fieldname": "backup_remote_type",
+   "fieldtype": "Select",
+   "label": "Remote Type",
+   "options": "s3"
+  },
+  {
+   "default": "Other",
+   "description": "rclone S3 provider: AWS, Cloudflare, DigitalOcean, Minio, Wasabi, Other, ...",
+   "fieldname": "backup_provider",
+   "fieldtype": "Data",
+   "label": "S3 Provider"
+  },
+  {
+   "fieldname": "backup_endpoint",
+   "fieldtype": "Data",
+   "label": "Endpoint"
+  },
+  {
+   "fieldname": "backup_region",
+   "fieldtype": "Data",
+   "label": "Region"
+  },
+  {
+   "fieldname": "column_break_backups",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "backup_bucket",
+   "fieldtype": "Data",
+   "label": "Bucket"
+  },
+  {
+   "description": "Optional path inside the bucket; each server writes under <prefix>/<server_id>.",
+   "fieldname": "backup_prefix",
+   "fieldtype": "Data",
+   "label": "Path Prefix"
+  },
+  {
+   "fieldname": "backup_access_key",
+   "fieldtype": "Data",
+   "label": "Access Key ID",
+   "length": 1000
+  },
+  {
+   "fieldname": "backup_secret_key",
+   "fieldtype": "Password",
+   "label": "Secret Access Key"
+  },
+  {
+   "description": "sha256 of the last backup configuration pushed to servers.",
+   "fieldname": "backup_config_hash",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Backup Config Hash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_oauth",
+   "fieldtype": "Section Break",
+   "label": "Backup OAuth Apps",
+   "description": "OAuth apps customers use to connect Google Drive, OneDrive and Dropbox as backup destinations. Register this redirect URI with each provider: https://<control plane>/api/method/nexaploy.api.backup_destinations.oauth_callback"
+  },
+  {
+   "fieldname": "google_client_id",
+   "fieldtype": "Data",
+   "label": "Google Client ID",
+   "description": "Google Cloud OAuth client (Web application) with the Drive API enabled; scope drive.file."
+  },
+  {
+   "fieldname": "google_client_secret",
+   "fieldtype": "Password",
+   "label": "Google Client Secret"
+  },
+  {
+   "fieldname": "microsoft_client_id",
+   "fieldtype": "Data",
+   "label": "Microsoft Application (client) ID",
+   "description": "Microsoft Entra app registration; delegated permissions offline_access, Files.ReadWrite, User.Read."
+  },
+  {
+   "fieldname": "microsoft_client_secret",
+   "fieldtype": "Password",
+   "label": "Microsoft Client Secret"
+  },
+  {
+   "fieldname": "microsoft_tenant",
+   "fieldtype": "Data",
+   "label": "Microsoft Tenant",
+   "default": "common",
+   "description": "common (work and personal accounts), organizations, consumers or a tenant id."
+  },
+  {
+   "fieldname": "column_break_oauth",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "dropbox_app_key",
+   "fieldtype": "Data",
+   "label": "Dropbox App Key",
+   "description": "Dropbox scoped app (full Dropbox or App folder) with files.content.read/write, files.metadata.read/write, account_info.read."
+  },
+  {
+   "fieldname": "dropbox_app_secret",
+   "fieldtype": "Password",
+   "label": "Dropbox App Secret"
+  },
+  {
+   "fieldname": "oauth_config_hash",
+   "fieldtype": "Data",
+   "label": "OAuth Config Hash",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_retention",
+   "fieldtype": "Section Break",
+   "label": "Backup Retention Limits",
+   "description": "Bounds for the retention customers choose per site / team (0 = no limit)."
+  },
+  {
+   "fieldname": "backup_retention_min_days",
+   "fieldtype": "Int",
+   "label": "Minimum Retention (days)",
+   "default": "1"
+  },
+  {
+   "fieldname": "backup_retention_max_days",
+   "fieldtype": "Int",
+   "label": "Maximum Retention (days)",
+   "default": "0",
+   "description": "Longest span of remote backups incl. weekly/monthly keeps; 0 = unlimited (also allows keep forever)."
+  },
+  {
+   "fieldname": "column_break_retention",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "backup_retention_included_days",
+   "fieldtype": "Int",
+   "label": "Included Retention (days)",
+   "default": "0",
+   "description": "Retention beyond this needs the paid Extended Backup Retention add-on (Team); 0 = all included."
+  },
+  {
+   "fieldname": "backup_local_retention_max_days",
+   "fieldtype": "Int",
+   "label": "Max Days On Server",
+   "default": "0"
+  },
+  {
+   "fieldname": "backup_keep_monthly_max",
+   "fieldtype": "Int",
+   "label": "Max Monthly Backups",
+   "default": "0"
+  },
+  {
+   "fieldname": "section_break_agent_releases",
+   "fieldtype": "Section Break",
+   "label": "Agent Upgrades"
+  },
+  {
+   "fieldname": "allow_customer_agent_upgrade",
+   "fieldtype": "Check",
+   "label": "Allow customers to upgrade the agent on their BYOS servers",
+   "default": "0",
+   "description": "Team Owners/Admins can then upgrade or roll back the agent of their own BYOS servers from the dashboard."
+  },
+  {
+   "fieldname": "agent_upgrade_timeout_minutes",
+   "fieldtype": "Int",
+   "label": "Agent Upgrade Timeout (minutes)",
+   "default": "15",
+   "description": "An upgrade is marked Failed when the server does not report the new version within this time."
+  },
+  {
+   "fieldname": "column_break_agent_releases",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "agent_repo_url",
+   "fieldtype": "Data",
+   "label": "Agent Repository URL",
+   "description": "Default git repository for Agent Releases without their own URL (https://). Empty: https://github.com/a7733mai/NexaPloy-.git"
+  },
+  {
+   "fieldname": "section_break_control_plane",
+   "fieldtype": "Section Break",
+   "label": "Control Plane Updates"
+  },
+  {
+   "fieldname": "control_plane_release_channel",
+   "fieldtype": "Select",
+   "label": "Control Plane Release Channel",
+   "options": "stable\nbeta",
+   "default": "stable",
+   "description": "Which GitHub releases the Update control plane card offers (beta includes pre-releases)."
+  },
+  {
+   "fieldname": "control_plane_image_repo",
+   "fieldtype": "Data",
+   "label": "Control Plane Image Repository",
+   "description": "Empty: ghcr.io/a7733mai/nexaploy-control-plane. The update runs <repository>:<version>."
+  },
+  {
+   "fieldname": "column_break_control_plane",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "control_plane_release_repo",
+   "fieldtype": "Data",
+   "label": "Release Repository (GitHub owner/repo)",
+   "description": "Empty: a7733mai/NexaPloy-"
+  },
+  {
+   "fieldname": "setup_checklist_dismissed",
+   "fieldtype": "Check",
+   "label": "Setup Checklist Dismissed",
+   "default": "0",
+   "description": "Hide the first-run setup checklist on /dashboard/admin."
+  },
+  {
+   "fieldname": "section_break_maintenance",
+   "fieldtype": "Section Break",
+   "label": "Server Maintenance & Health"
+  },
+  {
+   "fieldname": "allow_customer_os_updates",
+   "fieldtype": "Check",
+   "label": "Allow customers to run system updates and cleanup on their BYOS servers",
+   "default": "1"
+  },
+  {
+   "fieldname": "health_disk_warning_percent",
+   "fieldtype": "Float",
+   "label": "Disk Warning (%)",
+   "default": "85"
+  },
+  {
+   "fieldname": "health_disk_critical_percent",
+   "fieldtype": "Float",
+   "label": "Disk Critical (%)",
+   "default": "95"
+  },
+  {
+   "fieldname": "health_inode_warning_percent",
+   "fieldtype": "Float",
+   "label": "Inodes Warning (%)",
+   "default": "90"
+  },
+  {
+   "fieldname": "column_break_maintenance",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "health_memory_warning_percent",
+   "fieldtype": "Float",
+   "label": "Memory Warning (%)",
+   "default": "90"
+  },
+  {
+   "fieldname": "health_load_per_cpu",
+   "fieldtype": "Float",
+   "label": "Load per CPU Warning",
+   "default": "2"
+  },
+  {
+   "fieldname": "auto_cleanup_on_disk_critical",
+   "fieldtype": "Check",
+   "label": "Clean up automatically when disk is critical",
+   "default": "1"
+  },
+  {
+   "fieldname": "section_break_cleanup_policy",
+   "fieldtype": "Section Break",
+   "label": "Automatic Cleanup"
+  },
+  {
+   "fieldname": "auto_cleanup_policy_enabled",
+   "fieldtype": "Check",
+   "label": "Weekly Automatic Cleanup",
+   "default": "1"
+  },
+  {
+   "fieldname": "auto_cleanup_day",
+   "fieldtype": "Select",
+   "label": "Cleanup Day",
+   "options": "Every day\nMonday\nTuesday\nWednesday\nThursday\nFriday\nSaturday\nSunday",
+   "default": "Sunday"
+  },
+  {
+   "fieldname": "auto_cleanup_hour",
+   "fieldtype": "Int",
+   "label": "Cleanup Hour (UTC)",
+   "default": "2"
+  },
+  {
+   "fieldname": "column_break_cleanup_policy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "auto_cleanup_targets",
+   "fieldtype": "Small Text",
+   "label": "Cleanup Targets",
+   "description": "One per line; empty: all targets."
+  },
+  {
+   "fieldname": "cleanup_log_retention_days",
+   "fieldtype": "Int",
+   "label": "Log Retention (days)",
+   "default": "14"
+  },
+  {
+   "fieldname": "cleanup_backup_local_keep_days",
+   "fieldtype": "Int",
+   "label": "Local Backups Kept (days)",
+   "description": "0 or empty: the agent's backup retention."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-12-09 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Nexaploy Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

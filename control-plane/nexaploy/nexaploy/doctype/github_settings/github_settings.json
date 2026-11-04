@@ -1,0 +1,90 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-20 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_app",
+  "github_app_id",
+  "app_slug",
+  "client_id",
+  "client_secret",
+  "column_break_keys",
+  "private_key",
+  "webhook_secret"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_app",
+   "fieldtype": "Section Break",
+   "label": "GitHub App",
+   "description": "Create a GitHub App (Settings > Developer settings > GitHub Apps) with Repository permissions Contents: Read-only and Metadata: Read-only, the Push and Installation events, Setup URL / Callback URL https://<control-plane>/api/method/nexaploy.api.github.installation_callback and Webhook URL https://<control-plane>/api/method/nexaploy.api.github.webhook. Enable 'Request user authorization (OAuth) during installation'."
+  },
+  {
+   "fieldname": "github_app_id",
+   "fieldtype": "Data",
+   "label": "App ID",
+   "description": "Numeric App ID (used as the JWT issuer)."
+  },
+  {
+   "fieldname": "app_slug",
+   "fieldtype": "Data",
+   "label": "App Slug",
+   "description": "From https://github.com/apps/<slug>; used for the install link."
+  },
+  {
+   "fieldname": "client_id",
+   "fieldtype": "Data",
+   "label": "Client ID"
+  },
+  {
+   "fieldname": "client_secret",
+   "fieldtype": "Password",
+   "label": "Client Secret",
+   "description": "Used to verify that the installing user can access the installation (OAuth code exchange)."
+  },
+  {
+   "fieldname": "column_break_keys",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "private_key",
+   "fieldtype": "Password",
+   "label": "Private Key (PEM)",
+   "description": "Contents of the .pem private key file generated for the GitHub App.",
+   "length": 8000
+  },
+  {
+   "fieldname": "webhook_secret",
+   "fieldtype": "Password",
+   "label": "Webhook Secret",
+   "description": "Same value as the App's webhook secret; push events are rejected without a valid X-Hub-Signature-256."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-20 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "GitHub Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
