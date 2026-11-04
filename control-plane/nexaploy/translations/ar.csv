@@ -2072,3 +2072,10 @@ uptime,نسبة التشغيل
 {0} h,{0} ساعة
 {0} min,{0} دقيقة
 {0} s,{0} ث
+Resource usage,استهلاك الموارد
+CPU load,حمل المعالج
+Memory,الذاكرة
+Now,الآن
+Peak,الذروة
+No measurements yet: the agent reports them every 5 minutes.,لا توجد قياسات بعد: يرسلها الـ agent كل 5 دقائق.
+Could not load the charts,تعذّر تحميل الرسوم البيانية
