@@ -413,3 +413,5 @@ def test_safe_update_and_console_audit_doctypes():
 	hooks = open(os.path.join(APP, "hooks.py")).read()
 	for dt in ("Site Update Test", "Console Audit Log"):
 		assert hooks.count(f'"{dt}":') == 2, dt  # permission_query_conditions + has_permission
+# offsite attachments, DR replica, trash (section 11)
+EXPECTED.update({"Storage Profile", "Site Storage Policy", "Storage Settings"})

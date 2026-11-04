@@ -21,6 +21,7 @@ job; :func:`compact_usage` turns it into the small block sent with the heartbeat
 from __future__ import annotations
 
 import json
+import os
 import threading
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -246,7 +247,9 @@ class UsageCollector:
         if not force and cached.get("at") and now.timestamp() - float(cached["at"]) < SIZE_CACHE_SECONDS:
             return cached.get("bytes")
         site_dir = self.sites.site_dir(bench, site)
-        paths = [p for p in (site_dir / "public" / "files", site_dir / "private" / "files") if p.is_dir()]
+        # offloaded files (bucket mounts, §15) are not on this disk: du would list the bucket
+        paths = [p for p in (site_dir / "public" / "files", site_dir / "private" / "files")
+                 if p.is_dir() and not os.path.ismount(p)]
         if not paths:
             total = 0
         else:

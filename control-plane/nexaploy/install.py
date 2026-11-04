@@ -29,6 +29,31 @@ DEFAULT_PLANS = [
 		"max_sites": 1,
 		"description": "One site on a shared Nexaploy bench.",
 	},
+	# per-site storage add-ons (ARCHITECTURE.md §15), priced by the operator
+	{
+		"title": "Offsite Attachments",
+		"plan_type": "Add-on",
+		"price_monthly": 5,
+		"currency": "USD",
+		"max_sites": 0,
+		"description": "Site attachments on S3-compatible object storage instead of the server's disk.",
+	},
+	{
+		"title": "DR Replica",
+		"plan_type": "Add-on",
+		"price_monthly": 3,
+		"currency": "USD",
+		"max_sites": 0,
+		"description": "A replica of the site's attachments in another region (disaster recovery).",
+	},
+	{
+		"title": "Trash Bin",
+		"plan_type": "Add-on",
+		"price_monthly": 2,
+		"currency": "USD",
+		"max_sites": 0,
+		"description": "Deleted attachments are kept in a separate trash bucket for a retention period.",
+	},
 ]
 
 
@@ -51,12 +76,14 @@ def after_install():
 	create_customer_role()
 	create_default_plans()
 	create_billing_settings()
+	create_storage_settings()
 
 
 def after_migrate():
 	create_customer_role()
 	create_default_plans()
 	create_billing_settings()
+	create_storage_settings()
 
 
 def create_customer_role():
@@ -131,3 +158,19 @@ def after_install():  # noqa: F811
 	from nexaploy.marketplace_seed import safe_seed
 
 	safe_seed()
+
+
+def create_storage_settings():
+	"""Link the default add-on plans in Storage Settings (features stay off until enabled)."""
+	from nexaploy.storage_utils import ADDON_DEFAULT_PLANS, ADDON_FIELDS
+
+	settings = frappe.get_single("Storage Settings")
+	changed = False
+	for key, field in ADDON_FIELDS.items():
+		plan = ADDON_DEFAULT_PLANS[key]
+		if not settings.get(field) and frappe.db.exists("Nexaploy Plan", plan):
+			settings.set(field, plan)
+			changed = True
+	if changed:
+		settings.flags.ignore_permissions = True
+		settings.save()

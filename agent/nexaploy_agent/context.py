@@ -15,6 +15,7 @@ from .runtime.image import ImageBuilder
 from .runtime.proxy import ProxyManager
 from .runtime.site import SiteManager
 from .runtime.tls import TlsChecker
+from .runtime.storage import StorageManager
 from .runtime.usage import UsageCollector
 
 
@@ -30,6 +31,7 @@ class AgentContext:
         self.backups = BackupManager(settings, self.runner)
         self.proxy = ProxyManager(settings.proxy_sites_dir, templates)
         self.images = ImageBuilder(settings, self.runner)
+        self.storage = StorageManager(settings, self.runner)
         self.usage = UsageCollector(settings, self.runner, self.benches, self.sites)
         self.tls = TlsChecker(settings, self.sites)
         self.store = store or JobStore(settings.jobs_db)

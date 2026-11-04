@@ -30,7 +30,7 @@ FRAPPE_SERVICES = [
 ]
 REDIS_SERVICES = ["redis-cache", "redis-queue"]
 DB_SERVICES = ["backend", "queue-short", "queue-long", "queue-default", "scheduler", "configurator"]
-SITES = "./sites:/home/frappe/frappe-bench/sites"
+SITES = "./sites:/home/frappe/frappe-bench/sites:${SITES_PROPAGATION:-rprivate}"
 LOGS = "./logs:/home/frappe/frappe-bench/logs"
 
 
@@ -168,7 +168,7 @@ def test_bench_mounts(bench):
     for name in ["backend", "websocket", "queue-short", "queue-long", "queue-default", "scheduler", "configurator"]:
         vols = svcs[name]["volumes"]
         assert SITES in vols and LOGS in vols, name
-    assert SITES + ":ro" in svcs["frontend"]["volumes"]
+    assert "./sites:/home/frappe/frappe-bench/sites:ro,${SITES_PROPAGATION:-rprivate}" in svcs["frontend"]["volumes"]
     assert "./redis-queue:/data" in svcs["redis-queue"]["volumes"]
     assert "volumes" not in svcs["redis-cache"]
     # No absolute host paths: everything is relative to the bench dir.
@@ -464,3 +464,11 @@ def test_compose_config_proxy(tmp_path):
     shutil.copy(ROOT / "proxy/env.example", tmp_path / "proxy/.env")
     _compose_config(tmp_path / "proxy")
     _compose_config(tmp_path / "proxy", profiles="crowdsec")
+
+
+def test_bench_sites_propagation_defaults_to_docker_default(bench):
+    """Offloaded files (§15): ./sites propagation comes from SITES_PROPAGATION (rprivate default)."""
+    for name, svc in bench["services"].items():
+        for v in svc.get("volumes", []):
+            if v.startswith("./sites:"):
+                assert v.endswith("${SITES_PROPAGATION:-rprivate}"), (name, v)

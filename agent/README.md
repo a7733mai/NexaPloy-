@@ -348,3 +348,14 @@ settings JSON, password included, goes to **stdin** only. It creates/updates the
 Account (only fields present in the site's Frappe version), saves only on change, and with `verify_smtp=false`
 saves under `flags.in_patch` (no SMTP login check). `enabled=false` turns outgoing off and keeps the account.
 Allowed on shared benches (no user code). Fails when the bench is down.
+## Offsite attachments, DR replica, trash (ARCHITECTURE.md §15)
+
+`nexaploy_agent/jobs/storage_jobs.py`, runtime (pure argv/config/unit builders + `StorageManager`) in
+`runtime/storage.py`. One `rclone mount` systemd unit per site and kind mounted on
+`sites/<s>/{public,private}/files`; the bench gets `SITES_PROPAGATION=rslave`. Kinds: `site.storage_configure`,
+`site.storage_migrate` (`to_bucket` / `to_local`), `site.storage_status`, `site.storage_failover`,
+`site.storage_trash_list`, `site.storage_trash_restore`, `server.storage_replicate`, `server.storage_prune_trash`
+(routes `POST /v1/sites/{s}/storage/{configure|migrate|status|failover|trash|trash-restore}`,
+`POST /v1/storage/{replicate|prune-trash}`, `GET /v1/sites/{s}/storage` = local state). Optional `[storage]` in
+agent.toml: `rclone`, `fusermount` (`/usr/bin/fusermount3`), `systemd_dir`, `cache_max_size` (2G), `cache_max_age`
+(72h). Host needs `fuse3` and rclone ≥ 1.62.

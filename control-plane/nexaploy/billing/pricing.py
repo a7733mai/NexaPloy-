@@ -20,7 +20,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Iterable, Mapping, Sequence
 
 CENT = Decimal("0.01")
-SUBSCRIBABLE = ("Server", "Site", "Marketplace App")
+SUBSCRIBABLE = ("Server", "Site", "Marketplace App", "Nexaploy Plan")  # Nexaploy Plan = per-site add-on
 # Paused subscriptions are not billed; Cancelled ones are billed up to their end_date.
 BILLABLE_STATUSES = ("Active", "Cancelled")
 
@@ -89,6 +89,8 @@ def describe(sub: Mapping[str, Any]) -> str:
 		if sub.get("site"):
 			text += f" on {sub['site']}"
 		return text
+	if dt == "Nexaploy Plan":  # add-on (e.g. offsite attachments) on a site
+		return f"Add-on {dn} on {sub['site']}" if sub.get("site") else f"Add-on {dn}"
 	text = f"{dt} {dn}"
 	return f"{text} ({plan})" if plan else text
 

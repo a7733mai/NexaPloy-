@@ -331,6 +331,28 @@ def create_app(ctx: AgentContext | None = None, settings: Settings | None = None
     @app.post("/v1/sites/{site}/smoke-check", dependencies=auth, status_code=202)
     def site_smoke_check(site: str, body: dict[str, Any] | None = Body(None)):
         return accepted("site.smoke_check", body_with(body or {}, site=site))
+    # ---- attachments offload / replication / trash (§15) ---------------------------------
+    @app.get("/v1/sites/{site}/storage", dependencies=auth)
+    def site_storage_state(site: str):
+        require_site(site)
+        return {"site": site, **ctx.storage.read_state(site)}
+
+    @app.post("/v1/sites/{site}/storage/{action}", dependencies=auth, status_code=202)
+    def site_storage(site: str, action: str, body: dict[str, Any] = Body(...)):
+        kinds = {"configure": "site.storage_configure", "migrate": "site.storage_migrate",
+                 "status": "site.storage_status", "failover": "site.storage_failover",
+                 "trash": "site.storage_trash_list", "trash-restore": "site.storage_trash_restore"}
+        if action not in kinds:
+            raise NotFound(f"unknown storage action {action!r}")
+        return accepted(kinds[action], body_with(body, site=site))
+
+    @app.post("/v1/storage/replicate", dependencies=auth, status_code=202)
+    def storage_replicate(body: dict[str, Any] = Body(...)):
+        return accepted("server.storage_replicate", body)
+
+    @app.post("/v1/storage/prune-trash", dependencies=auth, status_code=202)
+    def storage_prune_trash(body: dict[str, Any] = Body(...)):
+        return accepted("server.storage_prune_trash", body)
 
     return app
 

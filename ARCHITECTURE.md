@@ -42,7 +42,8 @@ Rules:
 ├── config/
 │   ├── agent.toml              # agent config (see §5.1)            mode 600
 │   ├── db.env                  # DB_ROOT_PASSWORD=...               mode 600
-│   └── rclone.conf             # backup remote "nexaploy-backups"   mode 600
+│   ├── rclone.conf             # backup remote "nexaploy-backups"   mode 600
+│   └── storage-rclone.conf     # attachment remotes nxs-<profile> (§11) mode 600
 ├── proxy/                      # Traefik stack (compose project "nexaploy-proxy")
 │   ├── docker-compose.yml
 │   ├── .env
@@ -67,8 +68,9 @@ Rules:
 │       ├── apps.json           # copy of the Release Group definition
 │       ├── sites/              # bind mount -> /home/frappe/frappe-bench/sites (uid 3113)
 │       └── logs/               # bind mount -> /home/frappe/frappe-bench/logs  (uid 3113)
-└── backups/                    # staging area before rclone upload (uid 3113)
-    └── .pitr/<job>/            # site.restore_pitr work dir: binlogs/ (copies), work/replay.sql (§11)
+├── backups/                    # staging area before rclone upload (uid 3113)
+│   └── .pitr/<job>/            # site.restore_pitr work dir: binlogs/ (copies), work/replay.sql (§14)
+└── storage/                    # offloaded attachments (§15): state/<site>.json, cache/<site>/<kind>, logs/
 ```
 
 Fixed UIDs/GIDs: frappe / bench containers **3113**, MariaDB **3101**, Redis **3102**, Traefik **3100**.
@@ -764,3 +766,145 @@ zone; the API takes/returns UTC ISO). `get_pitr_window` needs `read`, `restore_t
 Site Backup; `site.restore_pitr` → copy Active (apps Installed) / Broken; in place Active, or unchanged when it
 failed before touching the site (check … safety_backup), else Broken; `server.archive_binlogs` failures go to
 the error log.
+
+
+## 15. Offsite attachments, DR replica, trash bin (paid add-ons)
+
+Customer attachments (`sites/<s>/{public,private}/files`) can live on any S3-compatible object
+storage (AWS S3, iDrive e2, Wasabi, Backblaze B2, Cloudflare R2, MinIO, Hetzner Object Storage,
+other), optionally replicated to a bucket in another region, with deleted files kept in a third
+"trash" bucket for a retention period. The server keeps only a bounded cache.
+
+### 11.1 Design choice: per-site `rclone mount` on the host
+
+Options considered:
+
+| | (a) rclone mount (chosen) | (b) Frappe app storing File docs on S3 | (c) periodic `rclone move` + proxy fallback |
+|---|---|---|---|
+| Frappe compatibility | Full POSIX: `File.get_content()`, PDFs/print images, Data Import, email attachments, `is_safe_path` all work unchanged | Only code paths the app patches; third-party apps reading `get_full_path()` break; file URLs change | Moved files are gone from disk: `get_content()`, imports, attachments in emails, PDF rendering fail for old files |
+| Private files | Frappe's own permission check + X-Accel-Redirect, unchanged | App's download endpoint | nginx cannot SigV4-sign; needs a signing sidecar behind `/protected/` |
+| Images / apps | none (host-level) | app in every image (also customer BYOS/custom images), migrations per Frappe major | custom nginx template in every image |
+| Providers | every rclone S3 provider | boto3-compatible; per-app quirks | every rclone provider |
+| Host requirements | FUSE (`fuse3`), shared mount propagation, rclone ≥ 1.62 | none | none |
+| Failure mode | mount down → uploads fail loudly (root-owned empty mountpoint), reads 404; systemd restarts it | S3 down → uploads fail | S3 down → old files 404 |
+
+(a) is the most robust for *Frappe correctness* — the site sees a normal directory — and keeps all
+moving parts on the host, managed by the agent. Its operational risks are mitigated:
+
+- **Mount propagation.** One `rclone mount` per site and kind (`public`, `private`) runs as a systemd unit
+  (`/etc/systemd/system/nexaploy-files-<slug>-<kind>.service`, `Type=notify`, `Restart=always`,
+  `Before=docker.service`, `ExecStartPre/ExecStopPost=fusermount3 -uz`) and mounts **directly on**
+  `benches/<b>/sites/<s>/<kind>/files` (no symlinks: Frappe's path checks and nginx `try_files` see a real dir).
+  The bench `./sites` bind mount uses `${SITES_PROPAGATION:-rprivate}`; the agent sets `SITES_PROPAGATION=rslave`
+  in the bench `.env` (re-render + `up -d`, once) so containers follow mounts that appear, restart or fail over
+  later. Docker's `rslave` needs the host path on a shared mount (systemd default for `/`); the agent checks
+  `findmnt -o PROPAGATION` first and refuses otherwise (`mount --make-rshared /` at boot fixes it).
+- **Mount down.** The mountpoint underneath is an empty root-owned `0755` dir: Frappe (uid 3113) cannot write
+  to it, so a dead mount never silently fills the server's disk with files the bucket does not have.
+- **Write safety.** `--vfs-cache-mode full` acknowledges writes locally and uploads after `--vfs-write-back 5s`;
+  dirty files survive crashes/reboots in `storage/cache/<s>/<kind>` and are uploaded on the next start. Before
+  unmounting for good (`to_local`, drop) the agent waits until rclone's VFS metadata has no `"Dirty": true`
+  item (restarting the mount to flush late writes); it refuses to remove a unit with pending uploads.
+- **Bounded disk.** `--vfs-cache-max-size` (Storage Settings `cache_max_size`, default 2G per mount),
+  `--vfs-cache-max-age 72h`. `--allow-other --uid 3113 --gid 3113 --umask 0027`, `--dir-cache-time 5m`,
+  `--poll-interval 0` (S3 has no change notifications; the agent sends `SIGHUP` to flush the directory cache
+  after server-side changes such as a trash restore).
+- **Backups** of an offloaded site are database-only (tarring the mount would download the whole bucket; the
+  files are already off-server and replicated). `du` for usage skips mountpoints.
+- **Rename** of an offloaded site is refused by the agent (move the files back first). **Drop** unmounts and
+  removes the units first; bucket data is kept. **Move** to another server restores the DB-only backup; the
+  control plane notices the new server (`Site Storage Policy.server`) and re-runs `site.storage_migrate`
+  there, which finds an empty local dir and just mounts the bucket.
+
+Host requirements (install.sh): `fuse3` (for `fusermount3`), rclone ≥ 1.62 from rclone.org (Ubuntu 22.04's
+1.53 lacks the IDrive/Cloudflare providers and some VFS fixes), `user_allow_other` is not needed (mounts run
+as root). Each mount costs ~30–60 MB RAM.
+
+### 11.2 Bucket layout and replication semantics
+
+```
+<primary>/<prefix>/<site>/{public,private}/...                 live files (Frappe writes through the mount)
+<replica>/<prefix>/<site>/{public,private}/...                 copy, synced every N minutes
+<replica>/<prefix>/.nexaploy-trash-staging/<site>/<ts>/...      transient --backup-dir (other account only)
+<trash>/<prefix>/<site>/<ts>/{public,private}/...              deleted/overwritten files, pruned by age
+```
+
+`server.storage_replicate` runs, per site and kind,
+`rclone sync primary:<site>/<kind> replica:<site>/<kind> --backup-dir <B>/<kind> --max-delete N --fast-list --size-only`.
+A file Frappe deletes is removed from the primary at once (through the mount); at the next sync it still
+exists in the replica, and `--backup-dir` **moves** it out of the replica instead of deleting it — so deleted
+files end up removed from primary and replica and kept in the trash (overwritten files too). rclone requires
+`--backup-dir` on the same remote as the destination: when the trash profile is in the same account as the
+replica (same provider/endpoint/region/key) `B` is the trash bucket addressed through the replica's remote
+(server-side move); otherwise `B` is a staging dir in the replica bucket outside `<prefix>/<site>` and the job
+then `rclone move`s it to the trash. Limits and guards:
+
+- Files created **and** deleted between two syncs never reach the replica, so they are not in the trash (RPO =
+  interval, default 15 min). Bucket versioning on the primary closes that gap if the provider offers it.
+- `--max-delete` (default 1000) stops a runaway sync; a sync whose primary dir is missing while the replica has
+  files is refused (a mis-pointed primary must not empty the replica).
+- Sites that are failed over (mounted on the replica), migrating, or not yet offloaded are never synced; one
+  failing site does not stop the others (per-site result, job fails at the end).
+- `--size-only` avoids a HEAD per object across providers (Storage Settings `replication_compare` can switch to
+  `modtime` or `checksum`).
+
+`server.storage_prune_trash` (daily): `rclone delete trash:<site> --min-age <days>d --rmdirs`.
+`site.storage_trash_list` / `site.storage_trash_restore` (`<ts>[/<kind>[/<path>]]`, copied with
+`copyto`/`copy` into the currently served bucket, kept in the trash until pruned).
+
+**Failover** (`site.storage_failover {target: replica}`): rewrite the units to the replica and restart (brief
+interruption; replication pauses). Files written since the last sync are not on the replica; pending uploads to
+the dead primary stay in the cache. **Failback** (`target: primary`): `rclone sync replica -> primary` with the
+same trash capture (files deleted during the failover go to the trash), then remount the primary.
+
+### 11.3 Agent jobs
+
+Every job carries the Storage Profiles it uses (`profiles: [{name, preset, bucket, access_key_id,
+secret_access_key, endpoint?, region?, path_style?, prefix?}]`, secrets as `__secret__:Storage Profile:<name>:secret_key`
+placeholders resolved at poll time) and rewrites the remotes `nxs-<profile>` in `config/storage-rclone.conf`
+(mode 600, separate from the backup `rclone.conf`). Agent state per site: `storage/state/<site>.json`
+(`mode` Local/Migrating/Offloaded, `active` primary/replica, `policy`, `last_replication`).
+
+| Kind / route | Params | Steps / result |
+|---|---|---|
+| `site.storage_configure` — `POST /v1/sites/{s}/storage/configure` | policy (`site, primary, replica?, trash?, trash_retention_days?, active, cache_max_size?, profiles`) | ensure_remotes, prepare_bench, apply (rewrite + restart changed units) |
+| `site.storage_migrate` — `…/storage/migrate` | policy + `direction: to_bucket\|to_local, keep_local_copy=false` | to_bucket: ensure_remotes, prepare_bench, copy (online), switch (delta copy, `rclone check --one-way`, move aside, mount; rollback on failure), verify, cleanup. to_local: ensure_remotes, copy_back, switch_back (flush, unmount, delta, swap, chown) |
+| `site.storage_status` — `…/storage/status` | `site, with_size, profiles` | `{mode, active, kinds: {public/private: {unit_active, mounted, dirty, cache_bytes}}, healthy, last_replication, bucket?: {objects, bytes}}` |
+| `site.storage_failover` — `…/storage/failover` | policy + `target, resync=true, max_delete` | ensure_remotes, resync (failback only), switch |
+| `site.storage_trash_list` — `…/storage/trash` | `site, trash, item?, limit, profiles` | `{entries: [{path, size, mod_time}], truncated}` |
+| `site.storage_trash_restore` — `…/storage/trash-restore` | `site, trash, primary, replica?, item, profiles` | `{restored, into}` |
+| `server.storage_replicate` — `POST /v1/storage/replicate` | `sites: [{site, primary, replica, trash?, max_delete, compare}], profiles` | `{sites: {site: {status: success\|failure\|skipped, trashed, error?, started_at, ended_at}}}` |
+| `server.storage_prune_trash` — `POST /v1/storage/prune-trash` | `sites: [{site, trash, retention_days}], profiles` | `{sites: {site: success\|failure}}` |
+
+### 11.4 Control plane
+
+| DocType | Key fields |
+|---|---|
+| Storage Profile | `profile_name` (autoname, `^[a-z0-9][a-z0-9-]{1,40}$`), `title`, `provider` (AWS/IDrive/Wasabi/B2/R2/MinIO/Hetzner/Other), `endpoint`, `region`, `addressing` (preset default/path/virtual-hosted), `bucket`, `path_prefix`, `access_key`, `secret_key` (Password), `team` (empty = platform profile; set = the team's own bucket), `region_label`, `enabled`, hidden `config_hash` |
+| Site Storage Policy | `site` (autoname, unique), `team`, `attachments_mode` (Local/Offloaded), `primary_profile`, `replica_profile`, `trash_profile`, `trash_retention_days`, `status` (Local/Migrating/Offloaded/Migrating Back/Failed Over/Error), `active_target`, `server`, `last_sync_at/status/error`, `last_trashed`, `last_prune_at`, `last_status` (JSON), `last_error` |
+| Storage Settings (single) | `enabled`, `allow_byo_profiles`, `replica_enabled`, `trash_enabled`, `default_{primary,replica,trash}_profile`, `backup_storage_profile`, `replication_interval_minutes` (15), `replication_max_delete`, `replication_compare`, `default_trash_retention_days`, `max_trash_retention_days`, `cache_max_size`, `keep_local_copy`, `offload_addon_plan`, `replica_addon_plan`, `trash_addon_plan` |
+
+Rules (pure logic in `nexaploy/storage_utils.py`, glue in `nexaploy/storage.py`, API in `nexaploy/api/storage.py`):
+a trash needs a replica; primary/replica/trash are distinct; a site may use enabled platform profiles or its
+team's own; the primary of an offloaded site cannot change (move the files back first). Profile credential or
+bucket changes re-run `site.storage_configure` on every site using it. Scheduler: `storage.schedule_replication`
+(every 5 min; one `server.storage_replicate` per server for sites due, skipped while one is in flight; also
+re-mounts moved sites), `storage.prune_trash` (daily).
+
+**Database backups to a Storage Profile**: Storage Settings `backup_storage_profile` (platform profile) is copied
+into Nexaploy Settings `backup_*` (+ secret), whose existing `on_update` pushes `server.configure_backups` to every
+server — one backup code path (§5.5, §8). Other backup destinations/retention are separate features.
+
+**Billing**: Nexaploy Plan `plan_type` adds `Add-on`; default plans "Offsite Attachments", "DR Replica",
+"Trash Bin" (prices set by the operator). A site is subscribed to each add-on its policy uses while
+`attachments_mode = Offloaded` — Nexaploy Subscription `document_type = "Nexaploy Plan"`, `document_name = <plan>`,
+`site = <site>` (like paid apps), synced with the site (`subscriptions.sync_site_addons`, also in the daily
+reconcile), cancelled when the site is archived/deleted, none for staging sites or teams with `billing_exempt`.
+
+**API**: customers (`nexaploy.api.storage`): `get_site_storage` (read), `update_site_storage` (write + billing),
+`failover_site_storage`, `refresh_site_storage_status`, `restore_site_trash` (write), `list_site_trash`,
+`get_storage_job` (read), team buckets `list_team_profiles` / `save_team_profile` / `delete_team_profile` (admin,
+when `allow_byo_profiles`). Operator (platform admin only): `get_storage_settings`, `update_storage_settings(values,
+addon_prices)`, `admin_save_storage_profile`, `admin_delete_storage_profile`, `admin_use_profile_for_backups`.
+Portal: Storage tab on `/dashboard/site` (`public/js/storage.js`). Activity: `site.storage_update`,
+`site.storage_failover`, `site.storage_restore`, `storage.profile_save`, `storage.profile_delete`.

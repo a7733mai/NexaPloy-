@@ -89,6 +89,11 @@ class _SiteJob(Job):
             self.skip(f"backup files already produced: {', '.join(self.result['files'])}")
             return
         self.result.setdefault("backup_id", new_ts())
+        if with_files and self.ctx.storage.is_offloaded(self.site):
+            # attachments live in the bucket (replicated); tarring the mount would download it all
+            self.log("files are offloaded to object storage: database-only backup")
+            with_files = False
+            self.result["files_offloaded"] = True
         self.save()
         src = self.ctx.backups.frappe_backup_dir(self.ctx.sites.site_dir(bench, self.site))
         before = self.ctx.backups.snapshot(src)
@@ -786,6 +791,9 @@ class SiteDrop(_SiteJob):
         if not bench or not self.ctx.sites.exists(bench, self.site):
             self.skip("site already dropped")
             return
+        from .storage_jobs import teardown_site_storage
+
+        teardown_site_storage(self, self.site, self.ctx.sites.site_dir(bench, self.site))
         args = SiteManager.drop_site_args(self.site, self.db_root_password())
         args += ["--archived-sites-path", ARCHIVED_SITES]
         self.check(self.ctx.sites.bench(bench, args), "bench drop-site")

@@ -135,6 +135,8 @@ scheduler_events = {
 			"nexaploy.domains.verify_pending_domains",
 			"nexaploy.update_test.sync_update_tests",
 			"nexaploy.agent_upgrades.check_agent_upgrades",
+			# offsite attachments (§15): replication per Storage Settings interval, remount moved sites
+			"nexaploy.storage.schedule_replication",
 		],
 		"*/15 * * * *": [
 			"nexaploy.tasks.apply_auto_updates",
@@ -158,5 +160,6 @@ scheduler_events = {
 		"nexaploy.saas.expire_trials",
 		"nexaploy.all_in_one.backup_control_plane",
 		"nexaploy.email_relay.recheck_domains",
+		"nexaploy.storage.prune_trash",
 	],
 }

@@ -10,6 +10,7 @@
 <script src="/assets/nexaploy/js/site_email.js"></script>
 {# point-in-time recovery card (Backups tab): plain script, registers before Alpine starts #}
 <script src="/assets/nexaploy/js/pitr.js"></script>
+<script src="/assets/nexaploy/js/storage.js"></script>
 <style>
 	.nx-meter { height: 8px; border-radius: 99px; background: var(--nx-border); overflow: hidden; }
 	.nx-meter > span { display: block; height: 100%; background: var(--nx-primary); border-radius: inherit; }
@@ -74,6 +75,7 @@
 				<button type="button" x-show="site.can_write !== false" :class="{ active: tab === 'config' }" @click="tab = 'config'; if (!cfg.loaded && !cfg.loading) loadConfig(false)">{{ _("Config") }}</button>
 				<button type="button" :class="{ active: tab === 'email' }" @click="tab = 'email'; $dispatch('nx-email-open')">{{ _("E-mail") }}</button>
 				<button type="button" :class="{ active: tab === 'lifecycle' }" @click="tab = 'lifecycle'; $dispatch('nx-lifecycle-open')">{{ _("Lifecycle") }}</button>
+				<button type="button" :class="{ active: tab === 'storage' }" @click="tab = 'storage'; $dispatch('nx-storage-open')">{{ _("Storage") }}</button>
 				<button type="button" :class="{ active: tab === 'jobs' }" @click="tab = 'jobs'">{{ _("Jobs") }} <span class="spinner" x-show="active" style="width: 12px; height: 12px"></span></button>
 				<button type="button" :class="{ active: tab === 'settings' }" @click="tab = 'settings'">{{ _("Settings") }}</button>
 			</div>
@@ -641,6 +643,124 @@
 										</template>
 									</tbody>
 								</table>
+							</div>
+						</section>
+					</div>
+				</template>
+			</div>
+
+			<!-- Storage: offsite attachments, DR replica, trash bin (public/js/storage.js nxSiteStorage, §15) -->
+			<div class="stack" x-show="tab === 'storage'" x-data="nxSiteStorage" @nx-storage-open.window="stgInit()">
+				<template x-if="stgLoading && !stg"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+				<template x-if="stgError && !stg"><div class="alert danger" x-text="stgError"></div></template>
+				<template x-if="stg">
+					<div class="stack">
+						<template x-if="!stg.features.enabled && !(stg.policy && stg.policy.attachments_mode === 'Offloaded')">
+							<div class="alert info">{{ _("Offsite attachments are not available on this platform yet.") }}</div>
+						</template>
+						<section class="card" x-show="stg.features.enabled || (stg.policy && stg.policy.attachments_mode === 'Offloaded')">
+							<div class="card-head">
+								<h2>{{ _("Attachments storage") }}</h2>
+								<span class="spacer"></span>
+								<template x-if="stg.policy"><span :class="nx.statusClass(stg.policy.status)" x-text="__(stg.policy.status)"></span></template>
+							</div>
+							<div class="card-body stack">
+								<span class="muted">{{ _("Keep this site's uploaded files on S3-compatible object storage instead of the server's disk, optionally with a replica in another region and a trash bin for deleted files.") }}</span>
+								<template x-if="stg.policy && stg.policy.last_error"><div class="alert danger" x-text="stg.policy.last_error"></div></template>
+								<template x-if="busyStatus()"><div class="alert info"><span class="spinner"></span> {{ _("Moving files. The site stays online; this can take a while for many files.") }}</div></template>
+								<template x-if="stg.policy && stg.policy.active_target === 'replica'"><div class="alert warning">{{ _("Files are served from the replica (failover). Replication is paused until you switch back.") }}</div></template>
+								<fieldset class="stack" :disabled="!stg.can_write || !stg.can_billing || stgBusy || busyStatus() || (stg.policy && stg.policy.active_target === 'replica')" style="border: 0; padding: 0; margin: 0">
+									<label class="check"><input type="radio" value="Local" x-model="form.attachments_mode"> {{ _("On the server's disk") }}</label>
+									<label class="check"><input type="radio" value="Offloaded" x-model="form.attachments_mode" :disabled="!stg.features.enabled"> {{ _("On object storage") }} <span class="small muted" x-text="addonPrice('offload')"></span></label>
+									<div class="grid cols-2" x-show="form.attachments_mode === 'Offloaded'">
+										<label class="stack">
+											<span class="small muted">{{ _("Primary bucket") }}</span>
+											<select class="input" x-model="form.primary_profile" :disabled="stg.policy && stg.policy.attachments_mode === 'Offloaded'">
+												<option value="">{{ _("Choose…") }}</option>
+												<template x-for="p in stg.profiles" :key="p.name"><option :value="p.name" x-text="profileLabel(p.name)"></option></template>
+											</select>
+										</label>
+										<label class="stack" x-show="stg.features.replica">
+											<span class="small muted">{{ _("Replica (disaster recovery)") }} <span x-text="addonPrice('replica')"></span></span>
+											<select class="input" x-model="form.replica_profile">
+												<option value="">{{ _("No replica") }}</option>
+												<template x-for="p in stg.profiles" :key="p.name"><option :value="p.name" :disabled="p.name === form.primary_profile" x-text="profileLabel(p.name)"></option></template>
+											</select>
+										</label>
+										<label class="stack" x-show="stg.features.trash && form.replica_profile">
+											<span class="small muted">{{ _("Trash bin for deleted files") }} <span x-text="addonPrice('trash')"></span></span>
+											<select class="input" x-model="form.trash_profile">
+												<option value="">{{ _("No trash bin") }}</option>
+												<template x-for="p in stg.profiles" :key="p.name"><option :value="p.name" :disabled="p.name === form.primary_profile || p.name === form.replica_profile" x-text="profileLabel(p.name)"></option></template>
+											</select>
+										</label>
+										<label class="stack" x-show="stg.features.trash && form.replica_profile && form.trash_profile">
+											<span class="small muted">{{ _("Keep deleted files for (days)") }}</span>
+											<input class="input" type="number" min="1" :max="stg.features.max_trash_retention_days" x-model.number="form.trash_retention_days">
+										</label>
+									</div>
+								</fieldset>
+								<div class="small muted" x-show="form.attachments_mode === 'Offloaded' && form.trash_profile">{{ _("Deleted files are removed from the primary and the replica and kept in the trash bin. Files created and deleted between two replications are not kept.") }}</div>
+								<div class="row" x-show="stg.can_write && stg.can_billing">
+									<span class="small muted" x-show="monthlyTotal()"><span>{{ _("Add-ons") }}:</span> <span x-text="monthlyTotal()"></span></span>
+									<span class="spacer"></span>
+									<button class="btn" type="button" x-show="dirty()" :disabled="stgBusy" @click="resetForm()">{{ _("Cancel") }}</button>
+									<button class="btn primary" type="button" :disabled="stgBusy || busyStatus() || !dirty() || site.status !== 'Active'" @click="saveStorage()"><span class="spinner" x-show="stgBusy"></span> {{ _("Save") }}</button>
+								</div>
+								<template x-if="stg.can_write && !stg.can_billing"><div class="small muted">{{ _("Only team owners, admins and billing members can change paid add-ons.") }}</div></template>
+							</div>
+						</section>
+
+						<!-- Replication & failover -->
+						<section class="card" x-show="stg.policy && stg.policy.attachments_mode === 'Offloaded'">
+							<div class="card-head">
+								<h2>{{ _("Replication") }}</h2>
+								<span class="spacer"></span>
+								<button class="btn sm" type="button" x-show="stg.can_write" :disabled="stgBusy" @click="refreshStatus()"><span class="spinner" x-show="stgBusy"></span> {{ _("Check status") }}</button>
+							</div>
+							<div class="card-body stack">
+								<table class="nx-table">
+									<tbody>
+										<tr><td>{{ _("Serving from") }}</td><td x-text="stg.policy && (stg.policy.active_target === 'replica' ? __('Replica') : __('Primary')) + ' · ' + profileLabel(stg.policy.active_target === 'replica' ? stg.policy.replica_profile : stg.policy.primary_profile)"></td></tr>
+										<tr x-show="stg.policy && stg.policy.replica_profile"><td>{{ _("Last replication") }}</td><td><span x-text="stg.policy && stg.policy.last_sync_at ? nx.fmtDate(stg.policy.last_sync_at) : __('Never')"></span> <span x-show="stg.policy && stg.policy.last_sync_status" :class="nx.statusClass(stg.policy && stg.policy.last_sync_status)" x-text="stg.policy && __(stg.policy.last_sync_status)"></span></td></tr>
+										<tr x-show="stg.policy && stg.policy.last_sync_error"><td>{{ _("Replication error") }}</td><td class="small" x-text="stg.policy && stg.policy.last_sync_error"></td></tr>
+										<tr x-show="stg.policy && stg.policy.last_status && stg.policy.last_status.bucket"><td>{{ _("Files in the bucket") }}</td><td x-text="stg.policy && stg.policy.last_status && stg.policy.last_status.bucket ? stg.policy.last_status.bucket.objects + ' · ' + nx.bytes(stg.policy.last_status.bucket.bytes) : ''"></td></tr>
+										<tr x-show="stg.policy && stg.policy.last_status"><td>{{ _("Mounts healthy") }}</td><td x-text="stg.policy && stg.policy.last_status ? (stg.policy.last_status.healthy ? __('Yes') : __('No')) : ''"></td></tr>
+									</tbody>
+								</table>
+								<div class="row" x-show="stg.can_write && stg.policy && stg.policy.replica_profile">
+									<span class="small muted">{{ _("If the primary region is down, serve the files from the replica.") }}</span>
+									<span class="spacer"></span>
+									<button class="btn" type="button" x-show="stg.policy && stg.policy.active_target !== 'replica'" :disabled="stgBusy || busyStatus()" @click="failover('replica')">{{ _("Fail over to replica") }}</button>
+									<button class="btn primary" type="button" x-show="stg.policy && stg.policy.active_target === 'replica'" :disabled="stgBusy || busyStatus()" @click="failover('primary')">{{ _("Switch back to primary") }}</button>
+								</div>
+							</div>
+						</section>
+
+						<!-- Trash bin -->
+						<section class="card" x-show="stg.policy && stg.policy.attachments_mode === 'Offloaded' && stg.policy.trash_profile">
+							<div class="card-head">
+								<h2>{{ _("Trash bin") }}</h2>
+								<span class="spacer"></span>
+								<button class="btn sm" type="button" :disabled="trash.loading" @click="loadTrash()"><span class="spinner" x-show="trash.loading"></span> {{ _("Show deleted files") }}</button>
+							</div>
+							<div class="card-body flush table-wrap">
+								<template x-if="trash.error"><div class="alert danger" x-text="trash.error"></div></template>
+								<template x-if="trash.entries && !trash.entries.length"><div class="empty">{{ _("The trash bin is empty.") }}</div></template>
+								<table class="nx-table" x-show="trash.entries && trash.entries.length">
+									<thead><tr><th>{{ _("Deleted") }}</th><th>{{ _("File") }}</th><th>{{ _("Size") }}</th><th></th></tr></thead>
+									<tbody>
+										<template x-for="e in (trash.entries || [])" :key="e.path">
+											<tr>
+												<td class="nowrap" x-text="trashWhen(e.path)"></td>
+												<td class="ltr mono small" x-text="trashFile(e.path)"></td>
+												<td class="nowrap" x-text="nx.bytes(e.size)"></td>
+												<td class="actions"><button class="btn sm" type="button" x-show="stg.can_write" :disabled="restoring === e.path" @click="restore(e.path)"><span class="spinner" x-show="restoring === e.path"></span> {{ _("Restore") }}</button></td>
+											</tr>
+										</template>
+									</tbody>
+								</table>
+								<div class="small muted" x-show="trash.truncated" style="padding: 8px 16px">{{ _("Only the first files are shown.") }}</div>
 							</div>
 						</section>
 					</div>

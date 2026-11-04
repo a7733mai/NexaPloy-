@@ -80,12 +80,23 @@ class ImagesSection(_Section):
     build_timeout_seconds: int = 2 * 3600
 
 
+class StorageSection(_Section):
+    """Optional ``[storage]`` section: attachments offload (rclone mount, ARCHITECTURE.md §15)."""
+
+    rclone: str = "rclone"
+    fusermount: str = "/usr/bin/fusermount3"
+    systemd_dir: Path = Path("/etc/systemd/system")
+    cache_max_size: str = "2G"
+    cache_max_age: str = "72h"
+
+
 class Settings(_Section):
     agent: AgentSection = AgentSection()
     control_plane: ControlPlaneSection = ControlPlaneSection()
     backup: BackupSection = BackupSection()
     bench: BenchDefaults = BenchDefaults()
     images: ImagesSection = ImagesSection()
+    storage: StorageSection = StorageSection()
     # Path the settings were loaded from (not part of the file).
     source: Path | None = Field(default=None, exclude=True)
 
@@ -143,6 +154,14 @@ class Settings(_Section):
         """sha256 of the OAuth tokens we last wrote into rclone.conf (see
         runtime.backup.plan_backup_remote). Kept outside rclone.conf: rclone rewrites it."""
         return self.config_dir / "rclone.state.json"
+
+    @property
+    def storage_dir(self) -> Path:
+        return self.root / "storage"
+
+    @property
+    def storage_rclone_conf(self) -> Path:
+        return self.config_dir / "storage-rclone.conf"
 
     @property
     def data_dir(self) -> Path:

@@ -1574,3 +1574,102 @@ beta,تجريبي
 Agent Release,إصدار الوكيل
 Agent Upgrades,ترقيات الوكيل
 Allow customers to upgrade the agent on their BYOS servers,السماح للعملاء بترقية الوكيل على خوادمهم الخاصة (BYOS)
+A storage change is already in progress for {0},يوجد تغيير في التخزين قيد التنفيذ بالفعل لـ {0}
+A storage profile cannot be renamed,لا يمكن إعادة تسمية ملف تعريف التخزين
+Access key is required,مفتاح الوصول مطلوب
+Add-ons,الإضافات
+Add-on,إضافة
+Attachments storage,تخزين المرفقات
+Cache size must look like 512M or 2G,يجب أن يكون حجم التخزين المؤقت مثل 512M أو 2G
+Check status,فحص الحالة
+Choose a primary storage profile,اختر ملف تعريف التخزين الأساسي
+Choose…,اختر…
+"Compare mode must be size, modtime or checksum",يجب أن يكون وضع المقارنة size أو modtime أو checksum
+Copy all attachments back to the server's disk and stop using object storage?,نسخ جميع المرفقات إلى قرص الخادم وإيقاف استخدام التخزين السحابي؟
+Customer buckets are not enabled on this platform,حاويات العملاء غير مفعّلة على هذه المنصة
+Database backups now go to {0},النسخ الاحتياطية لقواعد البيانات تُحفظ الآن في {0}
+Deleted files are removed from the primary and the replica and kept in the trash bin. Files created and deleted between two replications are not kept.,تُحذف الملفات المحذوفة من الحاوية الأساسية والنسخة المتماثلة وتُحفظ في سلة المحذوفات. لا تُحفظ الملفات التي أُنشئت وحُذفت بين عمليتي نسخ متتاليتين.
+Fail over to replica,التحويل إلى النسخة المتماثلة
+Failover needs offloaded attachments with a replica,يتطلب التحويل مرفقات على التخزين السحابي مع نسخة متماثلة
+File,الملف
+File restored,تمت استعادة الملف
+Files are served from the replica (failover). Replication is paused until you switch back.,تُقدَّم الملفات من النسخة المتماثلة (تحويل احتياطي). النسخ المتماثل متوقف حتى تعود إلى الأساسية.
+Files in the bucket,الملفات في الحاوية
+"If the primary region is down, serve the files from the replica.",إذا تعطلت المنطقة الأساسية، قدّم الملفات من النسخة المتماثلة.
+Invalid path prefix,بادئة المسار غير صالحة
+Invalid trash path,مسار سلة المحذوفات غير صالح
+Job {0} not found,المهمة {0} غير موجودة
+Keep deleted files for (days),الاحتفاظ بالملفات المحذوفة لمدة (أيام)
+"Keep this site's uploaded files on S3-compatible object storage instead of the server's disk, optionally with a replica in another region and a trash bin for deleted files.",احفظ الملفات المرفوعة لهذا الموقع على تخزين سحابي متوافق مع S3 بدلاً من قرص الخادم، مع نسخة متماثلة اختيارية في منطقة أخرى وسلة للملفات المحذوفة.
+Last replication,آخر نسخ متماثل
+Local,محلي
+Max trash retention must be at least 1 day,يجب ألا تقل أقصى مدة للاحتفاظ في سلة المحذوفات عن يوم واحد
+Migrating,جارٍ النقل
+Migrating Back,جارٍ الإرجاع
+Mounts healthy,نقاط التركيب سليمة
+Move the files back to the server before changing the primary bucket,أعد الملفات إلى الخادم قبل تغيير الحاوية الأساسية
+"Move this site's attachments to object storage? Existing files are copied, verified and then removed from the server.",نقل مرفقات هذا الموقع إلى التخزين السحابي؟ تُنسخ الملفات الحالية ويُتحقق منها ثم تُحذف من الخادم.
+Moving files. The site stays online; this can take a while for many files.,جارٍ نقل الملفات. يبقى الموقع متاحاً؛ قد يستغرق ذلك وقتاً مع كثرة الملفات.
+No plan is linked for add-on {0},لا توجد خطة مرتبطة بالإضافة {0}
+No replica,بدون نسخة متماثلة
+No trash bin,بدون سلة محذوفات
+Offloaded,على التخزين السحابي
+Failed Over,محوّل إلى النسخة المتماثلة
+Offsite attachments are not available,المرفقات الخارجية غير متاحة
+Offsite attachments are not available on this platform yet.,المرفقات الخارجية غير متاحة على هذه المنصة بعد.
+Offsite attachments are not set up for {0},المرفقات الخارجية غير مُعدّة لـ {0}
+On object storage,على التخزين السحابي
+On the server's disk,على قرص الخادم
+Only a platform profile can hold the platform's database backups,يمكن لملف تعريف تابع للمنصة فقط استضافة النسخ الاحتياطية لقواعد بيانات المنصة
+Only platform administrators can do this,هذا الإجراء متاح لمسؤولي المنصة فقط
+"Only team owners, admins and billing members can change paid add-ons.",يمكن لمالكي الفريق والمسؤولين وأعضاء الفوترة فقط تغيير الإضافات المدفوعة.
+Only the first files are shown.,تُعرض الملفات الأولى فقط.
+Primary bucket,الحاوية الأساسية
+Profile name is required,اسم ملف التعريف مطلوب
+"Profile name must be 2-41 lowercase letters, numbers or dashes",يجب أن يتكون اسم ملف التعريف من 2 إلى 41 حرفاً صغيراً أو رقماً أو شرطة
+Replica,النسخة المتماثلة
+Replica (disaster recovery),نسخة متماثلة (التعافي من الكوارث)
+Replication,النسخ المتماثل
+Replication error,خطأ النسخ المتماثل
+Replication interval must be at least 5 minutes,يجب ألا تقل فترة النسخ المتماثل عن 5 دقائق
+Restore {0}?,استعادة {0}؟
+Secret key is required,المفتاح السري مطلوب
+Serve this site's files from the replica? Use this when the primary region is down. Files written since the last replication are not on the replica.,تقديم ملفات هذا الموقع من النسخة المتماثلة؟ استخدم ذلك عند تعطل المنطقة الأساسية. الملفات المكتوبة منذ آخر نسخ متماثل ليست على النسخة المتماثلة.
+Serving from,تُقدَّم من
+Show deleted files,عرض الملفات المحذوفة
+Skipped,تم التخطي
+Storage,التخزين
+Storage change queued,تمت جدولة تغيير التخزين
+Storage profile {0} belongs to someone else,ملف تعريف التخزين {0} يخص جهة أخرى
+Storage profile {0} is not available,ملف تعريف التخزين {0} غير متاح
+Storage profile {0} is set in Storage Settings,ملف تعريف التخزين {0} مستخدم في إعدادات التخزين
+Storage profile {0} is used by {1},ملف تعريف التخزين {0} مستخدم من قبل {1}
+Storage profile {0} not found,ملف تعريف التخزين {0} غير موجود
+Switch back to primary,العودة إلى الأساسية
+Switch back to the primary? Files written during the failover are copied to the primary first.,العودة إلى الحاوية الأساسية؟ تُنسخ الملفات المكتوبة أثناء التحويل إلى الأساسية أولاً.
+Target must be primary or replica,يجب أن يكون الهدف الأساسية أو النسخة المتماثلة
+The DR replica is not available,النسخة المتماثلة للتعافي من الكوارث غير متاحة
+The replica must be a different profile than the primary,يجب أن تكون النسخة المتماثلة ملف تعريف مختلفاً عن الأساسي
+The site is already served from the {0},الموقع يُقدَّم بالفعل من {0}
+The site is served from its replica; switch back to the primary first,الموقع يُقدَّم من نسخته المتماثلة؛ عد إلى الأساسية أولاً
+The trash bin is empty.,سلة المحذوفات فارغة.
+The trash bin is not available,سلة المحذوفات غير متاحة
+The trash bin is not enabled for {0},سلة المحذوفات غير مفعّلة لـ {0}
+The trash bin needs a replica,تتطلب سلة المحذوفات نسخة متماثلة
+The trash must be a different profile than the primary and the replica,يجب أن تكون سلة المحذوفات ملف تعريف مختلفاً عن الأساسي والنسخة المتماثلة
+Timed out waiting for the server,انتهت مهلة انتظار الخادم
+Trash bin,سلة المحذوفات
+Trash bin for deleted files,سلة المحذوفات للملفات المحذوفة
+Trash retention must be between 1 and {0} days,يجب أن تكون مدة الاحتفاظ في سلة المحذوفات بين 1 و{0} يوماً
+Unknown add-on {0},إضافة غير معروفة {0}
+Unknown attachments mode,وضع المرفقات غير معروف
+Unknown setting {0},إعداد غير معروف {0}
+Unknown storage provider,مزود التخزين غير معروف
+month,شهر
+primary,الأساسية
+replica,النسخة المتماثلة
+{0} cannot be negative,لا يمكن أن تكون قيمة {0} سالبة
+{0} must be a number,يجب أن تكون قيمة {0} رقماً
+{0} must be a platform profile (no team),يجب أن يكون {0} ملف تعريف تابعاً للمنصة (بدون فريق)
+{0} must be an Add-on plan,يجب أن تكون {0} خطة إضافة
+{0} needs a {1},{0} يحتاج إلى {1}
