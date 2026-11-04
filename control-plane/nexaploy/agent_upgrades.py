@@ -120,6 +120,8 @@ def start_upgrade(server_name, version=None, user=None, check_permission=True):
 
 	server = _server(server_name)
 	admin = check_upgrade_permission(server, user) if check_permission else True
+	if not admin:
+		version = None  # customers get the latest release of their server's channel
 	release = _release_for(server, version)
 	# an explicit version may be a re-install or downgrade (platform admins only)
 	blocker = aru.upgrade_blocker(server, release, allow_reinstall=bool(version) and admin)
