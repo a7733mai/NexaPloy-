@@ -77,7 +77,8 @@
    "fieldname": "remote_path",
    "fieldtype": "Data",
    "label": "Remote Path",
-   "read_only": 1
+   "read_only": 1,
+   "length": 1000
   },
   {
    "fetch_from": "site.team",

@@ -161,7 +161,9 @@ services:
       TZ: ${TZ:-UTC}
       BACKEND: {{ bench }}-backend:8000
       SOCKETIO: {{ bench }}-websocket:9000
-      FRAPPE_SITE_NAME_HEADER: $$host
+      # The proxy sets X-Frappe-Site-Name per site route (site-route.yml.j2), so
+      # custom domains resolve to the right site; clients cannot reach nginx directly.
+      FRAPPE_SITE_NAME_HEADER: $$http_x_frappe_site_name
       UPSTREAM_REAL_IP_ADDRESS: ${UPSTREAM_REAL_IP_ADDRESS:-172.16.0.0/12}
       UPSTREAM_REAL_IP_HEADER: ${UPSTREAM_REAL_IP_HEADER:-X-Forwarded-For}
       UPSTREAM_REAL_IP_RECURSIVE: ${UPSTREAM_REAL_IP_RECURSIVE:-on}

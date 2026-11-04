@@ -111,7 +111,11 @@ def validate_agent_auth():
 	else:
 		ok = _verify_server_token(form.get("server_id"), token) is not None
 	if ok:
+		# frappe.set_user() resets frappe.local.form_dict: keep the request arguments,
+		# or the endpoint receives server_id=None (found on a real v15 bench).
+		form_dict = frappe.local.form_dict
 		frappe.set_user("Administrator")
+		frappe.local.form_dict = form_dict
 
 
 # --------------------------------------------------------------------------- register
@@ -284,13 +288,17 @@ def heartbeat(server_id=None, facts=None, benches=None, agent_version=None, **kw
 def poll(server_id=None, **kwargs):
 	"""Hand Pending jobs to the agent (-> Queued). Returns [{job_id, kind, params}]."""
 	server = _authenticate_server(server_id)
-	jobs = frappe.get_all(
-		"Agent Job",
-		filters={"server": server, "status": "Pending"},
-		fields=["name", "kind", "params"],
-		order_by="creation asc",
-		limit=POLL_LIMIT,
-		for_update=True,
+	# frappe.get_all() has no for_update in v15: lock the rows with the query builder so two
+	# concurrent polls never hand out the same job.
+	AgentJob = frappe.qb.DocType("Agent Job")
+	jobs = (
+		frappe.qb.from_(AgentJob)
+		.select(AgentJob.name, AgentJob.kind, AgentJob.params)
+		.where((AgentJob.server == server) & (AgentJob.status == "Pending"))
+		.orderby(AgentJob.creation)
+		.limit(POLL_LIMIT)
+		.for_update()
+		.run(as_dict=True)
 	)
 	now = now_datetime()
 	out = []

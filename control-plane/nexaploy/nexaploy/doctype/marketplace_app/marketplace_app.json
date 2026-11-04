@@ -56,7 +56,8 @@
    "fieldtype": "Data",
    "label": "Repository URL",
    "options": "URL",
-   "reqd": 1
+   "reqd": 1,
+   "length": 1000
   },
   {
    "fieldname": "publisher",
@@ -145,7 +146,8 @@
    "fieldname": "documentation_url",
    "fieldtype": "Data",
    "label": "Documentation URL",
-   "options": "URL"
+   "options": "URL",
+   "length": 1000
   },
   {
    "fieldname": "column_break_media",

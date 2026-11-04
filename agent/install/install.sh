@@ -274,6 +274,11 @@ install_stacks() {
     if [[ -d "$tpl/proxy/config/traefik" ]]; then
         cp -a "$tpl/proxy/config/traefik/." "$ROOT/proxy/config/traefik/"
     fi
+    # Traefik's file provider does not recurse: the shared middlewares must sit next to
+    # the per-site route files (the agent ignores names that are not site names).
+    install -m 0644 "$ROOT/proxy/config/traefik/dynamic.yml" "$ROOT/proxy/config/sites/_nexaploy-middlewares.yml"
+    # remove the Docker-provider socket proxy of older installs
+    docker rm -f nexaploy-socket-proxy >/dev/null 2>&1 || true
     [[ -f "$ROOT/proxy/.env" ]] || install -m 0644 "$tpl/proxy/env.example" "$ROOT/proxy/.env"
     if [[ -n "$ACME_EMAIL" ]]; then
         set_env_var "$ROOT/proxy/.env" ACME_EMAIL "$ACME_EMAIL"

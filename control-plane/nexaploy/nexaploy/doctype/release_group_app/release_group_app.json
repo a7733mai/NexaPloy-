@@ -60,7 +60,8 @@
    "fieldname": "repo_url",
    "fieldtype": "Data",
    "label": "Repository URL",
-   "read_only": 1
+   "read_only": 1,
+   "length": 1000
   }
  ],
  "index_web_pages_for_search": 0,

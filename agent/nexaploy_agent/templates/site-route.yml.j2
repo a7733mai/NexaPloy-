@@ -6,6 +6,8 @@
            bench (bench name). The primary is always included even if the
            caller forgot it; duplicates are dropped, order is preserved.
   HTTP (:80) is redirected to websecure globally, so only one router.
+  Frappe picks the site from X-Frappe-Site-Name (set here, overriding anything a
+  client sends), so custom domains reach the right site without per-domain dirs.
 -#}
 {%- set slug = site | replace('.', '-') -%}
 {%- set hosts = ([site] + (domains | list)) | unique | list -%}
@@ -18,10 +20,16 @@ http:
         - websecure
       service: svc-{{ slug }}
       middlewares:
+        - site-{{ slug }}-name@file
         - security-headers@file
         - compress@file
       tls:
         certResolver: letsencrypt
+  middlewares:
+    site-{{ slug }}-name:
+      headers:
+        customRequestHeaders:
+          X-Frappe-Site-Name: "{{ site }}"
   services:
     svc-{{ slug }}:
       loadBalancer:

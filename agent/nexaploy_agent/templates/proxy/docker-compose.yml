@@ -1,10 +1,11 @@
 # Nexaploy proxy stack  (/opt/nexaploy/proxy/docker-compose.yml)
 # Compose project "nexaploy-proxy". See ARCHITECTURE.md §3.3.
 #
-# Routing is done by the FILE provider: one file per site in ./config/sites
-# (written by the agent from site-route.yml.j2) plus static middlewares in
-# ./config/traefik/dynamic.yml. The Docker provider (via a read-only socket
-# proxy) is only there for the dashboard/diagnostics; benches carry no labels.
+# Routing is done ONLY by the file provider, which reads one flat directory
+# (it does not recurse): ./config/sites holds one file per site (written by the
+# agent from site-route.yml.j2) plus _nexaploy-middlewares.yml, copied there by
+# install.sh from ./config/traefik/dynamic.yml. No Docker provider, no docker
+# socket: benches carry no labels.
 name: nexaploy-proxy
 
 x-logging: &logging
@@ -14,49 +15,6 @@ x-logging: &logging
     max-file: "3"
 
 services:
-  socket-proxy:
-    image: tecnativa/docker-socket-proxy:0.3.0
-    container_name: nexaploy-socket-proxy
-    environment:
-      # Read-only API surface: list containers/networks/services, nothing else.
-      CONTAINERS: "1"
-      NETWORKS: "1"
-      SERVICES: "0"
-      TASKS: "0"
-      INFO: "1"
-      VERSION: "1"
-      PING: "1"
-      EVENTS: "1"
-      POST: "0"
-      BUILD: "0"
-      COMMIT: "0"
-      EXEC: "0"
-      IMAGES: "0"
-      VOLUMES: "0"
-      SECRETS: "0"
-      AUTH: "0"
-      LOG_LEVEL: warning
-      # bind 0.0.0.0 only; fails to start on hosts with IPv6 disabled otherwise
-      DISABLE_IPV6: "1"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    # Not read_only: the entrypoint renders /usr/local/etc/haproxy/haproxy.cfg from
-    # haproxy.cfg.template (same dir) at start. Still no caps / no-new-privileges.
-    tmpfs:
-      - /run
-      - /tmp
-    security_opt:
-      - no-new-privileges:true
-    networks:
-      - socket-proxy
-    restart: unless-stopped
-    logging: *logging
-    deploy:
-      resources:
-        limits:
-          cpus: "0.25"
-          memory: 64M
-
   traefik:
     image: ${TRAEFIK_IMAGE:-traefik:v3.3}
     container_name: nexaploy-traefik
@@ -68,7 +26,8 @@ services:
       - --log.format=json
       # Entrypoints (unprivileged container ports; host 80/443 are published)
       - --entrypoints.web.address=:8080
-      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      # ":<public https port>", not "websecure": that would redirect to the container port 8443
+      - --entrypoints.web.http.redirections.entrypoint.to=:${HTTPS_PORT:-443}
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
       - --entrypoints.web.http.redirections.entrypoint.permanent=true
       - --entrypoints.websecure.address=:8443
@@ -78,10 +37,6 @@ services:
       # Providers
       - --providers.file.directory=/etc/traefik/dynamic
       - --providers.file.watch=true
-      - --providers.docker=true
-      - --providers.docker.endpoint=tcp://nexaploy-socket-proxy:2375
-      - --providers.docker.exposedByDefault=false
-      - --providers.docker.network=proxy-network
       # ACME (HTTP-01)
       - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:?ACME_EMAIL must be set in .env}
       - --certificatesresolvers.letsencrypt.acme.storage=/data/certificates/acme.json
@@ -107,8 +62,7 @@ services:
       - "${HTTP_PORT:-80}:8080"
       - "${HTTPS_PORT:-443}:8443"
     volumes:
-      - ./config/traefik:/etc/traefik/dynamic/traefik:ro
-      - ./config/sites:/etc/traefik/dynamic/sites:ro
+      - ./config/sites:/etc/traefik/dynamic:ro
       - ./data:/data
       - ./logs:/logs
     environment:
@@ -122,9 +76,6 @@ services:
       - ALL
     networks:
       - proxy-network
-      - socket-proxy
-    depends_on:
-      - socket-proxy
     healthcheck:
       # Static config comes from flags, so the healthcheck must be told
       # where the ping entrypoint lives.
@@ -184,6 +135,3 @@ networks:
   proxy-network:
     name: proxy-network
     external: true
-  socket-proxy:
-    name: nexaploy-socket-proxy
-    internal: true

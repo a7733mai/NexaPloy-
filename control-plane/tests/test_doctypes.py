@@ -326,3 +326,36 @@ def test_publisher_and_support_doctypes_link_team():
 		assert team["fieldtype"] == "Link" and team["options"] == "Team" and team.get("reqd") == 1
 	payout_team = next(f for f in BY_NAME["Publisher Payout"]["fields"] if f["fieldname"] == "team")
 	assert payout_team.get("fetch_from") == "publisher.team"
+
+
+def test_single_doctypes_have_no_link_defaults():
+	"""Frappe's installer saves every Single with its defaults (init_singles) BEFORE
+	after_install runs, so a Link default pointing at a record created in after_install
+	breaks `bench install-app` (found on a real bench)."""
+	import glob
+	import json
+	import os
+
+	here = os.path.dirname(__file__)
+	for path in glob.glob(os.path.join(here, "..", "nexaploy", "nexaploy", "doctype", "*", "*.json")):
+		d = json.load(open(path))
+		if d.get("doctype") != "DocType" or not d.get("issingle"):
+			continue
+		for f in d["fields"]:
+			if f.get("fieldtype") in ("Link", "Dynamic Link"):
+				assert not f.get("default"), f"{d['name']}.{f['fieldname']} has a Link default"
+
+
+def test_no_for_update_in_get_all():
+	"""frappe.get_all/get_list have no `for_update` in v15 (TypeError at runtime, found on a
+	real bench): use frappe.db.get_value(..., for_update=True) or frappe.qb ... .for_update()."""
+	import os
+	import re
+
+	app = os.path.join(os.path.dirname(__file__), "..", "nexaploy")
+	call = re.compile(r"frappe\.get_(?:all|list)\((?:[^()]|\([^()]*\))*?for_update", re.S)
+	for root, _dirs, files in os.walk(app):
+		for name in files:
+			if name.endswith(".py"):
+				text = open(os.path.join(root, name)).read()
+				assert not call.search(text), os.path.join(root, name)

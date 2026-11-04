@@ -57,7 +57,8 @@
    "fieldname": "image_tag",
    "fieldtype": "Data",
    "label": "Image Tag",
-   "read_only": 1
+   "read_only": 1,
+   "length": 1000
   },
   {
    "default": "Pending",

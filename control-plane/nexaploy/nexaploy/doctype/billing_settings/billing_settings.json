@@ -50,7 +50,6 @@
    "label": "Billing Enabled"
   },
   {
-   "default": "USD",
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Default Currency",
@@ -94,7 +93,6 @@
    "label": "Default Plans"
   },
   {
-   "default": "BYOS Server",
    "fieldname": "default_byos_plan",
    "fieldtype": "Link",
    "label": "Default BYOS Server Plan",
@@ -105,7 +103,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "default": "Site Basic",
    "fieldname": "default_site_plan",
    "fieldtype": "Link",
    "label": "Default Site Plan",
@@ -136,7 +133,8 @@
    "description": "Where customers land after paying. Default: <site URL>/dashboard/billing",
    "fieldname": "return_url",
    "fieldtype": "Data",
-   "label": "Return URL"
+   "label": "Return URL",
+   "length": 1000
   },
   {
    "collapsible": 1,
@@ -147,7 +145,8 @@
   {
    "fieldname": "stripe_publishable_key",
    "fieldtype": "Data",
-   "label": "Publishable Key"
+   "label": "Publishable Key",
+   "length": 1000
   },
   {
    "fieldname": "stripe_secret_key",
@@ -196,7 +195,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "default": "EGP",
    "fieldname": "paymob_currency",
    "fieldtype": "Link",
    "label": "Paymob Currency",
@@ -213,7 +211,8 @@
    "default": "https://accept.paymob.com",
    "fieldname": "paymob_base_url",
    "fieldtype": "Data",
-   "label": "API Base URL"
+   "label": "API Base URL",
+   "length": 1000
   },
   {
    "fieldname": "section_break_credits",

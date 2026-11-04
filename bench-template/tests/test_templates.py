@@ -229,7 +229,8 @@ def test_frontend_env(bench):
     env = bench["services"]["frontend"]["environment"]
     assert env["BACKEND"] == f"{BENCH}-backend:8000"
     assert env["SOCKETIO"] == f"{BENCH}-websocket:9000"
-    assert env["FRAPPE_SITE_NAME_HEADER"] == "$$host"  # compose-escaped $host
+    # compose-escaped nginx var: the proxy sets X-Frappe-Site-Name per site route
+    assert env["FRAPPE_SITE_NAME_HEADER"] == "$$http_x_frappe_site_name"
     for k in ["UPSTREAM_REAL_IP_ADDRESS", "UPSTREAM_REAL_IP_HEADER", "UPSTREAM_REAL_IP_RECURSIVE", "CLIENT_MAX_BODY_SIZE"]:
         assert k in env
 
@@ -302,14 +303,13 @@ def test_proxy_services(proxy):
     assert proxy["name"] == "nexaploy-proxy"
     s = proxy["services"]
     assert s["traefik"]["container_name"] == "nexaploy-traefik"
-    assert s["socket-proxy"]["container_name"] == "nexaploy-socket-proxy"
-    assert s["socket-proxy"]["image"].startswith("tecnativa/docker-socket-proxy")
-    assert "/var/run/docker.sock:/var/run/docker.sock:ro" in s["socket-proxy"]["volumes"]
-    assert s["socket-proxy"]["environment"]["POST"] == "0"
+    # File provider only: no docker socket anywhere in the proxy stack.
+    assert "socket-proxy" not in s
+    assert not any("docker.sock" in v for svc in s.values() for v in svc.get("volumes", []))
     assert s["crowdsec"]["profiles"] == ["crowdsec"]
     assert s["traefik"]["user"] == "3100:3100"
     assert s["traefik"]["image"].endswith("traefik:v3.3}")
-    for name in ["traefik", "socket-proxy"]:
+    for name in ["traefik"]:
         assert "profiles" not in s[name]
         assert "no-new-privileges:true" in s[name]["security_opt"]
         assert s[name]["logging"]["driver"] == "local"
@@ -323,7 +323,11 @@ def test_traefik_static_config(proxy):
     f = _flags(t["command"])
     assert f["providers.file.directory"] == "/etc/traefik/dynamic"
     assert f["providers.file.watch"] == "true"
-    assert f["entrypoints.web.http.redirections.entrypoint.to"] == "websecure"
+    # redirect to the PUBLIC https port, not the websecure entrypoint (container :8443)
+    assert f["entrypoints.web.http.redirections.entrypoint.to"] == ":${HTTPS_PORT:-443}"
+    assert not any(k.startswith("providers.docker") for k in f)
+    # the file provider does not recurse: route files are mounted flat
+    assert "./config/sites:/etc/traefik/dynamic:ro" in t["volumes"]
     assert f["entrypoints.web.http.redirections.entrypoint.scheme"] == "https"
     assert "entrypoints.websecure.address" in f
     assert f["certificatesresolvers.letsencrypt.acme.storage"] == "/data/certificates/acme.json"
@@ -332,16 +336,11 @@ def test_traefik_static_config(proxy):
     assert f["accesslog.filepath"].startswith("/logs/")
     assert f["metrics.prometheus"] == "true"
     assert f["ping"] == "true"
-    assert f["providers.docker.endpoint"] == "tcp://nexaploy-socket-proxy:2375"
-    assert f["providers.docker.exposedByDefault"] == "false"
     vols = t["volumes"]
-    assert "./config/traefik:/etc/traefik/dynamic/traefik:ro" in vols
-    assert "./config/sites:/etc/traefik/dynamic/sites:ro" in vols
     assert "./data:/data" in vols and "./logs:/logs" in vols
     assert "traefik" in t["healthcheck"]["test"] and "--ping" in t["healthcheck"]["test"]
-    assert set(t["networks"]) == {"proxy-network", "socket-proxy"}
+    assert set(t["networks"]) == {"proxy-network"}
     assert proxy["networks"]["proxy-network"] == {"name": "proxy-network", "external": True}
-    assert proxy["networks"]["socket-proxy"]["internal"] is True
 
 
 def test_dynamic_middlewares():
@@ -375,7 +374,9 @@ def test_route_single_domain():
     assert rt["rule"] == "Host(`erp.example.com`)"
     assert rt["entryPoints"] == ["websecure"]
     assert rt["service"] == "svc-erp-example-com"
-    assert rt["middlewares"] == ["security-headers@file", "compress@file"]
+    assert rt["middlewares"] == ["site-erp-example-com-name@file", "security-headers@file", "compress@file"]
+    mw = r["http"]["middlewares"]["site-erp-example-com-name"]
+    assert mw["headers"]["customRequestHeaders"] == {"X-Frappe-Site-Name": "erp.example.com"}
     assert rt["tls"] == {"certResolver": "letsencrypt"}
     assert list(services) == ["svc-erp-example-com"]
     assert services["svc-erp-example-com"]["loadBalancer"]["servers"] == [

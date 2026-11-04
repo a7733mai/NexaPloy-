@@ -78,7 +78,8 @@
    "label": "Repository URL",
    "options": "URL",
    "reqd": 1,
-   "description": "https://github.com/<owner>/<repo> (no credentials)."
+   "description": "https://github.com/<owner>/<repo> (no credentials).",
+   "length": 1000
   },
   {
    "fieldname": "repo_full_name",

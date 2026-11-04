@@ -178,3 +178,17 @@ def test_restore_params():
                                      "remote_path": "x/y"})
     with pytest.raises(ValidationError):
         SiteRestore.validate_params({"site": "a.example.com", "remote_path": "r:../../etc"})
+
+
+def test_staged_backup_files_are_not_world_readable(ctx):
+    import stat
+
+    src = ctx.settings.root / "tmp-src-perm"
+    files = _write_frappe_backup(src)
+    for name in files:
+        (src / "private" / "backups" / name).chmod(0o666)  # what bench leaves behind
+    stamp = "20261103T130000Z"
+    ctx.backups.stage("erp-v15", "a.example.com", stamp, src / "private" / "backups", files.keys(), IMAGE)
+    d = ctx.backups.backup_dir("erp-v15", "a.example.com", stamp)
+    for p in d.iterdir():
+        assert stat.S_IMODE(p.stat().st_mode) & 0o007 == 0, p.name

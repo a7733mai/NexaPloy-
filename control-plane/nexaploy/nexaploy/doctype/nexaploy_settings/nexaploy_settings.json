@@ -35,7 +35,8 @@
    "description": "e.g. ghcr.io/org or registry.example.com. When set, images are tagged <registry_url>/nexaploy/bench:<group>-<build_id>, pushed after build and pulled by benches on other servers.",
    "fieldname": "registry_url",
    "fieldtype": "Data",
-   "label": "Registry URL"
+   "label": "Registry URL",
+   "length": 1000
   },
   {
    "fieldname": "registry_username",
@@ -119,7 +120,8 @@
   {
    "fieldname": "backup_access_key",
    "fieldtype": "Data",
-   "label": "Access Key ID"
+   "label": "Access Key ID",
+   "length": 1000
   },
   {
    "fieldname": "backup_secret_key",

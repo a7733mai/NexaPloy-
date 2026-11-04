@@ -8,7 +8,7 @@ Docker Compose building blocks for one Nexaploy server, per
 | `bench/docker-compose.yml.j2` | `/opt/nexaploy/benches/<bench>/docker-compose.yml` | One bench (compose project `<bench>`), rendered by the agent |
 | `bench/env.example` | `/opt/nexaploy/benches/<bench>/.env` | Bench variables (§3.1) |
 | `db/docker-compose.yml`, `db/env.example` | `/opt/nexaploy/db/` | Shared MariaDB 10.6 (`nexaploy-db`) |
-| `proxy/docker-compose.yml`, `proxy/env.example` | `/opt/nexaploy/proxy/` | Traefik v3 + read-only docker socket proxy (+ optional CrowdSec) |
+| `proxy/docker-compose.yml`, `proxy/env.example` | `/opt/nexaploy/proxy/` | Traefik v3, file provider only (+ optional CrowdSec) |
 | `proxy/config/traefik/dynamic.yml` | `/opt/nexaploy/proxy/config/traefik/` | Middlewares `security-headers`, `rate-limit`, `compress`; TLS defaults |
 | `site-route.yml.j2` | `/opt/nexaploy/proxy/config/sites/<site>.yml` | Traefik file-provider route for one site |
 | `tests/test_templates.py` | — | Render + structure tests |
@@ -121,12 +121,12 @@ step 6 so the HTTP-01 challenge succeeds.
   8080/8443 (published as `HTTP_PORT`/`HTTPS_PORT`, default 80/443) so it needs
   no capabilities as UID 3100. Ping is on :8082 (healthcheck), Prometheus
   metrics on :9100 — neither is published; scrape over `proxy-network`.
-- File provider watches `/etc/traefik/dynamic` (`config/traefik` and
-  `config/sites` mounted beneath it). Adding/removing `config/sites/<site>.yml`
-  is all the agent does to route a site.
-- `:80` redirects to `websecure` globally; the ACME HTTP challenge still works.
-- The socket proxy exposes only read endpoints (`POST=0`) on an internal
-  network; the Docker provider has `exposedByDefault=false`.
+- File provider watches `/etc/traefik/dynamic`, which is `config/sites` mounted
+  flat (the file provider does not recurse into subdirectories). `install.sh`
+  copies `config/traefik/dynamic.yml` there as `_nexaploy-middlewares.yml`.
+  Adding/removing `config/sites/<site>.yml` is all the agent does to route a site.
+- `:80` redirects to `:${HTTPS_PORT}` globally; the ACME HTTP challenge still works.
+- No Docker provider and no docker socket in the proxy stack.
 - CrowdSec (`COMPOSE_PROFILES=crowdsec`) only analyses `logs/access.log`;
   wire a bouncer separately to enforce decisions.
 

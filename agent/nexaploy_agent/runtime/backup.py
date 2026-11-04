@@ -5,6 +5,7 @@ from __future__ import annotations
 import configparser
 import io
 import json
+import os
 import shutil
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -162,6 +163,10 @@ class BackupManager:
             src = source_dir / name
             if src.is_file() and not (dest / name).exists():
                 shutil.move(str(src), str(dest / name))
+            if (dest / name).exists():
+                # bench writes backups world-readable (umask in the container); they hold
+                # the whole database and private files.
+                os.chmod(dest / name, 0o640)
                 chown(dest / name, FRAPPE_UID, FRAPPE_UID)
         files = [p for p in sorted(dest.iterdir()) if p.is_file() and p.name != MANIFEST]
         if not any(classify(p.name) == "database" for p in files):

@@ -29,7 +29,7 @@ Rules:
 
 - A server hosts many benches (v14, v15, v16 side by side). Each bench has its own image, Redis pair and compose project.
 - A server has one shared MariaDB (`mariadb:10.6`) used by all benches; each site gets its own database/user (standard Frappe).
-- A bench hosts many sites. Routing is by Host header (`FRAPPE_SITE_NAME_HEADER=$host`).
+- A bench hosts many sites. Traefik routes by Host and sets `X-Frappe-Site-Name: <site>` per site route; the bench frontend uses `FRAPPE_SITE_NAME_HEADER=$http_x_frappe_site_name`, so custom domains reach the right site.
 - Moving a site to another major (v14 → v15) = backup → restore on a bench of the target Release Group → migrate. Never in place.
 
 ## 2. Filesystem layout on a server
@@ -83,7 +83,7 @@ Naming:
 - Bench name: `^[a-z][a-z0-9-]{2,30}$` (e.g. `erp-v15-main`). Compose project = bench name.
 - Site name: lowercase FQDN, `^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$`. Slug = site with `.` → `-`.
 - Container names: `<bench>-backend`, `<bench>-frontend`, `<bench>-websocket`, `<bench>-scheduler`, `<bench>-queue-short`, `<bench>-queue-long`, `<bench>-queue-default`, `<bench>-redis-cache`, `<bench>-redis-queue`.
-- Shared containers: `nexaploy-db`, `nexaploy-traefik`, `nexaploy-socket-proxy`.
+- Shared containers: `nexaploy-db`, `nexaploy-traefik`.
 - Image tag: `nexaploy/bench:<release_group>-<build_id>` (e.g. `nexaploy/bench:erp-v15-main-20261103T2130`).
   With a registry configured on the control plane (`Nexaploy Settings.registry_url`, e.g. `ghcr.io/org`)
   the tag is `<registry_url>/nexaploy/bench:<release_group>-<build_id>`; the build server pushes it and
@@ -137,14 +137,11 @@ The template must:
 Variables: `site` (primary host), `domains` (list of all hosts incl. primary), `bench`.
 Output file: `/opt/nexaploy/proxy/config/sites/<site>.yml` with router `site-<slug>` →
 service `svc-<slug>` → `http://<bench>-frontend:8080`, `websecure` entrypoint,
-`certResolver: letsencrypt`, middlewares `security-headers@file,compress@file`.
+`certResolver: letsencrypt`, middlewares `site-<slug>-name@file` (sets `X-Frappe-Site-Name`), `security-headers@file`, `compress@file`.
 
 ### 3.3 Proxy stack
 
-socket-proxy (read-only docker socket, only for dashboard; file provider is primary),
-Traefik v3 with `providers.file.directory=/etc/traefik/dynamic` + `watch=true` (mount
-`config/traefik` and `config/sites` under it), HTTP→HTTPS redirect, ACME HTTP challenge,
-JSON access log, Prometheus metrics, healthcheck. CrowdSec optional (`COMPOSE_PROFILES=crowdsec`).
+Traefik v3, **file provider only** (no Docker provider, no docker socket): `providers.file.directory=/etc/traefik/dynamic` + `watch=true`, with `config/sites` mounted there flat (the file provider does not recurse); `install.sh` copies `config/traefik/dynamic.yml` into it as `_nexaploy-middlewares.yml` (the agent ignores names that are not site names). HTTP→HTTPS redirect to the public port, ACME HTTP challenge, JSON access log, Prometheus metrics, healthcheck. CrowdSec optional (`COMPOSE_PROFILES=crowdsec`).
 
 ### 3.4 Shared DB stack
 

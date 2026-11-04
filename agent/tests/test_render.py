@@ -80,7 +80,7 @@ def test_route_render():
     assert router["service"] == "svc-erp-example-com"
     assert router["entryPoints"] == ["websecure"]
     assert router["tls"]["certResolver"] == "letsencrypt"
-    assert router["middlewares"] == ["security-headers@file", "compress@file"]
+    assert router["middlewares"] == ["site-erp-example-com-name@file", "security-headers@file", "compress@file"]
     assert router["rule"] == "Host(`erp.example.com`) || Host(`www.example.com`)"
     servers = doc["http"]["services"]["svc-erp-example-com"]["loadBalancer"]["servers"]
     assert servers == [{"url": "http://erp-v15-frontend:8080"}]
