@@ -354,6 +354,11 @@ def create_app(ctx: AgentContext | None = None, settings: Settings | None = None
     def storage_prune_trash(body: dict[str, Any] = Body(...)):
         return accepted("server.storage_prune_trash", body)
 
+    # ---- the control plane as a bench of this server (all-in-one, §5.9) -------------------
+    @app.post("/v1/controlplane/update", dependencies=auth, status_code=202)
+    def controlplane_update(body: dict[str, Any] = Body(...)):
+        return accepted("controlplane.update", body)
+
     return app
 
 

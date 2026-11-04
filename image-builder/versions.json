@@ -1,5 +1,6 @@
 {
   "14": {"python": "3.10.13", "node": "16.20.2", "frappe_branch": "version-14", "debian": "bookworm"},
   "15": {"python": "3.11.6",  "node": "18.20.2", "frappe_branch": "version-15", "debian": "bookworm"},
-  "16": {"python": "3.14.10", "node": "24.22.2", "frappe_branch": "version-16", "debian": "trixie"}
+  "16": {"python": "3.14.10", "node": "24.22.2", "frappe_branch": "version-16", "debian": "trixie",
+         "official_image": "frappe/erpnext:v16.53.0"}
 }
