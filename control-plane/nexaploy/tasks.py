@@ -127,10 +127,15 @@ def prune_remote_backups():
 
 
 def check_alerts():
-	"""Every 5 min: disk > 85%, server Offline, unhealthy containers -> email the team (and
-	Nexaploy Settings.alert_email), at most once per 6 h per server and kind.
+	"""Every 5 min: disk > 85%, server Offline, unhealthy containers -> notify the team
+	(nexaploy.notify: its Notification Channels, else email as before plus Nexaploy
+	Settings.alert_email), at most once per 6 h per server and kind; a server that comes back
+	online after an offline alert sends server_recovered.
 	"""
-	from nexaploy.ops import send_alert
+	from frappe.utils import get_url
+
+	from nexaploy import notify_utils as nu
+	from nexaploy.notify import notify
 
 	now = now_datetime()
 	servers = frappe.get_all(
@@ -141,22 +146,25 @@ def check_alerts():
 	)
 	for server in servers:
 		state = ou.load_alert_state(server.alert_state)
-		changed = False
-		for kind, message in ou.server_alerts(server):
-			if not ou.should_alert(state, kind, now):
-				continue
-			try:
-				send_alert(server.team, f"{kind} alert on {server.hostname or server.name}", message)
-			except Exception:
-				frappe.log_error(title=f"Nexaploy: alert email failed for {server.name}")
-				continue
-			state = ou.record_alert(state, kind, now)
-			changed = True
-		if changed:
-			frappe.db.set_value(
-				"Server", server.name, {"alert_state": frappe.as_json(state), "last_alert_at": now},
-				update_modified=False,
-			)
+		alerts = dict(ou.server_alerts(server))
+		to_alert, recovered, new_state = nu.alert_transitions(state, list(alerts), now, ou.ALERT_INTERVAL)
+		host = server.hostname or server.name
+		url = get_url(f"/dashboard/server?name={server.name}")
+		ctx = {"server": server.name, "server_id": server.server_id, "hostname": host}
+		for kind in to_alert:
+			ctx_kind = dict(ctx, kind=kind, disk_used_percent=server.disk_used_percent,
+			                unhealthy_containers=server.unhealthy_containers)
+			notify(server.team, nu.ALERT_KIND_EVENTS[kind], f"{kind} alert on {host}", alerts[kind], ctx_kind, url)
+		for kind in recovered:
+			event = nu.ALERT_RECOVERY_EVENTS.get(kind)
+			if event:
+				notify(server.team, event, f"{host} is back online",
+				       f"Server {server.name} ({host}) is sending heartbeats again.", ctx, url)
+		if new_state != state:
+			values = {"alert_state": frappe.as_json(new_state)}
+			if to_alert:
+				values["last_alert_at"] = now
+			frappe.db.set_value("Server", server.name, values, update_modified=False)
 	frappe.db.commit()
 
 
@@ -179,11 +187,14 @@ def _ping(site):
 
 def check_sites_uptime():
 	"""Every 5 min: GET https://<site>/api/method/ping (10 s timeout) for Active sites; store
-	is_up / last_uptime_check and email the team when a site goes down or comes back.
+	is_up / last_uptime_check and notify the team (site_down / site_recovered) on transitions.
 	"""
 	from concurrent.futures import ThreadPoolExecutor
 
-	from nexaploy.ops import send_alert
+	from frappe.utils import get_url
+
+	from nexaploy import notify_utils as nu
+	from nexaploy.notify import notify
 
 	sites = frappe.get_all(
 		"Site", filters={"status": "Active"}, fields=["name", "team", "is_up", "last_uptime_check"]
@@ -200,14 +211,14 @@ def check_sites_uptime():
 			"Site", site.name, {"is_up": int(up), "last_uptime_check": now}, update_modified=False
 		)
 		if transition:
-			try:
-				send_alert(
-					site.team,
-					f"{site.name} is {'DOWN' if transition == 'down' else 'back UP'}",
-					f"{ou.ping_url(site.name)} {'stopped responding' if transition == 'down' else 'responds again'} at {now}.",
-				)
-			except Exception:
-				frappe.log_error(title=f"Nexaploy: uptime alert failed for {site.name}")
+			notify(
+				site.team,
+				nu.SITE_DOWN if transition == "down" else nu.SITE_RECOVERED,
+				f"{site.name} is {'DOWN' if transition == 'down' else 'back UP'}",
+				f"{ou.ping_url(site.name)} {'stopped responding' if transition == 'down' else 'responds again'} at {now}.",
+				{"site": site.name, "status": transition},
+				get_url(f"/dashboard/site?name={site.name}"),
+			)
 	frappe.db.commit()
 
 

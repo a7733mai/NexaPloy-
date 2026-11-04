@@ -44,6 +44,8 @@ def dispatch_callback(job):
 			return
 		frappe.db.set_value("Agent Job", job.name, "callback_done", 1, update_modified=False)
 		job.callback_done = 1
+		if job.status == "Failure":
+			_notify_job_failed(job)
 
 	handler = HANDLERS.get(job.kind)
 	if not handler or not job.reference_doctype or not job.reference_name:
@@ -60,6 +62,53 @@ def dispatch_callback(job):
 			frappe.db.set_value(
 				"Agent Job", job.name, {"callback_done": 0, "callback_attempts": attempts}, update_modified=False
 			)
+
+
+def _job_team(job):
+	"""Team to notify about `job`: the referenced document's team (Site, Bench, Release
+	Group...), via the Release Group for a Deploy Candidate, else the server's team."""
+	ref_dt, ref_name = job.reference_doctype, job.reference_name
+	if ref_dt == "Deploy Candidate" and ref_name:
+		group = frappe.db.get_value("Deploy Candidate", ref_name, "release_group")
+		ref_dt, ref_name = ("Release Group", group) if group else (None, None)
+	if ref_dt and ref_name and frappe.get_meta(ref_dt).has_field("team"):
+		team = frappe.db.get_value(ref_dt, ref_name, "team")
+		if team:
+			return team
+	return frappe.db.get_value("Server", job.server, "team") if job.server else None
+
+
+def _notify_job_failed(job):
+	"""job_failed for user-facing kinds (notify_utils.USER_FACING_JOB_KINDS), once per job
+	(called when the terminal callback is first recorded). Never raises."""
+	try:
+		from nexaploy import notify_utils as nu
+
+		if job.kind not in nu.USER_FACING_JOB_KINDS:
+			return
+		from nexaploy.notify import notify
+
+		target = f"{job.reference_doctype} {job.reference_name}" if job.reference_name else (job.server or "")
+		error = (job.error or "").strip().splitlines()[-1:] or [""]
+		message = f"Job {job.kind} for {target} failed."
+		if error[0]:
+			message += f"\n{nu.truncate(error[0], 500)}"
+		url = None
+		if job.reference_doctype == "Site":
+			url = frappe.utils.get_url(f"/dashboard/site?name={job.reference_name}")
+		elif job.reference_doctype == "Bench":
+			url = frappe.utils.get_url(f"/dashboard/bench?name={job.reference_name}")
+		notify(
+			_job_team(job),
+			nu.JOB_FAILED,
+			f"{job.kind} failed: {job.reference_name or job.server}",
+			message,
+			{"job": job.name, "kind": job.kind, "server": job.server,
+			 "reference_doctype": job.reference_doctype, "reference_name": job.reference_name},
+			url,
+		)
+	except Exception:
+		frappe.log_error(title=f"Nexaploy: job_failed notification for {job.name} failed")
 
 
 MAX_CALLBACK_ATTEMPTS = 5
@@ -305,11 +354,35 @@ def on_site_backup(job):
 	else:
 		backup.status = "Failure"
 	_save(backup)
+	if job.status == "Failure":
+		_notify_backup_failed(backup, job)
 
 	# move_to_bench chain: the first step of a move is this backup
 	site = frappe.get_doc("Site", backup.site)
 	if site.status == "Moving" and site.move_backup == backup.name and _in_move(site, job):
 		site.move_step_finished(job)
+
+
+def _notify_backup_failed(backup, job):
+	try:
+		from nexaploy import notify_utils as nu
+		from nexaploy.notify import notify
+
+		team = frappe.db.get_value("Site", backup.site, "team")
+		error = (job.error or "").strip().splitlines()[-1:] or [""]
+		message = f"Backup {backup.name} of {backup.site} failed."
+		if error[0]:
+			message += f"\n{nu.truncate(error[0], 500)}"
+		notify(
+			team,
+			nu.BACKUP_FAILED,
+			f"Backup failed: {backup.site}",
+			message,
+			{"site": backup.site, "backup": backup.name, "job": job.name, "purpose": backup.get("purpose")},
+			frappe.utils.get_url(f"/dashboard/site?name={backup.site}"),
+		)
+	except Exception:
+		frappe.log_error(title=f"Nexaploy: backup_failed notification for {backup.name} failed")
 
 
 @handles("backup.prune_remote")

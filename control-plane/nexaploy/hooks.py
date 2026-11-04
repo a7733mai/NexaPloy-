@@ -63,6 +63,7 @@ permission_query_conditions = {
 	"Team Invitation": "nexaploy.permissions.team_invitation_query",
 	"Deploy Candidate": "nexaploy.permissions.deploy_candidate_query",
 	"Agent Job": "nexaploy.permissions.agent_job_query",
+	"Notification Channel": "nexaploy.permissions.notification_channel_query",
 }
 
 has_permission = {
@@ -85,6 +86,7 @@ has_permission = {
 	"Support Ticket": "nexaploy.support.has_support_ticket_permission",
 	"Team": "nexaploy.permissions.has_team_doc_permission",
 	"Team Invitation": "nexaploy.permissions.has_team_permission",
+	"Notification Channel": "nexaploy.permissions.has_notification_channel_permission",
 }
 
 # Document Events

@@ -1015,3 +1015,89 @@ Revenue share must be a number,يجب أن تكون حصة الإيرادات ر
 Revenue share must be between 0 and 100 percent,يجب أن تكون حصة الإيرادات بين 0 و100 بالمئة
 Please enter a subject,يرجى إدخال موضوع
 Get help,احصل على مساعدة
+Access token,رمز الوصول
+Add channel,إضافة قناة
+All events,كل الأحداث
+An Email channel was added so your team keeps receiving emails. Disable it if you do not need it.,أُضيفت قناة بريد إلكتروني حتى يستمر فريقك في تلقي الرسائل. عطّلها إن لم تكن بحاجة إليها.
+Backup failed,فشل النسخ الاحتياطي
+Bot token,رمز البوت
+Channel deleted,حُذفت القناة
+Channel saved,حُفظت القناة
+Channel settings → Integrations → Webhooks → New webhook → Copy webhook URL.,إعدادات القناة ← التكاملات ← Webhooks ← Webhook جديد ← نسخ رابط الـ Webhook.
+Chat ID,معرّف المحادثة
+Choose a channel type,اختر نوع القناة
+Choose at least one event,اختر حدثًا واحدًا على الأقل
+"Create a bot with @BotFather, paste its token, send any message to the bot (or add it to a group), then click Detect chat.",أنشئ بوتًا عبر ‎@BotFather، والصق رمزه، وأرسل أي رسالة إلى البوت (أو أضفه إلى مجموعة)، ثم انقر «اكتشاف المحادثة».
+Create an incoming webhook in your Slack workspace and paste its URL.,أنشئ Webhook واردًا في مساحة عمل Slack والصق رابطه.
+Delete the channel {0}?,حذف القناة {0}؟
+Destination,الوجهة
+Detect chat,اكتشاف المحادثة
+Discord,Discord
+Discord webhook URLs start with https://discord.com/api/webhooks/,روابط Webhook في Discord تبدأ بـ https://discord.com/api/webhooks/
+Disk almost full,القرص ممتلئ تقريبًا
+Edit channel,تعديل القناة
+Enabled,مفعّلة
+Enter a valid https:// webhook URL,أدخل رابط Webhook صالحًا يبدأ بـ https://
+Enter the Phone number ID from the WhatsApp Business dashboard,أدخل معرّف رقم الهاتف من لوحة WhatsApp Business
+"Enter the WhatsApp number in international format, e.g. +974 5555 1234",أدخل رقم واتساب بالصيغة الدولية، مثل ‎+974 5555 1234
+Enter the bot token first,أدخل رمز البوت أولًا
+"Enter the chat id (a number, or @channelname)",أدخل معرّف المحادثة (رقم أو ‎@اسم_القناة)
+Events,الأحداث
+Failing,متعثرة
+Invalid channel data,بيانات القناة غير صالحة
+Invoice issued,صدور فاتورة
+Job failed,فشل مهمة
+Last sent,آخر إرسال
+"Leave recipients empty to email the team's Owners, Admins and Developers (billing events: the billing contacts).",اترك المستلمين فارغًا لمراسلة مالكي الفريق ومسؤوليه ومطوريه (أحداث الفوترة: جهات اتصال الفوترة).
+New channel,قناة جديدة
+"No channels yet: alerts and billing notices are emailed to your team as before. Once you add a channel, notifications go to your channels only.",لا توجد قنوات بعد: تُرسل التنبيهات وإشعارات الفوترة إلى فريقك بالبريد كما كانت. بعد إضافة قناة، تذهب الإشعارات إلى قنواتك فقط.
+"No chats yet. Send a message to your bot, then try again.",لا توجد محادثات بعد. أرسل رسالة إلى البوت ثم أعد المحاولة.
+Not used yet,لم تُستخدم بعد
+Notification channel {0} not found,قناة الإشعارات {0} غير موجودة
+Notification channels,قنوات الإشعارات
+Notifications,الإشعارات
+Only team Owners and Admins can manage notification channels.,يمكن لمالكي الفريق ومسؤوليه فقط إدارة قنوات الإشعارات.
+Payment failed,فشل الدفع
+Phone number ID,معرّف رقم الهاتف
+Recipient number,رقم المستلم
+Recipients,المستلمون
+Requests are signed with HMAC-SHA256 in the X-Nexaploy-Signature header.,تُوقَّع الطلبات بـ HMAC-SHA256 في الترويسة X-Nexaploy-Signature.
+SSL certificate expiring,قرب انتهاء شهادة SSL
+Save channel,حفظ القناة
+Send test,إرسال تجريبي
+Sending failed: {0},فشل الإرسال: {0}
+Server back online,عاد الخادم للعمل
+Server offline,الخادم غير متصل
+Signing secret (optional),سر التوقيع (اختياري)
+Site back up,عاد الموقع للعمل
+Site down,الموقع متوقف
+Sites suspended,إيقاف المواقع
+Slack,Slack
+Slack webhook URLs start with https://hooks.slack.com/services/,روابط Webhook في Slack تبدأ بـ https://hooks.slack.com/services/
+Stored token,الرمز المحفوظ
+Stored — leave empty to keep,محفوظ — اتركه فارغًا للإبقاء عليه
+Support reply,رد الدعم
+Team members,أعضاء الفريق
+Telegram,تيليجرام
+Telegram bot token and chat id are required,رمز بوت تيليجرام ومعرّف المحادثة مطلوبان
+Template language,لغة القالب
+Template language looks like en_US or ar,لغة القالب بصيغة مثل en_US أو ar
+Template name (optional),اسم القالب (اختياري)
+"Template names use lowercase letters, digits and underscores",تستخدم أسماء القوالب أحرفًا لاتينية صغيرة وأرقامًا وشرطات سفلية
+Test message sent,أُرسلت رسالة الاختبار
+The bot token looks like 123456789:AA... (from @BotFather),رمز البوت بصيغة 123456789:AA...‏ (من ‎@BotFather)
+The signing secret must be at least 16 characters,يجب ألا يقل سر التوقيع عن 16 حرفًا
+Unhealthy containers,حاويات غير سليمة
+"Uses the WhatsApp Business Cloud API. Without an approved template, messages only arrive within 24 hours of the recipient's last message.",تستخدم WhatsApp Business Cloud API. بدون قالب معتمد، تصل الرسائل فقط خلال 24 ساعة من آخر رسالة للمستلم.
+"We POST JSON {event, title, message, context, url, team, timestamp}. With a signing secret, X-Nexaploy-Signature carries sha256=<hex HMAC-SHA256 of the raw body>.","نرسل طلب POST بصيغة JSON ‏{event, title, message, context, url, team, timestamp}. مع سر التوقيع، تحمل الترويسة X-Nexaploy-Signature القيمة sha256=<HMAC-SHA256 بصيغة hex للجسم الخام>."
+Webhook,Webhook
+Webhook URL,رابط Webhook
+Webhook URL is required,رابط Webhook مطلوب
+Webhook URLs must point to a public address,يجب أن تشير روابط Webhook إلى عنوان عام
+WhatsApp,واتساب
+"WhatsApp phone number ID, access token and recipient are required",معرّف رقم واتساب ورمز الوصول والمستلم مطلوبة
+Working,تعمل
+Bot token is required,رمز البوت مطلوب
+Access token is required,رمز الوصول مطلوب
+Unknown error,خطأ غير معروف
+No recipients,لا يوجد مستلمون

@@ -1,0 +1,172 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block head %}
+<!-- synchronous on purpose: registers its alpine:init listener before Alpine (deferred) starts -->
+<script src="/assets/nexaploy/js/notifications.js"></script>
+<style>
+	.nx-events { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+	.nx-events fieldset { border: 1px solid var(--nx-border); border-radius: 10px; padding: 10px 12px; margin: 0; }
+	.nx-events legend { font-weight: 600; padding-inline: 4px; }
+	.nx-events .check { display: flex; margin-block: 4px; }
+	.nx-chats { display: flex; gap: 6px; flex-wrap: wrap; margin-block-start: 6px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stack" x-data="nxNotifications" x-cloak>
+	<template x-if="!nx.can('admin')">
+		<div class="alert warning">{{ _("Only team Owners and Admins can manage notification channels.") }}</div>
+	</template>
+	<template x-if="error"><div class="alert danger" x-text="error"></div></template>
+
+	<!-- Channel form -->
+	<section class="card" x-show="form">
+		<template x-if="form">
+			<div>
+				<div class="card-head">
+					<h2 x-text="form.name ? __('Edit channel') : __('New channel')"></h2>
+					<button class="btn sm ghost" type="button" @click="cancel()">{{ _("Close") }}</button>
+				</div>
+				<form class="card-body form-grid" @submit.prevent="save()">
+					<div class="grid cols-2">
+						<label class="field"><span>{{ _("Type") }}</span>
+							<select class="input" x-model="form.channel_type" :disabled="!!form.name">
+								<template x-for="ct in (opts ? opts.types : [])" :key="ct"><option :value="ct" x-text="__(ct)" :selected="ct === form.channel_type"></option></template>
+							</select>
+						</label>
+						<label class="field"><span>{{ _("Name") }}</span>
+							<input class="input" type="text" maxlength="140" x-model="form.title" :placeholder="__(form.channel_type)">
+						</label>
+					</div>
+					<p class="hint" x-text="hint(form.channel_type)"></p>
+
+					<!-- Email -->
+					<label class="field" x-show="form.channel_type === 'Email'"><span>{{ _("Recipients") }}</span>
+						<input class="input ltr" type="text" x-model="form.email_recipients" placeholder="ops@example.com, cto@example.com">
+					</label>
+
+					<!-- Telegram -->
+					<div class="stack" x-show="form.channel_type === 'Telegram'">
+						<label class="field"><span>{{ _("Bot token") }}</span>
+							<input class="input ltr mono" type="password" autocomplete="off" x-model="form.telegram_bot_token" :placeholder="placeholder('telegram_bot_token') || '123456789:AA…'">
+							<span class="hint" x-show="stored.bot_hint"><span>{{ _("Stored token") }}:</span> <span class="mono" x-text="stored.bot_hint"></span></span>
+						</label>
+						<label class="field"><span>{{ _("Chat ID") }}</span>
+							<div class="row">
+								<input class="input ltr mono" type="text" x-model="form.telegram_chat_id" placeholder="-1001234567890">
+								<button class="btn sm" type="button" @click="detectChat()" :disabled="detecting"><span class="spinner" x-show="detecting"></span> {{ _("Detect chat") }}</button>
+							</div>
+							<div class="nx-chats" x-show="chats.length">
+								<template x-for="c in chats" :key="c.id">
+									<button class="btn sm" type="button" :class="{ primary: form.telegram_chat_id === c.id }" @click="form.telegram_chat_id = c.id">
+										<span x-text="c.title"></span> <span class="muted small mono ltr" x-text="c.id"></span>
+									</button>
+								</template>
+							</div>
+						</label>
+					</div>
+
+					<!-- WhatsApp -->
+					<div class="stack" x-show="form.channel_type === 'WhatsApp'">
+						<div class="grid cols-2">
+							<label class="field"><span>{{ _("Phone number ID") }}</span>
+								<input class="input ltr mono" type="text" inputmode="numeric" x-model="form.whatsapp_phone_number_id">
+							</label>
+							<label class="field"><span>{{ _("Recipient number") }}</span>
+								<input class="input ltr" type="tel" x-model="form.whatsapp_to" placeholder="+974 5555 1234">
+							</label>
+						</div>
+						<label class="field"><span>{{ _("Access token") }}</span>
+							<input class="input ltr mono" type="password" autocomplete="off" x-model="form.whatsapp_access_token" :placeholder="placeholder('whatsapp_access_token')">
+						</label>
+						<div class="grid cols-2">
+							<label class="field"><span>{{ _("Template name (optional)") }}</span>
+								<input class="input ltr mono" type="text" x-model="form.whatsapp_template" placeholder="nexaploy_alert">
+							</label>
+							<label class="field"><span>{{ _("Template language") }}</span>
+								<input class="input ltr mono" type="text" x-model="form.whatsapp_language" placeholder="en_US">
+							</label>
+						</div>
+					</div>
+
+					<!-- Slack / Discord / Webhook -->
+					<div class="stack" x-show="['Slack', 'Discord', 'Webhook'].indexOf(form.channel_type) !== -1">
+						<label class="field"><span>{{ _("Webhook URL") }}</span>
+							<input class="input ltr mono" type="password" autocomplete="off" x-model="form.webhook_url" :placeholder="placeholder('webhook_url') || 'https://'">
+						</label>
+						<label class="field"><span>{{ _("Signing secret (optional)") }}</span>
+							<input class="input ltr mono" type="password" autocomplete="off" minlength="16" x-model="form.webhook_secret" :placeholder="placeholder('webhook_secret')">
+							<span class="hint">{{ _("Requests are signed with HMAC-SHA256 in the X-Nexaploy-Signature header.") }}</span>
+						</label>
+					</div>
+
+					<div class="field">
+						<span>{{ _("Events") }}</span>
+						<div class="nx-events">
+							<template x-for="g in (opts ? opts.groups : [])" :key="g.label">
+								<fieldset>
+									<legend x-text="__(g.label)"></legend>
+									<div class="row small">
+										<a href="#" @click.prevent="setGroup(g, true)">{{ _("All") }}</a>
+										<span class="muted">·</span>
+										<a href="#" @click.prevent="setGroup(g, false)">{{ _("None") }}</a>
+									</div>
+									<template x-for="ev in g.events" :key="ev">
+										<label class="check small"><input type="checkbox" :checked="form.events.indexOf(ev) !== -1" @change="toggle(ev)"> <span x-text="label(ev)"></span></label>
+									</template>
+								</fieldset>
+							</template>
+						</div>
+					</div>
+					<label class="check"><input type="checkbox" x-model="form.enabled"> {{ _("Enabled") }}</label>
+					<div class="row">
+						<button class="btn primary" type="submit" :disabled="busy || !form.events.length"><span class="spinner" x-show="busy"></span> {{ _("Save channel") }}</button>
+						<button class="btn" type="button" @click="cancel()">{{ _("Cancel") }}</button>
+					</div>
+				</form>
+			</div>
+		</template>
+	</section>
+
+	<!-- Channel list -->
+	<section class="card" x-show="nx.can('admin')">
+		<div class="card-head">
+			<h2>{{ _("Notification channels") }}</h2>
+			<div class="row">
+				<button class="btn sm" type="button" @click="load()" :disabled="loading">{{ _("Refresh") }}</button>
+				<button class="btn primary sm" type="button" @click="openNew('Telegram')" :disabled="!opts">{{ _("Add channel") }}</button>
+			</div>
+		</div>
+		<div class="card-body" x-show="!loading && !channels.length">
+			<div class="alert info">{{ _("No channels yet: alerts and billing notices are emailed to your team as before. Once you add a channel, notifications go to your channels only.") }}</div>
+		</div>
+		<div class="card-body flush table-wrap">
+			<template x-if="loading"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+			<table class="nx-table" x-show="!loading && channels.length">
+				<thead><tr><th>{{ _("Name") }}</th><th>{{ _("Type") }}</th><th>{{ _("Destination") }}</th><th>{{ _("Events") }}</th><th>{{ _("Status") }}</th><th></th></tr></thead>
+				<tbody>
+					<template x-for="c in channels" :key="c.name">
+						<tr>
+							<td><strong x-text="c.title"></strong></td>
+							<td x-text="__(c.channel_type)"></td>
+							<td class="small mono ltr" x-text="target(c)"></td>
+							<td class="small" x-text="eventsText(c)"></td>
+							<td class="small">
+								<span :class="statusClass(c)" x-text="statusText(c)"></span>
+								<div class="muted" x-show="c.last_sent_at"><span>{{ _("Last sent") }}:</span> <span x-text="nx.fmtDate(c.last_sent_at)"></span></div>
+								<div class="muted ltr" x-show="c.failure_count && c.last_error" :title="c.last_error" x-text="c.last_error"></div>
+							</td>
+							<td class="nowrap">
+								<button class="btn sm" type="button" @click="test(c)" :disabled="testing[c.name]"><span class="spinner" x-show="testing[c.name]"></span> {{ _("Send test") }}</button>
+								<button class="btn sm" type="button" @click="toggleEnabled(c)" x-text="c.enabled ? __('Disable') : __('Enable')"></button>
+								<button class="btn sm" type="button" @click="edit(c)">{{ _("Edit") }}</button>
+								<button class="btn sm danger" type="button" @click="remove(c)">{{ _("Delete") }}</button>
+							</td>
+						</tr>
+					</template>
+				</tbody>
+			</table>
+		</div>
+	</section>
+</div>
+{% endblock %}

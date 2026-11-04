@@ -108,7 +108,9 @@ def notify_staff(ticket, reply=None, new_ticket=False):
 
 
 def notify_customer(ticket, reply):
-	"""Email the team (ops recipients + the ticket's author) about a staff reply."""
+	"""Email the team (ops recipients + the ticket's author) about a staff reply, and post it
+	to the team's Notification Channels subscribed to support_reply."""
+	_notify_channels(ticket, reply)
 	try:
 		from nexaploy.teams import team_notification_emails
 
@@ -128,6 +130,25 @@ def notify_customer(ticket, reply):
 		)
 	except Exception:
 		frappe.log_error(title=f"Nexaploy: support email for {ticket.name} failed")
+
+
+def _notify_channels(ticket, reply):
+	"""support_reply to the team's Notification Channels (the email above is always sent,
+	so no fallback email here)."""
+	try:
+		from nexaploy.notify import notify
+
+		notify(
+			ticket.team,
+			"support_reply",
+			f"[{ticket.name}] Support replied: {ticket.subject}",
+			su.html_to_text(reply.message, 1500),
+			{"ticket": ticket.name, "status": ticket.status},
+			get_url(f"/dashboard/support?name={ticket.name}"),
+			email_fallback=False,
+		)
+	except Exception:
+		frappe.log_error(title=f"Nexaploy: support notification for {ticket.name} failed")
 
 
 def _message_html(meta_lines, body_text, link):

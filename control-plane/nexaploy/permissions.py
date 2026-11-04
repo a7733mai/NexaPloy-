@@ -151,3 +151,28 @@ def has_read_only_team_permission(doc, ptype=None, user=None):
 		return False
 	team = doc.get("team")
 	return bool(team) and role_allows(get_team_role(team, user), READ_ONLY_ACTION.get(doc.doctype, "admin"))
+
+
+# --------------------------------------------------------------------------- notification channels
+
+# Channels hold chat tokens and webhook URLs: only team Owners/Admins (the `admin` action)
+# may see or change them (nexaploy.api.notifications applies the same rule).
+
+
+def notification_channel_query(user=None):
+	from nexaploy.team_utils import ROLE_MATRIX
+
+	user = user or frappe.session.user
+	if not _is_restricted(user):
+		return ""
+	return f"`tabNotification Channel`.`team` in {_teams_with_roles_sql(user, ROLE_MATRIX['admin'])}"
+
+
+def has_notification_channel_permission(doc, ptype=None, user=None):
+	user = user or frappe.session.user
+	if not _is_restricted(user):
+		return True
+	team = doc.get("team")
+	if doc.is_new() and ptype == "create" and not team:
+		return True  # the controller fills `team` and checks the admin action
+	return bool(team) and role_allows(get_team_role(team, user), "admin")
