@@ -193,17 +193,26 @@ def team_must_stay_suspended(team, date=None):
 
 
 def suspend_team(team):
-	"""Active sites of `team` -> Suspended + maintenance_mode=1 on the server."""
+	"""Active sites of `team` -> Suspended + maintenance_mode=1 on the server, flagged
+	`suspended_for_billing` so only a payment lifts it (and plan-limit enforcement leaves it)."""
 	for site in frappe.get_all("Site", filters={"team": team, "status": "Active"}, fields=["name", "server"]):
 		_set_maintenance(site, 1)
-		frappe.db.set_value("Site", site.name, "status", "Suspended")
+		frappe.db.set_value("Site", site.name, {"status": "Suspended", "suspended_for_billing": 1})
 
 
 def unsuspend_team(team):
-	"""Suspended sites of `team` -> Active + maintenance_mode=0."""
-	for site in frappe.get_all("Site", filters={"team": team, "status": "Suspended"}, fields=["name", "server"]):
+	"""Lift the BILLING suspension of `team`'s sites. A site also suspended for exceeding its
+	plan (usage_suspended) stays Suspended; plan-limit enforcement lifts that one."""
+	for site in frappe.get_all(
+		"Site",
+		filters={"team": team, "suspended_for_billing": 1},
+		fields=["name", "server", "status", "usage_suspended"],
+	):
+		if site.usage_suspended:
+			frappe.db.set_value("Site", site.name, "suspended_for_billing", 0)
+			continue
 		_set_maintenance(site, 0)
-		frappe.db.set_value("Site", site.name, "status", "Active")
+		frappe.db.set_value("Site", site.name, {"status": "Active", "suspended_for_billing": 0})
 
 
 def _set_maintenance(site, value):
