@@ -13,7 +13,7 @@
    "fieldname": "event",
    "fieldtype": "Select",
    "label": "Event",
-   "options": "server_down\nserver_recovered\ndisk_high\ncontainer_unhealthy\nsite_down\nsite_recovered\nbackup_failed\njob_failed\ninvoice_issued\npayment_failed\nsuspension\nssl_expiring\nsupport_reply",
+   "options": "server_down\nserver_recovered\ndisk_high\ncontainer_unhealthy\nsite_down\nsite_recovered\nbackup_failed\njob_failed\ninvoice_issued\npayment_failed\nsuspension\nssl_expiring\nsupport_reply\nmonitor_down\nmonitor_up",
    "reqd": 1,
    "in_list_view": 1
   }

@@ -1673,3 +1673,153 @@ replica,النسخة المتماثلة
 {0} must be a platform profile (no team),يجب أن يكون {0} ملف تعريف تابعاً للمنصة (بدون فريق)
 {0} must be an Add-on plan,يجب أن تكون {0} خطة إضافة
 {0} needs a {1},{0} يحتاج إلى {1}
+1-minute checks and more than 3 monitors per site need the advanced monitoring plan feature.,تتطلب الفحوصات كل دقيقة وأكثر من 3 مراقبين لكل موقع ميزة المراقبة المتقدمة في الخطة.
+24 hours,24 ساعة
+30 days,30 يومًا
+7 days,7 أيام
+"A code (200), a range (200-299) or a class (2xx); comma separated.","رمز (200) أو نطاق (200-299) أو فئة (2xx)؛ مفصولة بفواصل."
+A keyword check needs the GET method,يتطلب فحص الكلمة المفتاحية طريقة GET
+"A public page showing the current status, 90-day uptime and incident history of the monitors you choose. Visitors only see the public names: never URLs or error details. The logo and colors come from your brand.","صفحة عامة تعرض الحالة الحالية ونسبة التشغيل خلال 90 يومًا وسجل الحوادث للمراقبين الذين تختارهم. لا يرى الزوار سوى الأسماء العامة: لا تظهر الروابط أو تفاصيل الأخطاء أبدًا. الشعار والألوان مأخوذة من علامتك التجارية."
+A status page can show at most 50 monitors,يمكن لصفحة الحالة عرض 50 مراقبًا كحد أقصى
+Add monitor,إضافة مراقب
+Address,العنوان
+All systems operational,جميع الأنظمة تعمل
+Average response time,متوسط زمن الاستجابة
+Cause,السبب
+"Checks currently run from the control plane, which shares a host with some of your sites (all-in-one install). Ask your operator to add an external probe for a real outside view.","تُجرى الفحوصات حاليًا من لوحة التحكم التي تشترك في الخادم نفسه مع بعض مواقعك (تثبيت الكل في واحد). اطلب من المشغّل إضافة مسبار خارجي للحصول على رؤية خارجية حقيقية."
+Checks more often than every 5 minutes need the advanced monitoring plan feature,تتطلب الفحوصات الأكثر تكرارًا من كل 5 دقائق ميزة المراقبة المتقدمة في الخطة
+Choose a site,اختر موقعًا
+Choose a status for the update,اختر حالة للتحديث
+Create a CNAME record to the control plane and ask your operator to route the domain; it then shows this page.,أنشئ سجل CNAME يشير إلى لوحة التحكم واطلب من المشغّل توجيه النطاق؛ وعندها سيعرض هذه الصفحة.
+Custom domain (optional),نطاق مخصص (اختياري)
+Delete the monitor {0}? Its history is deleted too.,هل تريد حذف المراقب {0}؟ سيُحذف سجله أيضًا.
+Description (optional),الوصف (اختياري)
+Down,متوقف
+Edit monitor,تعديل المراقب
+"Enter a valid domain name, e.g. status.example.com",أدخل اسم نطاق صالحًا، مثل status.example.com
+Every active site gets a default monitor automatically within a few minutes.,يحصل كل موقع نشط على مراقب افتراضي تلقائيًا خلال بضع دقائق.
+Every {0} min,كل {0} دقيقة
+Expected status,الحالة المتوقعة
+"Expected status: a code (200), a range (200-299) or a class (2xx)",الحالة المتوقعة: رمز (200) أو نطاق (200-299) أو فئة (2xx)
+Failures before alerting,عدد الإخفاقات قبل التنبيه
+Failures before alerting must be between 1 and 10,يجب أن يكون عدد الإخفاقات قبل التنبيه بين 1 و10
+Hidden from the status page,مخفي من صفحة الحالة
+Hide from the status page,إخفاء من صفحة الحالة
+Identified,تم تحديد السبب
+Incident,الحادثة
+Incident saved,تم حفظ الحادثة
+Incident {0} not found,الحادثة {0} غير موجودة
+Incidents,الحوادث
+Interval,الفاصل الزمني
+"Interval must be 1, 5 or 15 minutes",يجب أن يكون الفاصل الزمني 1 أو 5 أو 15 دقيقة
+Invalid probe token,رمز المسبار غير صالح
+Invalid {0},{0} غير صالح
+Investigating,قيد التحقيق
+Keyword (optional),الكلمة المفتاحية (اختياري)
+Last 90 days,آخر 90 يومًا
+Last check,آخر فحص
+Last result,آخر نتيجة
+Last updated,آخر تحديث
+Major outage,انقطاع كبير
+Message is required,الرسالة مطلوبة
+Method must be GET or HEAD,يجب أن تكون الطريقة GET أو HEAD
+Monitor,المراقب
+Monitor back up,المراقب يعمل مجددًا
+Monitor deleted,تم حذف المراقب
+Monitor down,المراقب متوقف
+Monitor saved,تم حفظ المراقب
+Monitor {0} not found,المراقب {0} غير موجود
+Monitoring,المراقبة
+Monitors,المراقبون
+Monitors can only check the site's own address or its active custom domains,يمكن للمراقبين فحص عنوان الموقع نفسه أو نطاقاته المخصصة النشطة فقط
+Monitors check the site's own address or one of its active custom domains.,يفحص المراقبون عنوان الموقع نفسه أو أحد نطاقاته المخصصة النشطة.
+Monitors on the page,المراقبون في الصفحة
+Monitors per site,المراقبون لكل موقع
+More than 3 monitors per site need the advanced monitoring plan feature,يتطلب أكثر من 3 مراقبين لكل موقع ميزة المراقبة المتقدمة في الخطة
+Move down,نقل للأسفل
+Move up,نقل للأعلى
+Name is required,الاسم مطلوب
+Name is too long,الاسم طويل جدًا
+New monitor,مراقب جديد
+No data for this period yet.,لا توجد بيانات لهذه الفترة بعد.
+No incidents. All good!,لا توجد حوادث. كل شيء على ما يرام!
+No result yet,لا توجد نتيجة بعد
+No services are listed on this page yet.,لا توجد خدمات مدرجة في هذه الصفحة بعد.
+None selected = every probe.,عدم التحديد = جميع المسابير.
+Ongoing incidents,الحوادث الجارية
+Only monitors of the same team can be shown,يمكن عرض مراقبي الفريق نفسه فقط
+Open status page,فتح صفحة الحالة
+Operational,يعمل
+Outage,انقطاع
+Partial outage,انقطاع جزئي
+Past incidents,الحوادث السابقة
+Pause,إيقاف مؤقت
+Paused,متوقف مؤقتًا
+Post an update,نشر تحديث
+Post update,نشر التحديث
+Powered by {0},مدعوم من {0}
+Probe,المسبار
+"Probe names are 1-40 lowercase letters, digits or hyphens",أسماء المسابير من 1 إلى 40 حرفًا لاتينيًا صغيرًا أو رقمًا أو شرطة
+Probe token (shown only once): {0},رمز المسبار (يُعرض مرة واحدة فقط): {0}
+Probes,المسابير
+Probes that must agree; 0 = majority.,عدد المسابير التي يجب أن تتفق؛ 0 = الأغلبية.
+Public name,الاسم العام
+Public status page,صفحة الحالة العامة
+Public title,العنوان العام
+Quorum,النصاب
+Quorum cannot exceed the number of probes,لا يمكن أن يتجاوز النصاب عدد المسابير
+Response time,زمن الاستجابة
+Resume,استئناف
+Same host,الخادم نفسه
+Save monitor,حفظ المراقب
+Save status page,حفظ صفحة الحالة
+Shop front page,الصفحة الرئيسية للمتجر
+Show incident history,عرض سجل الحوادث
+Since,منذ
+Status page,صفحة الحالة
+Status page saved,تم حفظ صفحة الحالة
+Status unknown,الحالة غير معروفة
+TLS certificate,شهادة TLS
+The built-in probe cannot be deleted; disable it instead,لا يمكن حذف المسبار المدمج؛ عطّله بدلًا من ذلك
+The built-in probe has no token,لا يملك المسبار المدمج رمزًا
+The check fails when the response body does not contain this text.,يفشل الفحص عندما لا يحتوي نص الاستجابة على هذا النص.
+The default monitor of a site cannot be deleted; disable it instead,لا يمكن حذف المراقب الافتراضي للموقع؛ عطّله بدلًا من ذلك
+The description is too long,الوصف طويل جدًا
+The keyword is too long,الكلمة المفتاحية طويلة جدًا
+The message is too long,الرسالة طويلة جدًا
+The monitor and its site must belong to the same team,يجب أن ينتمي المراقب وموقعه إلى الفريق نفسه
+The path must start with / and contain no spaces or quotes,يجب أن يبدأ المسار بـ / وألا يحتوي على مسافات أو علامات اقتباس
+"The slug must be 3-50 lowercase letters, digits or hyphens",يجب أن يتكون المعرّف من 3 إلى 50 حرفًا لاتينيًا صغيرًا أو رقمًا أو شرطة
+This domain is already used by another status page,هذا النطاق مستخدم بالفعل في صفحة حالة أخرى
+This probe is disabled,هذا المسبار معطّل
+This slug is already taken,هذا المعرّف مستخدم بالفعل
+This slug is reserved,هذا المعرّف محجوز
+This status page does not exist,صفحة الحالة هذه غير موجودة
+Timeout (seconds),المهلة (بالثواني)
+Timeout must be between 2 and 30 seconds,يجب أن تكون المهلة بين 2 و30 ثانية
+Title is too long,العنوان طويل جدًا
+Today,اليوم
+Too many monitors for this site,عدد كبير جدًا من المراقبين لهذا الموقع
+Unknown,غير معروف
+Unknown monitor,مراقب غير معروف
+Unknown probe,مسبار غير معروف
+Up,يعمل
+Update posted,تم نشر التحديث
+Uptime (30 days),نسبة التشغيل (30 يومًا)
+Uptime (90 days),نسبة التشغيل (90 يومًا)
+Uptime monitors,مراقبو التشغيل
+Uptime probe created,تم إنشاء مسبار التشغيل
+Uptime probe {0} not found,مسبار التشغيل {0} غير موجود
+What happened and what you are doing about it,ما الذي حدث وما الذي تفعله حياله
+monitor,المراقب
+ongoing,جارٍ
+results must be a list,يجب أن تكون النتائج قائمة
+status page,صفحة الحالة
+update,التحديث
+uptime,نسبة التشغيل
+{0} d,{0} يوم
+{0} days,{0} يوم
+{0} days ago,قبل {0} يوم
+{0} h,{0} ساعة
+{0} min,{0} دقيقة
+{0} s,{0} ث

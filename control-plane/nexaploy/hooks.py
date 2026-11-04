@@ -7,7 +7,11 @@ app_license = "mit"
 required_apps = []
 
 # Public SaaS signup: /signup/<product slug>
-website_route_rules = [{"from_route": "/signup/<product>", "to_route": "signup"}]
+website_route_rules = [
+	{"from_route": "/signup/<product>", "to_route": "signup"},
+	# public uptime status pages (§16): /status/<slug>, or /status on a page's status_domain
+	{"from_route": "/status/<slug>", "to_route": "status"},
+]
 
 # Customer portal (www/dashboard)
 # -------------------------------
@@ -73,6 +77,10 @@ permission_query_conditions = {
 	"Brand": "nexaploy.permissions.team_query",
 	"Site Update Test": "nexaploy.permissions.team_query",
 	"Console Audit Log": "nexaploy.console_access.console_audit_query",
+	# uptime monitoring & status pages (§16)
+	"Uptime Monitor": "nexaploy.permissions.team_query",
+	"Uptime Incident": "nexaploy.permissions.team_query",
+	"Status Page": "nexaploy.permissions.team_query",
 }
 
 has_permission = {
@@ -101,6 +109,9 @@ has_permission = {
 	"Brand": "nexaploy.permissions.has_team_permission",
 	"Site Update Test": "nexaploy.permissions.has_team_permission",
 	"Console Audit Log": "nexaploy.permissions.has_read_only_team_permission",
+	"Uptime Monitor": "nexaploy.permissions.has_team_permission",
+	"Uptime Incident": "nexaploy.permissions.has_team_permission",
+	"Status Page": "nexaploy.permissions.has_team_permission",
 	# SQL / console / log jobs: only with the console capability that ran them
 	"Agent Job": "nexaploy.console_access.has_agent_job_permission",
 }
@@ -126,7 +137,11 @@ doc_events = {
 scheduler_events = {
 	"cron": {
 		# mark servers Offline when no heartbeat for 5 minutes
-		"* * * * *": ["nexaploy.tasks.mark_offline_servers"],
+		"* * * * *": [
+			"nexaploy.tasks.mark_offline_servers",
+			# uptime checks of the built-in (control plane) probe (§16)
+			"nexaploy.monitoring.run_builtin_probe",
+		],
 		"*/5 * * * *": [
 			"nexaploy.tasks.check_alerts",
 			"nexaploy.tasks.check_sites_uptime",
@@ -161,5 +176,6 @@ scheduler_events = {
 		"nexaploy.all_in_one.backup_control_plane",
 		"nexaploy.email_relay.recheck_domains",
 		"nexaploy.storage.prune_trash",
+		"nexaploy.monitoring.prune_monitoring_data",
 	],
 }

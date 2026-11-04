@@ -39,6 +39,9 @@ PAYMENT_FAILED = "payment_failed"
 SUSPENSION = "suspension"
 SSL_EXPIRING = "ssl_expiring"  # no emitter yet (certificates are issued by Traefik)
 SUPPORT_REPLY = "support_reply"
+# uptime monitors (§16) other than a site's default monitor, which keeps site_down/site_recovered
+MONITOR_DOWN = "monitor_down"
+MONITOR_UP = "monitor_up"
 TEST = "test"  # "Send test" from the portal; never subscribed, always delivered
 
 EVENTS = (
@@ -55,6 +58,8 @@ EVENTS = (
 	SUSPENSION,
 	SSL_EXPIRING,
 	SUPPORT_REPLY,
+	MONITOR_DOWN,
+	MONITOR_UP,
 )
 
 EVENT_LABELS = {
@@ -71,11 +76,13 @@ EVENT_LABELS = {
 	SUSPENSION: "Sites suspended",
 	SSL_EXPIRING: "SSL certificate expiring",
 	SUPPORT_REPLY: "Support reply",
+	MONITOR_DOWN: "Monitor down",
+	MONITOR_UP: "Monitor back up",
 }
 
 EVENT_GROUPS = (
 	("Servers", (SERVER_DOWN, SERVER_RECOVERED, DISK_HIGH, CONTAINER_UNHEALTHY)),
-	("Sites", (SITE_DOWN, SITE_RECOVERED, BACKUP_FAILED, JOB_FAILED, SSL_EXPIRING)),
+	("Sites", (SITE_DOWN, SITE_RECOVERED, MONITOR_DOWN, MONITOR_UP, BACKUP_FAILED, JOB_FAILED, SSL_EXPIRING)),
 	("Billing", (INVOICE_ISSUED, PAYMENT_FAILED, SUSPENSION)),
 	("Support", (SUPPORT_REPLY,)),
 )
@@ -100,6 +107,8 @@ DEFAULT_EMAIL = {
 	SUSPENSION: "billing",
 	SSL_EXPIRING: "ops",
 	SUPPORT_REPLY: None,
+	MONITOR_DOWN: "ops",
+	MONITOR_UP: "ops",
 }
 
 # Platform operators (Nexaploy Settings.alert_email) keep a copy of infrastructure alerts

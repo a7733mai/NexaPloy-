@@ -483,7 +483,7 @@ Operations (scheduler, `nexaploy/tasks.py`): `schedule_backups` (hourly; due per
 skipped while a backup is in flight), `prune_remote_backups` (daily; `backup.prune_remote` per
 remote location, Site Backups purged → `Deleted`), `check_alerts` (5 min; disk > 85 %, Offline,
 unhealthy containers → email team, max 1 per 6 h per server and kind), `check_sites_uptime`
-(5 min; `GET https://<site>/api/method/ping`, 10 s timeout, alert on transitions),
+(5 min; ensures every Active site has its default uptime monitor - checks, incidents and alerts in §16),
 `apply_auto_updates` (15 min; `bench.update` inside the update window), `prune_server_metrics`
 (daily), `enforce_plan_limits` (15 min; `ops_utils.usage_status` ok/warn ≥80 %/over → Notify emails the
 team at most once per 24 h per level, Throttle sets site_config `rate_limit {limit, window: 86400}` while over
@@ -624,7 +624,7 @@ notify(team, event, title, message, context=None, url=None, email_fallback=True)
 
 Events (`nexaploy/notify_utils.py`): `server_down`, `server_recovered`, `disk_high`, `container_unhealthy`,
 `site_down`, `site_recovered`, `backup_failed`, `job_failed` (user-facing job kinds only), `invoice_issued`,
-`payment_failed`, `suspension`, `ssl_expiring` (no emitter yet), `support_reply`. A team with **no** channel
+`payment_failed`, `suspension`, `ssl_expiring` (no emitter yet), `support_reply`, `monitor_down`, `monitor_up` (§16). A team with **no** channel
 keeps the old emails (ops alerts → `send_alert`, billing → billing recipients); the first non-email channel
 also creates an Email channel for those events. `alert_email` always gets infrastructure alerts. Generic
 webhooks POST `{event,title,message,context,url,team,timestamp}`; with a secret, `X-Nexaploy-Signature:
@@ -908,3 +908,79 @@ when `allow_byo_profiles`). Operator (platform admin only): `get_storage_setting
 addon_prices)`, `admin_save_storage_profile`, `admin_delete_storage_profile`, `admin_use_profile_for_backups`.
 Portal: Storage tab on `/dashboard/site` (`public/js/storage.js`). Activity: `site.storage_update`,
 `site.storage_failover`, `site.storage_restore`, `storage.profile_save`, `storage.profile_delete`.
+
+## 16. External uptime monitoring and public status pages
+
+Owner: monitoring. Frappe module `nexaploy/monitoring.py`, pure logic `nexaploy/monitor_utils.py`
+(state machine, quorum, rollups, uptime %, slug/limit validation), check runner `nexaploy/probe.py`
+(stdlib only; also the standalone `nexaploy-probe`), portal API `nexaploy.api.monitoring`, probe API
+`nexaploy.api.monitoring_probe`, portal `/dashboard/monitoring` (`public/js/monitoring.js`), public page
+`www/status.{py,html}` + `templates/status_base.html`. Tests: `control-plane/tests/test_monitoring.py`.
+
+| DocType | Key fields |
+|---|---|
+| Uptime Monitor (team) | `title`, `team`, `site`, `enabled`, `is_default`, `status` Pending/Up/Down/Paused, target `hostname` (the site's primary host or an **Active** custom domain only - no arbitrary URLs, no SSRF), `path`, `url`, `method` GET/HEAD, `expected_status` (`200`, `200-299`, `2xx`, comma list), `keyword` (GET, first 1 MiB), `interval_minutes` 1/5/15, `timeout_seconds` 2-30, `failure_threshold` (N consecutive failures per probe, default 2), `probes` (names, empty = all enabled), `quorum` (0 = majority), state `last_checked_at`, `last_status_code`, `last_response_ms`, `last_error`, `tls_expires_on`, `open_incident`, `status_changed_at`, hidden `probe_state` (JSON), `builtin_checked_at` |
+| Uptime Probe (platform) | `probe_name` (autoname), `title`, `region`, `enabled`, `is_builtin`, `token_hash` (sha256), `token_hint`, `last_seen_at`, `last_ip`, `last_version` |
+| Uptime Check Result | `monitor`, `team`, `probe`, `checked_at`, `ok`, `status_code`, `response_ms`, `error` - raw, **48 h** |
+| Uptime Rollup | `rollup_key` = `<monitor>-<YYYYMMDDHH>`, `monitor`, `team`, `hour` (UTC), `checks`, `failures`, `response_ms_sum`, `response_count`, `max_response_ms` - upserted on ingest (`INSERT … ON DUPLICATE KEY UPDATE`), **90 days** |
+| Uptime Incident (team) | `monitor`, `team`, `site`, `status` Open/Resolved, `started_at` (first failure of the streak), `resolved_at`, `duration_seconds`, `cause` (internal), `public_title`, `hide_from_status_page`, child **Status Incident Update** (`status` Investigating/Identified/Monitoring/Resolved, `message`, `posted_at`, `posted_by`) - resolved ones kept 365 days |
+| Status Page (team, one per team) | `title`, `slug` (unique, 3-50 `[a-z0-9-]`, reserved words refused), `team`, `enabled`, `show_incident_history`, `status_domain`, `description`, child **Status Page Monitor** (`monitor`, `display_name`) |
+
+Team and Nexaploy Plan get `advanced_monitoring` (Check): without it a monitor needs an interval ≥ 5 min and a
+site has at most 3 monitors (the default one included); with it (team flag **or** the site's plan) 1-minute checks
+and 20 monitors per site. Enforced in the Uptime Monitor controller (desk and portal agree).
+
+**Probes (where checks run from).** The built-in probe `control-plane` (created on first use) is the control
+plane's scheduler: `monitoring.run_builtin_probe` every minute runs the checks that are due (16 threads) through
+`probe.perform_check` - one request, no redirects, TLS verified, certificate expiry captured. For hosted
+servers that is outside the customer's server. On an **all-in-one** install it is the same host as that
+server's sites: the portal flags those results `same_host` and warns while no external probe exists. External
+probes are `nexaploy-probe` workers on any small VPS in another region: the operator creates an Uptime Probe in
+the desk (token shown once; `nexaploy.api.monitoring_probe.rotate_token` issues a new one), downloads the script
+from `/api/method/nexaploy.api.monitoring_probe.download_script` and runs
+`NEXAPLOY_URL=… NEXAPLOY_PROBE_TOKEN=… python3 nexaploy-probe` (systemd unit in its docstring). It is
+stateless: every 60 s `GET checks` (header `X-Nexaploy-Probe-Token`, not `Authorization`), runs what is due,
+`POST results {results: [{monitor, checked_at, ok, status_code, response_ms, error, tls_expires_on}]}`. A probe
+only receives - and may only report on - enabled monitors of Active sites assigned to it; timestamps more than
+1 h old or 2 min in the future are replaced by the receive time.
+
+**State machine** (`monitor_utils`): per monitor and probe `{fails, ok, at, since}` (consecutive failures).
+A probe's last result is *fresh* for 3 intervals (≥ 5 min). Decision: **down** when ≥ quorum fresh probes have
+`fails ≥ failure_threshold`; **up** when ≥ quorum fresh probes last succeeded; else unchanged. Quorum = configured
+(clamped to the fresh probes) or majority (`n // 2 + 1`), so one probe with a broken network neither opens nor
+holds an incident. Pending→Up is silent; Pending/Up→Down opens an Uptime Incident (started at the earliest
+`since`) and notifies once; Down→Up resolves it and notifies once. Paused monitors never change; pausing a monitor
+or a site leaving Active closes its open incident silently (not downtime). Rows are locked (`for_update`) while
+the state advances, so concurrent probes never lose updates.
+
+**Default monitors / alerts.** `tasks.check_sites_uptime` (5 min) now only calls
+`monitoring.ensure_default_monitors`: every Active site gets one default monitor (`GET https://<site>/api/method/ping`,
+expect 200, 5 min, threshold 2) whose target cannot be edited or deleted (only paused); renamed sites move it to
+the new host, transferred sites move monitors to the new team, monitors of non-Active sites are paused and resumed
+later. The old in-task ping is gone, so there is one alert per outage. The default monitor emits **`site_down` /
+`site_recovered`** (unchanged events, still updates `Site.is_up` / `last_uptime_check`); every other monitor emits
+the new **`monitor_down` / `monitor_up`** (Sites group, emailed to ops by default; existing channels must
+subscribe to them). Context `{site, monitor, status, incident}`, URL `/dashboard/monitoring?monitor=<name>`.
+
+**Uptime %** is computed from incidents (not raw checks): per UTC day, downtime overlapping the day / observed
+seconds of the day (from the monitor's creation to now); 90-day bars levels up ≥ 99.9 % / minor ≥ 99 % / major ≥ 95 %
+/ down. Response-time charts use the hourly rollups (24 h / 7 d / 30 d, inline SVG). `prune_monitoring_data` (daily)
+deletes raw results > 48 h, rollups > 90 days, resolved incidents > 365 days.
+
+**Public status page.** `/status/<slug>` (`website_route_rules`), guest-accessible, server-rendered (no JS), RTL,
+auto-refresh 120 s. `monitoring.status_page_data` is cached 60 s in `frappe.cache` (`nexaploy:status_page:<page>:<lang>`,
+cleared on page / incident changes and monitor status changes). It only contains public names (display name, else
+the monitor title), statuses, daily uptime, and incidents as `public_title` (default "<name> is unavailable") +
+written updates - never URLs, hosts, probe data or error text. Branding: a Brand owned by the team, else
+`branding.team_brand(team)` (logo, favicon, primary color CSS, support e-mail, footer). **Custom domain:**
+`status_domain` is only stored; requests whose host equals it show the page at `/status`. The operator routes it
+like a brand portal domain: DNS CNAME → control plane, add the host to the control-plane site and its
+proxy/certificate, and rewrite `/` → `/status` for that host if desired (not automated). E-mail subscriptions
+are not implemented.
+
+Portal API (`nexaploy.api.monitoring`, `read` / `write`): `overview`, `get_monitor(name, hours)`,
+`save_monitor(monitor)`, `delete_monitor`, `list_incidents`, `update_incident(name, public_title,
+hide_from_status_page)`, `add_incident_update(name, update)`, `get_status_page`, `save_status_page(page)`.
+Activity: `monitor.create`, `monitor.update`, `monitor.delete`, `incident.update`, `incident.post_update`,
+`status_page.create`, `status_page.update`. Scheduler: `monitoring.run_builtin_probe` (every minute),
+`tasks.check_sites_uptime` (5 min), `monitoring.prune_monitoring_data` (daily).

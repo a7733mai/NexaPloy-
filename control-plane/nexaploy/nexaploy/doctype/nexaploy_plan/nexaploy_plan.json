@@ -20,6 +20,7 @@
   "column_break_limits",
   "max_storage_mb",
   "max_database_mb",
+  "advanced_monitoring",
   "section_break_2",
   "description"
  ],
@@ -112,6 +113,13 @@
    "fieldname": "max_database_mb",
    "fieldtype": "Int",
    "label": "Max Database (MB)"
+  },
+  {
+   "fieldname": "advanced_monitoring",
+   "fieldtype": "Check",
+   "label": "Advanced uptime monitoring",
+   "default": "0",
+   "description": "Sites on this plan get 1-minute checks and more than 3 monitors per site."
   },
   {
    "fieldname": "section_break_2",

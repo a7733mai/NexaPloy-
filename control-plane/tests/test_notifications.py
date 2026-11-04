@@ -63,6 +63,7 @@ def test_event_catalogue():
 	assert nu.EVENTS == (
 		"server_down", "server_recovered", "disk_high", "container_unhealthy", "site_down", "site_recovered",
 		"backup_failed", "job_failed", "invoice_issued", "payment_failed", "suspension", "ssl_expiring", "support_reply",
+		"monitor_down", "monitor_up",
 	)
 	assert set(nu.EVENT_LABELS) == set(nu.EVENTS) == set(nu.DEFAULT_EMAIL)
 	grouped = [e for _, events in nu.EVENT_GROUPS for e in events]
@@ -421,7 +422,10 @@ def test_emitters_wired():
 	tasks = read(os.path.join(APP, "tasks.py"))
 	assert "send_alert" not in tasks
 	assert "nu.alert_transitions(" in tasks and "nu.ALERT_RECOVERY_EVENTS" in tasks
-	assert "nu.SITE_DOWN" in tasks and "nu.SITE_RECOVERED" in tasks
+	# site_down / site_recovered come from the default uptime monitor of each site (§16)
+	monitoring = read(os.path.join(APP, "monitoring.py"))
+	assert "check_sites_uptime" in tasks and "monitoring" in tasks
+	assert "nu.SITE_DOWN" in monitoring and "nu.SITE_RECOVERED" in monitoring
 	cb = read(os.path.join(APP, "agent_callbacks.py"))
 	assert "_notify_job_failed(job)" in cb and "nu.USER_FACING_JOB_KINDS" in cb and "nu.BACKUP_FAILED" in cb
 	billing = read(os.path.join(APP, "billing", "invoicing.py"))
@@ -435,7 +439,7 @@ def test_emitters_wired():
 	for event in nu.EVENTS:
 		if event == nu.SSL_EXPIRING or event in mapped:
 			continue  # no emitter yet / emitted through the alert kind maps
-		src = tasks + cb + billing + support
+		src = tasks + cb + billing + support + read(os.path.join(APP, "monitoring.py"))
 		const = "nu." + event.upper()
 		assert f'"{event}"' in src or const in src, event
 
