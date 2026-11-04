@@ -45,7 +45,8 @@ def sync_server(doc):
 	# a provisioned Hosted server is billed once its VM exists (Bootstrapping) until Deleted
 	from nexaploy.provisioning.utils import is_billable
 
-	if doc.status == "Archived" or not doc.team or not is_billable(doc.get("provisioning_status")):
+	if (doc.status == "Archived" or not doc.team or not is_billable(doc.get("provisioning_status"))
+			or _billing_exempt(doc.team)):
 		cancel_subscriptions("Server", doc.name)
 		return
 	settings = _settings()
@@ -54,7 +55,8 @@ def sync_server(doc):
 
 
 def sync_site(doc):
-	if doc.status == "Archived" or not doc.team or doc.get("is_staging"):  # staging sites are free
+	# staging sites and billing-exempt (platform) teams are free
+	if doc.status == "Archived" or not doc.team or doc.get("is_staging") or _billing_exempt(doc.team):
 		cancel_subscriptions("Site", doc.name)
 		cancel_site_app_subscriptions(doc.name)
 		return
@@ -154,6 +156,10 @@ def reconcile_subscriptions():
 
 
 # --------------------------------------------------------------------------- helpers
+
+
+def _billing_exempt(team):
+	return bool(frappe.db.get_value("Team", team, "billing_exempt"))
 
 
 def _billing_enabled():

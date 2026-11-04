@@ -14,6 +14,9 @@
   "team",
   "plan",
   "is_build_server",
+  "hosts_control_plane",
+  "control_plane_bench",
+  "control_plane_site",
   "section_break_agent",
   "agent_version",
   "last_heartbeat",
@@ -102,6 +105,28 @@
    "fieldname": "is_build_server",
    "fieldtype": "Check",
    "label": "Is Build Server"
+  },
+  {
+   "default": "0",
+   "description": "Set by the all-in-one installer: the control plane itself runs on this server.",
+   "fieldname": "hosts_control_plane",
+   "fieldtype": "Check",
+   "label": "Hosts Control Plane",
+   "read_only": 1
+  },
+  {
+   "depends_on": "hosts_control_plane",
+   "fieldname": "control_plane_bench",
+   "fieldtype": "Data",
+   "label": "Control Plane Bench",
+   "read_only": 1
+  },
+  {
+   "depends_on": "hosts_control_plane",
+   "fieldname": "control_plane_site",
+   "fieldtype": "Data",
+   "label": "Control Plane Site",
+   "read_only": 1
   },
   {
    "fieldname": "section_break_agent",

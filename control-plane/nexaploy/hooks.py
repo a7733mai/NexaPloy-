@@ -131,5 +131,6 @@ scheduler_events = {
 		"nexaploy.billing.invoicing.mark_overdue_and_suspend",
 		"nexaploy.billing.payouts.generate_publisher_payouts",
 		"nexaploy.saas.expire_trials",
+		"nexaploy.all_in_one.backup_control_plane",
 	],
 }

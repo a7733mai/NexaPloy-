@@ -13,6 +13,7 @@
   "billing_email",
   "currency",
   "enabled",
+  "billing_exempt",
   "two_factor_required",
   "credit_balance",
   "members_section",
@@ -65,6 +66,14 @@
    "fieldtype": "Check",
    "label": "Enabled",
    "in_list_view": 1
+  },
+  {
+   "default": "0",
+   "description": "Internal/platform team: its servers and sites are never billed (e.g. the all-in-one control plane host).",
+   "fieldname": "billing_exempt",
+   "fieldtype": "Check",
+   "label": "Billing Exempt",
+   "permlevel": 0
   },
   {
    "default": "0",

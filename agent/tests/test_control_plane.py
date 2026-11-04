@@ -195,3 +195,18 @@ def test_settings_paths(tmp_path, monkeypatch):
     assert str(s.build_script) == "/srv/nx/images/build.sh"
     assert s.api_url == "http://127.0.0.1:8787"
     assert Settings().control_plane.enabled is False
+
+
+def test_site_name_header_for_all_in_one(cp_settings):
+    cp_settings.control_plane.url = "http://127.0.0.1:8090"
+    cp_settings.control_plane.site_name = "cp.example.com"
+    client, rec, _ = make_client(cp_settings, {"poll": httpx.Response(200, json={"message": []})})
+    client.poll()
+    assert rec.requests[0].headers["X-Frappe-Site-Name"] == "cp.example.com"
+    assert str(rec.requests[0].url).startswith("http://127.0.0.1:8090/api/method/")
+
+
+def test_no_site_name_header_by_default(cp_settings):
+    client, rec, _ = make_client(cp_settings, {"poll": httpx.Response(200, json={"message": []})})
+    client.poll()
+    assert "X-Frappe-Site-Name" not in rec.requests[0].headers

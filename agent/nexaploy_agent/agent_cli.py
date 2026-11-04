@@ -84,6 +84,9 @@ def register(
     control_plane: str = typer.Option(..., "--control-plane", help="control plane base URL"),
     token: str = typer.Option(..., "--token", help="registration token"),
     config: Optional[str] = typer.Option(None, "--config", "-c", help="agent.toml path"),
+    site_name: Optional[str] = typer.Option(
+        None, "--site-name", help="Frappe site of the control plane when the URL is not its host "
+        "(all-in-one installs: http://127.0.0.1:<port>)"),
 ) -> None:
     """Register this server (BYOS) and store server_id + server_token in agent.toml."""
     from .control_plane import ControlPlaneClient, ControlPlaneError
@@ -93,6 +96,8 @@ def register(
     settings = load_settings(config)
     settings.control_plane.url = control_plane
     settings.control_plane.token = ""
+    if site_name is not None:
+        settings.control_plane.site_name = site_name
     client = ControlPlaneClient(settings)
     facts = host_facts(Docker(SubprocessRunner(), settings.benches_dir), settings.root)
     try:
@@ -103,7 +108,8 @@ def register(
     path = config_path(config)
     update_config_file(path, {
         "agent": {"server_id": creds["server_id"]},
-        "control_plane": {"url": control_plane, "token": creds["server_token"]},
+        "control_plane": {"url": control_plane, "token": creds["server_token"],
+                          **({"site_name": site_name} if site_name is not None else {})},
         "backup": {"prefix": settings.backup.prefix or creds["server_id"]},
     })
     typer.echo(f"registered as {creds['server_id']} (credentials saved to {path})")

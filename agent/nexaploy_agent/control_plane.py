@@ -104,6 +104,8 @@ class ControlPlaneClient:
         tok = self.cp.token if token is None else token
         if tok:
             h["Authorization"] = f"token {tok}"
+        if self.cp.site_name:
+            h["X-Frappe-Site-Name"] = self.cp.site_name
         return h
 
     def request(self, method: str, name: str, *, json: Any = None, params: dict | None = None,

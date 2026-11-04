@@ -40,6 +40,9 @@ class AgentSection(_Section):
 class ControlPlaneSection(_Section):
     url: str = ""
     token: str = ""
+    # All-in-one installs reach the control plane bench on 127.0.0.1:<port>; nginx picks
+    # the Frappe site from X-Frappe-Site-Name, so the agent sends it when this is set.
+    site_name: str = ""
     heartbeat_seconds: int = Field(default=60, ge=5)
     poll_seconds: int = Field(default=10, ge=1)
     timeout_seconds: float = 15.0

@@ -5,6 +5,13 @@
 #     | sudo bash -s -- --control-plane https://cp.example.com --token <registration-token> \
 #                       --acme-email ops@example.com
 #
+# All-in-one (the control plane runs on this same server and manages it):
+#
+#   curl -fsSL .../install.sh | sudo bash -s -- --with-control-plane cp.example.com \
+#                                                --acme-email ops@example.com
+#
+# Without any option and with a terminal, it asks: new control plane here, or join one?
+#
 # Idempotent: re-running upgrades the agent and keeps existing config/secrets.
 # Uninstalling the agent never stops benches or sites (no lock-in).
 set -euo pipefail
@@ -25,6 +32,12 @@ FORCE_REGISTER=0
 SKIP_PACKAGES=0
 NO_SYSTEMD=0
 SKIP_FRAPPE_DOCKER=0
+CP_DOMAIN=""
+CP_IMAGE="${NEXAPLOY_CONTROL_PLANE_IMAGE:-ghcr.io/a7733mai/nexaploy-control-plane:16}"
+CP_BENCH="nexaploy-cp"
+CP_PORT=8090
+CP_ADMIN_PASSWORD=""
+ASSUME_YES=0
 
 usage() {
     cat <<'EOF'
@@ -44,6 +57,15 @@ Usage: install.sh [options]
   --skip-packages          do not install OS packages (Docker, rclone, ... must already exist)
   --no-systemd             do not install systemd units (run `nexaploy-agent api|worker` yourself)
   --skip-frappe-docker     do not clone frappe_docker (no image builds on this server)
+
+ All-in-one (control plane on this server):
+  --with-control-plane DOMAIN  also install the control plane at https://DOMAIN (a bench +
+                           site managed by this server's agent) and register this server to it
+  --control-plane-image IMG  control plane image (default: ghcr.io/a7733mai/nexaploy-control-plane:16)
+  --control-plane-port PORT  127.0.0.1 port the agent uses to reach it (default: 8090)
+  --admin-password PASS    Administrator password of the control plane (default: random,
+                           saved in <root>/config/control-plane.env)
+  -y, --yes                never ask questions (no interactive setup)
   -h, --help               show this help
 EOF
 }
@@ -54,6 +76,7 @@ die()  { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 
 need_val() { [[ $# -ge 2 && -n "${2:-}" && "${2:0:2}" != "--" ]] || die "$1 requires a value"; }
 
+ORIG_ARGC=$#
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --token)             need_val "$@"; TOKEN="$2"; shift 2 ;;
@@ -69,11 +92,44 @@ while [[ $# -gt 0 ]]; do
         --skip-packages)     SKIP_PACKAGES=1; shift ;;
         --no-systemd)        NO_SYSTEMD=1; shift ;;
         --skip-frappe-docker) SKIP_FRAPPE_DOCKER=1; shift ;;
+        --with-control-plane) need_val "$@"; CP_DOMAIN="${2,,}"; shift 2 ;;
+        --control-plane-image) need_val "$@"; CP_IMAGE="$2"; shift 2 ;;
+        --control-plane-port) need_val "$@"; CP_PORT="$2"; shift 2 ;;
+        --admin-password)    need_val "$@"; CP_ADMIN_PASSWORD="$2"; shift 2 ;;
+        -y|--yes)            ASSUME_YES=1; shift ;;
         -h|--help)           usage; exit 0 ;;
         *)                   usage >&2; die "unknown option: $1" ;;
     esac
 done
 
+# ---- interactive setup: only when started without options and a terminal is available
+# (also under `curl ... | sudo bash`, reading answers from /dev/tty)
+if [[ $ORIG_ARGC -eq 0 && $ASSUME_YES -eq 0 ]] && ( : </dev/tty ) 2>/dev/null; then
+    exec 3</dev/tty
+    ask() {  # prompt default -> REPLY
+        local answer
+        printf '%s' "$1" >/dev/tty
+        IFS= read -r answer <&3 || answer=""
+        REPLY="${answer:-$2}"
+    }
+    printf '\nNexaploy setup\n  1) New: install the control plane on this server (all-in-one)\n  2) Join: connect this server to an existing control plane\n  3) Standalone agent only (CLI, no control plane)\n' >/dev/tty
+    ask "Choose [1]: " 1
+    case "$REPLY" in
+        1) ask "Control plane domain (DNS A record must point here), e.g. cp.example.com: " ""
+           CP_DOMAIN="${REPLY,,}"
+           ask "E-mail for Let's Encrypt certificates: " ""; ACME_EMAIL="$REPLY" ;;
+        2) ask "Control plane URL (https://...): " ""; CONTROL_PLANE="${REPLY%/}"
+           ask "Registration token (Servers > Add server): " ""; TOKEN="$REPLY"
+           ask "E-mail for Let's Encrypt certificates: " ""; ACME_EMAIL="$REPLY" ;;
+        3) ;;
+        *) die "invalid choice: $REPLY" ;;
+    esac
+    exec 3<&-
+fi
+
+[[ -z "$CP_DOMAIN" || "$CP_DOMAIN" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]] || die "invalid --with-control-plane domain: $CP_DOMAIN"
+[[ -z "$CP_DOMAIN" || -z "$CONTROL_PLANE" ]] || die "--with-control-plane and --control-plane are mutually exclusive"
+[[ "$CP_PORT" =~ ^[0-9]{2,5}$ ]] || die "invalid --control-plane-port"
 [[ -z "$SERVER_ID" || "$SERVER_ID" =~ ^[a-z0-9][a-z0-9-]{1,62}$ ]] || die "invalid --server-id: $SERVER_ID"
 [[ -z "$ACME_EMAIL" || "$ACME_EMAIL" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]] || die "invalid --acme-email"
 [[ -z "$CONTROL_PLANE" || "$CONTROL_PLANE" =~ ^https?:// ]] || die "--control-plane must be an http(s) URL"
@@ -407,6 +463,96 @@ start_stacks() {
     [[ "$status" == healthy ]] || warn "nexaploy-db is not healthy yet (status: ${status:-unknown})"
 }
 
+# --------------------------------------------------------------------------- 8. all-in-one
+cp_exec() {  # bench command inside the control plane backend container
+    docker exec "$CP_BENCH-backend" bench --site "$CP_DOMAIN" "$@"
+}
+
+install_control_plane() {
+    [[ -n "$CP_DOMAIN" ]] || return 0
+    local api_ok=0 i
+    for i in $(seq 1 30); do nexaploy ping >/dev/null 2>&1 && { api_ok=1; break; }; sleep 1; done
+    [[ $api_ok -eq 1 ]] || die "agent API is not running (with --no-systemd start 'nexaploy-agent api' and 'worker' first)"
+
+    local env_file="$ROOT/config/control-plane.env"
+    if [[ -f "$env_file" ]]; then
+        # shellcheck disable=SC1090
+        . "$env_file"
+        CP_ADMIN_PASSWORD="${CP_ADMIN_PASSWORD:-${ADMIN_PASSWORD:-}}"
+    fi
+    CP_ADMIN_PASSWORD="${CP_ADMIN_PASSWORD:-$(openssl rand -base64 18 | tr -d '/+=')}"
+    ( umask 077; printf 'DOMAIN=%s\nBENCH=%s\nIMAGE=%s\nPORT=%s\nADMIN_PASSWORD=%s\n' \
+        "$CP_DOMAIN" "$CP_BENCH" "$CP_IMAGE" "$CP_PORT" "$CP_ADMIN_PASSWORD" > "$env_file" )
+
+    if ! docker image inspect "$CP_IMAGE" >/dev/null 2>&1; then
+        log "pulling control plane image $CP_IMAGE"
+        if ! docker pull "$CP_IMAGE"; then
+            [[ -x "$REPO_DIR/control-plane/docker/build.sh" ]] \
+                || die "cannot pull $CP_IMAGE (pass --control-plane-image, or build one with control-plane/docker/build.sh)"
+            die "cannot pull $CP_IMAGE; build it with: $REPO_DIR/control-plane/docker/build.sh --from-official frappe/erpnext:v16 --tag $CP_IMAGE"
+        fi
+    fi
+
+    if ! nexaploy --json bench list 2>/dev/null | grep -q "\"name\": *\"$CP_BENCH\""; then
+        log "creating control plane bench $CP_BENCH"
+        nexaploy bench create "$CP_BENCH" --image "$CP_IMAGE" --wait || die "bench $CP_BENCH could not be created (nexaploy jobs; nexaploy retry <job>)"
+    fi
+    # The agent (on the host) reaches the control plane on 127.0.0.1:$CP_PORT; docker compose
+    # merges this override with the agent-rendered docker-compose.yml on every `up`.
+    cat > "$ROOT/benches/$CP_BENCH/docker-compose.override.yml" <<YAML
+# Written by install.sh (all-in-one): local port for the agent -> control plane link.
+services:
+  frontend:
+    ports:
+      - "127.0.0.1:$CP_PORT:8080"
+YAML
+    nexaploy bench start "$CP_BENCH" --wait >/dev/null || die "bench $CP_BENCH did not start"
+
+    if ! nexaploy --json site list --bench "$CP_BENCH" 2>/dev/null | grep -q "\"name\": *\"$CP_DOMAIN\""; then
+        log "creating control plane site $CP_DOMAIN"
+        NEXAPLOY_ADMIN_PASSWORD="$CP_ADMIN_PASSWORD" nexaploy site create "$CP_DOMAIN" --bench "$CP_BENCH" \
+            --app nexaploy --wait || die "site $CP_DOMAIN could not be created"
+    fi
+    cp_exec set-config host_name "https://$CP_DOMAIN" >/dev/null
+    cp_exec enable-scheduler >/dev/null || true
+
+    local registered
+    registered="$("$VENV/bin/python" -c 'import tomllib,sys; print(tomllib.load(open(sys.argv[1],"rb")).get("control_plane",{}).get("token",""))' "$CONFIG")"
+    if [[ -z "$registered" || $FORCE_REGISTER -eq 1 ]]; then
+        log "registering this server with its own control plane"
+        local out token
+        out="$(cp_exec execute nexaploy.all_in_one.bootstrap)" || die "control plane bootstrap failed"
+        token="$(printf '%s\n' "$out" | "$VENV/bin/python" -c '
+import json, sys
+for line in reversed(sys.stdin.read().splitlines()):
+    line = line.strip()
+    if line.startswith("{") and "nexaploy_bootstrap" in line:
+        print(json.loads(line)["nexaploy_bootstrap"]["token"]); break
+')"
+        [[ -n "$token" ]] || die "no registration token from the control plane bootstrap"
+        local i ok=0
+        for i in $(seq 1 30); do
+            curl -fsS -o /dev/null -H "X-Frappe-Site-Name: $CP_DOMAIN" "http://127.0.0.1:$CP_PORT/api/method/ping" && { ok=1; break; }
+            sleep 2
+        done
+        [[ $ok -eq 1 ]] || die "control plane does not answer on 127.0.0.1:$CP_PORT"
+        "$VENV/bin/nexaploy-agent" register --control-plane "http://127.0.0.1:$CP_PORT" --token "$token" \
+            --site-name "$CP_DOMAIN" --config "$CONFIG"
+        CONTROL_PLANE="https://$CP_DOMAIN (all-in-one)"
+    fi
+    local server_id
+    server_id="$("$VENV/bin/python" -c 'import tomllib,sys; print(tomllib.load(open(sys.argv[1],"rb"))["agent"]["server_id"])' "$CONFIG")"
+    cp_exec execute nexaploy.all_in_one.mark_host \
+        --kwargs "{\"server_id\": \"$server_id\", \"bench\": \"$CP_BENCH\", \"site\": \"$CP_DOMAIN\"}" >/dev/null \
+        || warn "could not flag $server_id as the control plane host"
+    if [[ $NO_SYSTEMD -eq 0 ]]; then
+        systemctl restart nexaploy-agent-worker   # pick up the control plane credentials
+    else
+        warn "restart 'nexaploy-agent worker' to connect it to the control plane"
+    fi
+    CP_SUMMARY=1
+}
+
 summary() {
     local i
     for i in $(seq 1 15); do
@@ -421,6 +567,13 @@ summary() {
     echo "  API:           $(nexaploy-agent version 2>/dev/null) on 127.0.0.1:8787"
     echo
     nexaploy ping || warn "agent API not answering yet; check: journalctl -u nexaploy-agent-api"
+    if [[ "${CP_SUMMARY:-0}" -eq 1 ]]; then
+        echo
+        log "Control plane: https://$CP_DOMAIN"
+        echo "  login:    Administrator"
+        echo "  password: stored in $ROOT/config/control-plane.env (ADMIN_PASSWORD)"
+        echo "  DNS:      $CP_DOMAIN must point to this server for the TLS certificate"
+    fi
 }
 
 main() {
@@ -451,6 +604,7 @@ main() {
         install_units
     fi
     start_stacks
+    install_control_plane
     summary
 }
 

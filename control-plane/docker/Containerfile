@@ -1,0 +1,24 @@
+# syntax=docker/dockerfile:1.7
+# Nexaploy control plane image: a Nexaploy-contract bench image (ARCHITECTURE.md §4) with
+# the `nexaploy` app added. Build with control-plane/docker/build.sh (context: control-plane/).
+#
+#   BASE  any contract image with Frappe 15 or 16 (image-builder output, or an official
+#         frappe/erpnext image adapted by e2e/build-test-image.sh)
+ARG BASE
+FROM ${BASE}
+USER frappe
+WORKDIR /home/frappe/frappe-bench
+COPY --chown=3113:3113 . apps/nexaploy
+# No network needed: the app has no Python deps beyond Frappe's (PyJWT[crypto]) and no
+# JS bundles, so it is put on sys.path with a .pth file and its public/ dir is linked into
+# the baked assets.
+RUN set -eux; \
+    site_packages="$(env/bin/python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"; \
+    echo /home/frappe/frappe-bench/apps/nexaploy > "$site_packages/nexaploy.pth"; \
+    env/bin/python -c 'import nexaploy, jwt; print("nexaploy", nexaploy.__version__)'; \
+    sed -i -e '$a\' .nexaploy/apps.txt; \
+    grep -qx nexaploy .nexaploy/apps.txt || echo nexaploy >> .nexaploy/apps.txt; \
+    ln -sfn ../apps/nexaploy/nexaploy/public assets/nexaploy; \
+    rm -rf apps/nexaploy/tests apps/nexaploy/docker
+LABEL org.opencontainers.image.title="nexaploy-control-plane" \
+      org.opencontainers.image.source="https://github.com/a7733mai/NexaPloy-"

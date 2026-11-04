@@ -239,6 +239,7 @@ root = "/opt/nexaploy"
 [control_plane]
 url = ""                         # empty => standalone mode
 token = ""                       # server token issued by control plane
+site_name = ""                   # all-in-one: X-Frappe-Site-Name sent to http://127.0.0.1:<port>
 heartbeat_seconds = 60
 poll_seconds = 10
 
@@ -347,6 +348,34 @@ Idempotent, Ubuntu 22.04/24.04 (Debian 12 best effort), run as root:
 6. Write `agent.toml` from flags (`--token`, `--control-plane`, `--server-id`, `--acme-email`), generate `db.env`; register with the CP if a URL + token were given.
 7. Install + enable systemd units; start proxy + db stacks.
 8. Print summary and `nexaploy ping` result.
+
+Without options and with a terminal (also under `curl … | sudo bash`, via `/dev/tty`) it asks:
+new control plane here (all-in-one), join an existing one (URL + token), or standalone.
+
+#### 5.7.1 All-in-one (`--with-control-plane <domain>`)
+
+The control plane runs on the server it manages, as an ordinary bench created by the local
+agent — the same image contract and compose template as every other bench:
+
+1. Pull the control plane image (`--control-plane-image`, default
+   `ghcr.io/a7733mai/nexaploy-control-plane:16`; built by `control-plane/docker/build.sh`
+   = a contract bench image + the `nexaploy` app).
+2. `nexaploy bench create nexaploy-cp`, then write `benches/nexaploy-cp/docker-compose.override.yml`
+   publishing the frontend on `127.0.0.1:<--control-plane-port, 8090>` (compose merges the
+   override on every `up`; the agent never renders it).
+3. `nexaploy site create <domain> --app nexaploy` (Traefik route + Let's Encrypt like any site),
+   `host_name`, scheduler on. The Administrator password is kept in `config/control-plane.env` (0600).
+4. `bench execute nexaploy.all_in_one.bootstrap` → operator team "Platform" (`Team.billing_exempt`)
+   + a 2 h registration token; `nexaploy-agent register --control-plane http://127.0.0.1:<port>
+   --site-name <domain>` (the agent sends `X-Frappe-Site-Name`, `[control_plane].site_name`).
+5. `nexaploy.all_in_one.mark_host` flags the Server (`hosts_control_plane`, bench, site): it cannot
+   be archived; the control plane bench/site are not Bench/Site documents, so the control plane
+   can never drop or move itself. `backup_control_plane` (daily) backs up its own site through
+   the agent (uploaded when backup storage is configured).
+
+The hosted mode (control plane elsewhere, `--control-plane URL --token T`) is unchanged.
+Trade-off of all-in-one: when the server is down, so is its control plane (and its alerts) —
+use backup storage off the server.
 
 Uninstalling the agent leaves benches and sites running — **no lock-in**.
 
