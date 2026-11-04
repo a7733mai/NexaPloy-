@@ -578,3 +578,5 @@ def on_archive_binlogs(job):
 	from nexaploy.pitr import archive_finished
 
 	archive_finished(job)
+# agent.upgrade / agent.rollback handlers live with the upgrade logic
+import nexaploy.agent_upgrades  # noqa: E402,F401

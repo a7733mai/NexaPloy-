@@ -1,0 +1,21 @@
+#!/bin/sh
+# Nexaploy image: login hint until the server is set up (packer/README.md).
+if [ -f /var/lib/nexaploy/firstboot.done ]; then
+    printf '\n Nexaploy: `nexaploy ping` checks the agent. Docs: https://a7733mai.github.io/NexaPloy-/\n\n'
+    exit 0
+fi
+cat <<'MSG'
+
+ ******************************************************************************
+  Nexaploy server image - not set up yet.
+
+  Connect it to a control plane:
+    nexaploy-firstboot --control-plane https://<control-plane> --token <token>
+  or run everything (control plane + sites) on this server:
+    nexaploy-firstboot --domain <domain> --acme-email <you@example.com>
+
+  Install log: /var/log/nexaploy-install.log
+  Docs: https://a7733mai.github.io/NexaPloy-/
+ ******************************************************************************
+
+MSG

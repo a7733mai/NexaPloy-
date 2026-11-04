@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# cloud-init runs per-instance scripts once on the first boot of every new instance made
+# from this image (DigitalOcean Marketplace layout; Hetzner Cloud images use cloud-init too).
+exec /usr/local/sbin/nexaploy-firstboot

@@ -406,6 +406,24 @@ use backup storage off the server.
 
 Uninstalling the agent leaves benches and sites running — **no lock-in**.
 
+### 5.8 Agent upgrades (`agent.upgrade`, `agent.rollback`)
+
+Operator-controlled: the control plane enqueues the job, the agent never upgrades itself.
+`agent.upgrade {version, ref?=v<version>, repo_url?, wheel_url?, wheel_sha256?, restart?=true,
+restart_delay_seconds?=10, watchdog_seconds?=180}` — steps `prepare` → `download` (git fetch of
+`ref` into `agent/src.new` + `sync_templates.sh`, or the wheel) → `install` (new venv
+`agent/.venv.new`) → `verify` (`.venv.new/bin/nexaploy-agent version` == `version`, imports) →
+`activate` (shebangs rewritten, `.venv` → `.venv.prev`, `.venv.new` → `.venv`, same for `src`;
+image-builder files refreshed; state in `agent/data/upgrade.json`) → `restart` (`systemd-run
+--on-active=10s systemctl restart nexaploy-agent-api nexaploy-agent-worker`, i.e. after the job
+reported success, plus a watchdog run from `.venv.prev` that rolls back unless the new version
+answers `/v1/ping` in time). `agent.rollback {restart?}` swaps `.venv.prev` back (the replaced
+venv is kept as `.venv.failed`). Manual: `nexaploy-agent rollback`. Benches, sites, proxy and DB
+are never touched. Control plane: DocType **Agent Release** (`version`, `git_ref`, `channel`
+stable/beta, `published`, `release_notes`), Server `agent_channel` + `agent_upgrade_*`; the
+heartbeat with the target `agent_version` marks the upgrade Succeeded, none within
+`Nexaploy Settings.agent_upgrade_timeout_minutes` marks it Failed.
+
 ## 6. Non-goals for Phase 1
 
 Billing, marketplace UI, multi-server scheduling, site migration between servers,

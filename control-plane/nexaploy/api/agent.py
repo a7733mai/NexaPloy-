@@ -284,6 +284,10 @@ def heartbeat(server_id=None, facts=None, benches=None, agent_version=None, **kw
 		from nexaploy.domains import ingest_tls
 
 		ingest_tls(server, kwargs.get("tls"))  # never raises
+	if agent_version:
+		from nexaploy.agent_upgrades import on_heartbeat
+
+		on_heartbeat(server, agent_version)  # agent upgrade tracking; never raises
 	pending = frappe.db.count("Agent Job", {"server": server, "status": "Pending"})
 	return {"ok": True, "pending_jobs": pending}
 

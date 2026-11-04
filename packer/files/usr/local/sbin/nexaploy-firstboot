@@ -1,0 +1,171 @@
+#!/usr/bin/env bash
+# Finish a Nexaploy server image on its first boot (packer/README.md).
+#
+# The image already has Docker, the agent source and pre-pulled images; this runs
+# install.sh with the settings from the instance user-data:
+#
+#   NEXAPLOY_CONTROL_PLANE=https://cp.example.com   + NEXAPLOY_TOKEN=<registration token>
+#       -> install.sh --control-plane URL --token T          (BYOS / hosted server)
+#   NEXAPLOY_DOMAIN=cloud.example.com
+#       -> install.sh --with-control-plane DOMAIN            (all-in-one: control plane on this server)
+#   NEXAPLOY_ACME_EMAIL=ops@example.com                      (optional, Let's Encrypt account)
+#
+# User-data may be a plain KEY=VALUE file, a shell script with `export NEXAPLOY_...=`
+# lines, or a #cloud-config with `# NEXAPLOY_...=` comment lines. Values are validated and
+# passed as arguments, never evaluated. Without settings nothing is installed: run
+# `nexaploy-firstboot --control-plane URL --token T` (or `--domain D`) by hand later.
+#
+# Runs once (marker /var/lib/nexaploy/firstboot.done); --force runs it again.
+set -euo pipefail
+
+SRC="${NEXAPLOY_IMAGE_SRC:-/usr/local/share/nexaploy/src}"
+INSTALLER="$SRC/agent/install/install.sh"
+MARKER="${NEXAPLOY_FIRSTBOOT_MARKER:-/var/lib/nexaploy/firstboot.done}"
+ENV_FILE="${NEXAPLOY_FIRSTBOOT_ENV:-/etc/nexaploy/firstboot.env}"
+LOG="${NEXAPLOY_INSTALL_LOG:-/var/log/nexaploy-install.log}"
+USER_DATA_FILES=(/var/lib/cloud/instance/user-data.txt)
+METADATA_URLS=(
+    http://169.254.169.254/metadata/v1/user-data      # DigitalOcean
+    http://169.254.169.254/hetzner/v1/userdata        # Hetzner Cloud
+)
+
+CONTROL_PLANE=""
+TOKEN=""
+DOMAIN=""
+ACME_EMAIL=""
+DRY_RUN=0
+FORCE=0
+USER_DATA=""
+
+usage() {
+    cat <<'EOF'
+Usage: nexaploy-firstboot [options]
+
+  --control-plane URL   control plane base URL (with --token)
+  --token TOKEN         one-time server registration token
+  --domain DOMAIN       all-in-one: install the control plane on this server for DOMAIN
+  --acme-email EMAIL    Let's Encrypt account e-mail
+  --user-data FILE      read NEXAPLOY_* settings from FILE instead of the instance user-data
+  --dry-run             print the install.sh command instead of running it
+  --force               run even if first boot already completed
+  -h, --help            show this help
+EOF
+}
+
+log() { printf '==> %s\n' "$*"; }
+die() { printf 'error: %s\n' "$*" >&2; exit 1; }
+
+URL_RE='^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~/-]*)?$'
+TOKEN_RE='^[A-Za-z0-9_-]{16,256}$'
+DOMAIN_RE='^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$'
+EMAIL_RE='^[^@[:space:]"'"'"'`$;&|<>]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,63}$'
+
+# --- settings from text (user-data / env file); only NEXAPLOY_* keys are read ---------------
+read_settings() {  # file
+    local file=$1 line key value
+    [[ -r "$file" ]] || return 0
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%$'\r'}"
+        if [[ "$line" =~ ^[[:space:]]*(#[[:space:]]*)?(export[[:space:]]+)?(NEXAPLOY_[A-Z_]+)=(.*)$ ]]; then
+            key="${BASH_REMATCH[3]}"
+            value="${BASH_REMATCH[4]}"
+            value="${value%"${value##*[![:space:]]}"}"       # trailing whitespace
+            if [[ "$value" =~ ^\"(.*)\"$ || "$value" =~ ^\'(.*)\'$ ]]; then
+                value="${BASH_REMATCH[1]}"
+            fi
+            case "$key" in
+                NEXAPLOY_CONTROL_PLANE) [[ -n "$CONTROL_PLANE" ]] || CONTROL_PLANE="$value" ;;
+                NEXAPLOY_TOKEN)         [[ -n "$TOKEN" ]] || TOKEN="$value" ;;
+                NEXAPLOY_DOMAIN)        [[ -n "$DOMAIN" ]] || DOMAIN="$value" ;;
+                NEXAPLOY_ACME_EMAIL)    [[ -n "$ACME_EMAIL" ]] || ACME_EMAIL="$value" ;;
+            esac
+        fi
+    done < "$file"
+}
+
+fetch_metadata_user_data() {
+    local url tmp
+    command -v curl >/dev/null || return 0
+    tmp="$(mktemp)"
+    for url in "${METADATA_URLS[@]}"; do
+        if curl -fsS --max-time 3 -o "$tmp" "$url" 2>/dev/null && [[ -s "$tmp" ]]; then
+            read_settings "$tmp"
+            break
+        fi
+    done
+    rm -f "$tmp"
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --control-plane) [[ $# -ge 2 ]] || die "$1 needs a value"; CONTROL_PLANE="${2%/}"; shift 2 ;;
+        --token)         [[ $# -ge 2 ]] || die "$1 needs a value"; TOKEN="$2"; shift 2 ;;
+        --domain)        [[ $# -ge 2 ]] || die "$1 needs a value"; DOMAIN="$2"; shift 2 ;;
+        --acme-email)    [[ $# -ge 2 ]] || die "$1 needs a value"; ACME_EMAIL="$2"; shift 2 ;;
+        --user-data)     [[ $# -ge 2 ]] || die "$1 needs a value"; USER_DATA="$2"; shift 2 ;;
+        --dry-run)       DRY_RUN=1; shift ;;
+        --force)         FORCE=1; shift ;;
+        -h|--help)       usage; exit 0 ;;
+        *)               usage >&2; die "unknown option: $1" ;;
+    esac
+done
+
+if [[ -f "$MARKER" && $FORCE -eq 0 ]]; then
+    log "first boot already completed ($MARKER); use --force to run again"
+    exit 0
+fi
+
+# flags win, then the env file, then the user-data
+read_settings "$ENV_FILE"
+if [[ -n "$USER_DATA" ]]; then
+    read_settings "$USER_DATA"
+else
+    for f in "${USER_DATA_FILES[@]}"; do read_settings "$f"; done
+    if [[ -z "$CONTROL_PLANE$TOKEN$DOMAIN" && $DRY_RUN -eq 0 ]]; then
+        fetch_metadata_user_data
+    fi
+fi
+CONTROL_PLANE="${CONTROL_PLANE%/}"
+
+args=(--agent-source "$SRC" --skip-packages)
+if [[ -n "$DOMAIN" ]]; then
+    [[ "$DOMAIN" =~ $DOMAIN_RE ]] || die "invalid NEXAPLOY_DOMAIN: $DOMAIN"
+    [[ -z "$CONTROL_PLANE" ]] || die "set either NEXAPLOY_DOMAIN (all-in-one) or NEXAPLOY_CONTROL_PLANE, not both"
+    args+=(--with-control-plane "$DOMAIN")
+    mode="all-in-one ($DOMAIN)"
+elif [[ -n "$CONTROL_PLANE" || -n "$TOKEN" ]]; then
+    [[ -n "$CONTROL_PLANE" && -n "$TOKEN" ]] || die "NEXAPLOY_CONTROL_PLANE and NEXAPLOY_TOKEN must both be set"
+    [[ "$CONTROL_PLANE" =~ $URL_RE ]] || die "invalid NEXAPLOY_CONTROL_PLANE: $CONTROL_PLANE"
+    [[ "$TOKEN" =~ $TOKEN_RE ]] || die "invalid NEXAPLOY_TOKEN"
+    args+=(--control-plane "$CONTROL_PLANE" --token "$TOKEN")
+    mode="server for $CONTROL_PLANE"
+else
+    log "no NEXAPLOY_CONTROL_PLANE/NEXAPLOY_TOKEN or NEXAPLOY_DOMAIN in the user-data: nothing to do."
+    log "finish later with: nexaploy-firstboot --control-plane https://<control-plane> --token <token>"
+    log "               or: nexaploy-firstboot --domain <domain>   (all-in-one)"
+    exit 0
+fi
+if [[ -n "$ACME_EMAIL" ]]; then
+    [[ "$ACME_EMAIL" =~ $EMAIL_RE ]] || die "invalid NEXAPLOY_ACME_EMAIL: $ACME_EMAIL"
+    args+=(--acme-email "$ACME_EMAIL")
+fi
+
+if [[ $DRY_RUN -eq 1 ]]; then
+    printf 'bash %q' "$INSTALLER"
+    printf ' %q' "${args[@]}"
+    printf '\n'
+    exit 0
+fi
+
+[[ $EUID -eq 0 ]] || die "run as root"
+[[ -f "$INSTALLER" ]] || die "$INSTALLER not found (is this a Nexaploy image?)"
+log "installing Nexaploy: $mode (log: $LOG)"
+mkdir -p "$(dirname "$LOG")" "$(dirname "$MARKER")"
+# apt/dpkg locks right after boot are common: retry once
+if ! bash "$INSTALLER" "${args[@]}" >> "$LOG" 2>&1; then
+    log "install.sh failed; retrying in 30 s"
+    sleep 30
+    bash "$INSTALLER" "${args[@]}" >> "$LOG" 2>&1 || die "install.sh failed, see $LOG"
+fi
+date -u +%Y-%m-%dT%H:%M:%SZ > "$MARKER"
+log "Nexaploy installed ($mode)"

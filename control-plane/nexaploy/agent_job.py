@@ -53,6 +53,9 @@ JOB_KINDS = (
 	# point-in-time recovery
 	"site.restore_pitr",
 	"server.archive_binlogs",
+	# agent self-upgrade (nexaploy/agent_upgrades.py)
+	"agent.upgrade",
+	"agent.rollback",
 )
 
 

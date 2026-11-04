@@ -47,7 +47,15 @@
   "dns_target_ips",
   "agent_ip",
   "provisioning_started_at",
-  "provisioning_error"
+  "provisioning_error",
+  "section_break_agent_upgrade",
+  "agent_channel",
+  "agent_upgrade_status",
+  "agent_upgrade_target",
+  "column_break_agent_upgrade",
+  "agent_upgrade_job",
+  "agent_upgrade_started_at",
+  "agent_upgrade_error"
  ],
  "fields": [
   {
@@ -321,12 +329,62 @@
    "fieldtype": "Small Text",
    "label": "Provisioning Error",
    "read_only": 1
+  },
+  {
+   "fieldname": "section_break_agent_upgrade",
+   "fieldtype": "Section Break",
+   "label": "Agent Upgrade",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "agent_channel",
+   "fieldtype": "Select",
+   "label": "Agent Channel",
+   "options": "stable\nbeta",
+   "default": "stable",
+   "description": "Agent releases offered to this server (beta also gets stable releases)."
+  },
+  {
+   "fieldname": "agent_upgrade_status",
+   "fieldtype": "Select",
+   "label": "Agent Upgrade Status",
+   "options": "\nIn Progress\nSucceeded\nFailed\nRolling Back\nRolled Back",
+   "read_only": 1
+  },
+  {
+   "fieldname": "agent_upgrade_target",
+   "fieldtype": "Data",
+   "label": "Agent Upgrade Target",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_agent_upgrade",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "agent_upgrade_job",
+   "fieldtype": "Link",
+   "label": "Agent Upgrade Job",
+   "options": "Agent Job",
+   "read_only": 1
+  },
+  {
+   "fieldname": "agent_upgrade_started_at",
+   "fieldtype": "Datetime",
+   "label": "Agent Upgrade Started At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "agent_upgrade_error",
+   "fieldtype": "Small Text",
+   "label": "Agent Upgrade Error",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-12-02 00:00:00.000000",
+ "modified": "2026-12-05 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Server",

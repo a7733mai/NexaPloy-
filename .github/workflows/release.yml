@@ -1,0 +1,135 @@
+name: Release
+
+# Runs on a version tag created by scripts/release.sh (git push origin HEAD --follow-tags):
+#   1. tests (agent, control plane, release tooling, shell syntax)
+#   2. control plane image -> ghcr.io/<owner>/nexaploy-control-plane:<version>, :<frappe major>, :latest
+#      (pre-releases such as v0.2.0-beta.1 only get :<version>)
+#   3. GitHub Release with the CHANGELOG section, install.sh and the agent wheel (+ SHA256SUMS)
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FRAPPE_MAJOR: "16"
+  OFFICIAL_IMAGE: frappe/erpnext:v16
+
+jobs:
+  meta:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
+      image: ${{ steps.v.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        name: Version from the tag
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          python3 scripts/release_utils.py check . "$version"
+          python3 scripts/release_utils.py notes CHANGELOG.md "$version" > /dev/null
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$(python3 scripts/release_utils.py prerelease "$version")" >> "$GITHUB_OUTPUT"
+          owner="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          echo "image=ghcr.io/${owner}/nexaploy-control-plane" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: meta
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e "agent" pytest pyyaml jinja2
+      - run: python -m pytest agent/tests -q
+      - run: python -m compileall -q control-plane/nexaploy
+      - run: python -m pytest control-plane/tests -q
+      - run: python -m pytest bench-template/tests -q
+      - run: python -m pytest scripts/tests -q
+      - run: bash -n agent/install/install.sh image-builder/build.sh scripts/release.sh packer/scripts/*.sh packer/files/usr/local/sbin/nexaploy-firstboot
+      - run: bash packer/tests/test_firstboot.sh
+
+  image:
+    needs: [meta, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      IMAGE: ${{ needs.meta.outputs.image }}
+      PRERELEASE: ${{ needs.meta.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build
+        run: |
+          test -x control-plane/docker/build.sh || chmod +x control-plane/docker/build.sh
+          control-plane/docker/build.sh --from-official "$OFFICIAL_IMAGE" --tag "$IMAGE:$VERSION"
+      - name: Push
+        run: |
+          docker push "$IMAGE:$VERSION"
+          if [ "$PRERELEASE" != "true" ]; then
+            for tag in "$FRAPPE_MAJOR" latest; do
+              docker tag "$IMAGE:$VERSION" "$IMAGE:$tag"
+              docker push "$IMAGE:$tag"
+            done
+          fi
+
+  release:
+    needs: [meta, test, image]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      PRERELEASE: ${{ needs.meta.outputs.prerelease }}
+      IMAGE: ${{ needs.meta.outputs.image }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Agent wheel (bench templates bundled)
+        run: |
+          agent/scripts/sync_templates.sh bench-template
+          pip wheel --no-deps -w dist ./agent
+          cp agent/install/install.sh dist/install.sh
+          (cd dist && sha256sum -- *.whl install.sh > SHA256SUMS)
+          cat dist/SHA256SUMS
+      - name: Release notes
+        run: |
+          python3 scripts/release_utils.py notes CHANGELOG.md "$VERSION" > notes.md
+          {
+            echo
+            echo "### Install"
+            echo
+            echo '```bash'
+            echo "curl -fsSL https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/install.sh | sudo bash -s -- --branch ${GITHUB_REF_NAME} ..."
+            echo '```'
+            echo
+            echo "Control plane image: \`${IMAGE}:${VERSION}\`"
+            echo
+            echo "Agent upgrade: publish an **Agent Release** \`${VERSION}\` (git ref \`${GITHUB_REF_NAME}\`) on the control plane."
+          } >> notes.md
+      - name: GitHub Release
+        run: |
+          flags=()
+          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); else flags+=(--latest); fi
+          gh release create "$GITHUB_REF_NAME" --title "Nexaploy $VERSION" --notes-file notes.md \
+            --verify-tag "${flags[@]}" dist/install.sh dist/*.whl dist/SHA256SUMS

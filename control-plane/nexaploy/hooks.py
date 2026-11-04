@@ -134,6 +134,7 @@ scheduler_events = {
 			"nexaploy.agent_callbacks.retry_failed_callbacks",
 			"nexaploy.domains.verify_pending_domains",
 			"nexaploy.update_test.sync_update_tests",
+			"nexaploy.agent_upgrades.check_agent_upgrades",
 		],
 		"*/15 * * * *": [
 			"nexaploy.tasks.apply_auto_updates",

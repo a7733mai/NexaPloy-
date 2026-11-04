@@ -40,7 +40,12 @@
   "column_break_retention",
   "backup_retention_included_days",
   "backup_local_retention_max_days",
-  "backup_keep_monthly_max"
+  "backup_keep_monthly_max",
+  "section_break_agent_releases",
+  "allow_customer_agent_upgrade",
+  "agent_upgrade_timeout_minutes",
+  "column_break_agent_releases",
+  "agent_repo_url"
  ],
  "fields": [
   {
@@ -251,13 +256,42 @@
    "fieldtype": "Int",
    "label": "Max Monthly Backups",
    "default": "0"
+  },
+  {
+   "fieldname": "section_break_agent_releases",
+   "fieldtype": "Section Break",
+   "label": "Agent Upgrades"
+  },
+  {
+   "fieldname": "allow_customer_agent_upgrade",
+   "fieldtype": "Check",
+   "label": "Allow customers to upgrade the agent on their BYOS servers",
+   "default": "0",
+   "description": "Team Owners/Admins can then upgrade or roll back the agent of their own BYOS servers from the dashboard."
+  },
+  {
+   "fieldname": "agent_upgrade_timeout_minutes",
+   "fieldtype": "Int",
+   "label": "Agent Upgrade Timeout (minutes)",
+   "default": "15",
+   "description": "An upgrade is marked Failed when the server does not report the new version within this time."
+  },
+  {
+   "fieldname": "column_break_agent_releases",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "agent_repo_url",
+   "fieldtype": "Data",
+   "label": "Agent Repository URL",
+   "description": "Default git repository for Agent Releases without their own URL (https://). Empty: https://github.com/a7733mai/NexaPloy-.git"
   }
  ],
  "index_web_pages_for_search": 0,
  "issingle": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-11-10 12:00:00.000000",
+ "modified": "2026-12-05 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Nexaploy Settings",
