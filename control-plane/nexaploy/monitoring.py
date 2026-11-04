@@ -307,8 +307,9 @@ def _advance(name, probe_name, rows, enabled_probes, now):
 	values = {
 		"probe_state": json.dumps(state, sort_keys=True),
 		"last_checked_at": last["checked_at"],
-		"last_status_code": last["status_code"],
-		"last_response_ms": last["response_ms"],
+		# no status code / timing when DNS or the connection failed (Int columns are NOT NULL)
+		"last_status_code": last["status_code"] or 0,
+		"last_response_ms": last["response_ms"] or 0,
 		"last_error": last["error"] or None,
 	}
 	if last.get("tls_expires_on"):
