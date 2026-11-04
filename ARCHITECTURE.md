@@ -138,6 +138,9 @@ Variables: `site` (primary host), `domains` (list of all hosts incl. primary), `
 Output file: `/opt/nexaploy/proxy/config/sites/<site>.yml` with router `site-<slug>` →
 service `svc-<slug>` → `http://<bench>-frontend:8080`, `websecure` entrypoint,
 `certResolver: letsencrypt`, middlewares `site-<slug>-name@file` (sets `X-Frappe-Site-Name`), `security-headers@file`, `compress@file`.
+One router **per host**: `site-<slug>` (`Host(<site>)`) plus `site-<slug>--<host slug>` per custom domain,
+sharing the service and middlewares, so every host gets its own ACME certificate (a custom domain with
+broken DNS never blocks issuance/renewal for the primary hostname or the other domains).
 
 ### 3.3 Proxy stack
 
@@ -278,6 +281,7 @@ retention_days = 14
 | GET | `/v1/sites/{s}/config` | site_config.json, secrets redacted (`db_password`, `encryption_key`, keys matching `password\|secret\|token\|key`); the CP uses job `site.get_config` `{site}` (same result) |
 | PATCH | `/v1/sites/{s}/config` | `{set: {k: json}, remove: [k]}` → job `site.update_config` (one atomic rewrite of site_config.json; `db_*`/`encryption_key` refused) |
 | POST | `/v1/usage` | `{bench?, site?, ensure_monitor?, refresh_sizes?}` → job `site.usage` (per-site CPU/request time, DB size, file storage; result `{sites, usage}`) |
+| POST | `/v1/tls-status` | `{site?, domains?}` → job `site.tls_status`: TLS connect to `127.0.0.1:<HTTPS_PORT>` with SNI per routed host; result `{collected_at, port, hosts: {host: {site, trusted, not_after, not_before, issuer, subject_cn, sans, default_cert, self_signed, matches_host, verify_error, error}}}` (`default_cert` = Traefik's self-signed fallback, i.e. ACME failed) |
 | DELETE | `/v1/sites/{s}` | job `site.drop` (backup first unless `skip_backup`) |
 
 The agent resolves which bench a site belongs to by scanning `benches/*/sites/<s>/site_config.json`.
@@ -328,7 +332,9 @@ Outbound only. If `control_plane.url` is set the agent (header `Authorization: t
   (`[{path, total, used, free, used_percent}]` for `/` and `/opt/nexaploy`), `containers`
   (Nexaploy containers: `{name, project, service, state, health}`), `bench_health`
   (`{bench: {total, running, unhealthy:[names], healthy}}`), `unhealthy_containers` and
-  `utc_offset_minutes` (server-local time for update windows).
+  `utc_offset_minutes` (server-local time for update windows), `public_ips` (global source addresses of
+  the default IPv4/IPv6 routes; DNS targets for custom domains).
+  `tls` (at most every 10 min, agent-side throttle) = the `site.tls_status` result for every routed host.
 - `GET {url}/api/method/nexaploy.api.agent.poll?server_id=` every `poll_seconds` → `{"message": [{job_id, kind, params}, ...]}`; each item is enqueued locally (`origin=control_plane`, `remote_id=job_id`).
 - `POST {url}/api/method/nexaploy.api.agent.job_update` body `{server_id, job_id, status, steps:[{idx,name,status,output,started_at,ended_at}], error, result}` on every status/step change.
 - Registration (BYOS): `POST {url}/api/method/nexaploy.api.agent.register` body `{registration_token, hostname, facts, agent_version}` → `{"message": {server_id, server_token}}`. Called once by `install.sh` when `--token` is a registration token.
@@ -391,7 +397,7 @@ Operations fields: Server `cpu_count`, `memory_total_mb`, `disk_total_gb`, `disk
 `backup_retention_days` (14), `backup_with_files`, `last_backup_at`, `is_up`, `last_uptime_check`;
 Site Backup status adds `Deleted`; Release Group `auto_update`, `update_window` (`HH:MM-HH:MM`,
 server-local). Agent Job kinds add `server.configure_backups`, `server.health`, `backup.prune_remote`, `site.usage`,
-`site.get_config`, `site.update_config`. Plan limits: Nexaploy Plan `cpu_seconds_per_day`, `max_storage_mb`,
+`site.get_config`, `site.update_config`, `site.tls_status`. Plan limits: Nexaploy Plan `cpu_seconds_per_day`, `max_storage_mb`,
 `max_database_mb` (0 = unlimited), `overage_action` (Notify/Throttle/Suspend), `plan_order`; Site
 `current_cpu_seconds_today`, `database_mb`, `storage_mb`, `over_limit`, `throttled` (+ hidden `usage_suspended`).
 
@@ -413,6 +419,18 @@ automatically — CPU resets each UTC day), `prune_site_usage` (daily, 400 days)
 presigned S3 GET URLs (15 min) built from Nexaploy Settings backup credentials (`nexaploy.api.site_tools`). A Server that becomes Active (register / first heartbeat) and every change of the backup
 storage settings enqueue `server.configure_backups`; all servers share one bucket under
 `<backup_prefix>/<server_id>` so a backup taken on one server restores on another.
+
+Custom domains (`nexaploy/domains.py`, pure logic `nexaploy/domain_utils.py`): Site Domain `status`
+Pending DNS → Verifying → Active / Broken (+ Removing; legacy Pending), `verification_type` (A/CNAME/Skipped),
+`dns_check_message`, `last_checked_at`, `dns_requested_at`, `dns_check_attempts`, `skip_dns_check` (System
+Manager override), `proxied` (Cloudflare detected), `activated_at`, and TLS fields `tls_status`
+(Valid/Expiring/Expired/Default Certificate/Pending/Untrusted/Error), `tls_issuer`, `tls_expires_on`,
+`tls_checked_at`, `tls_message` (the same TLS fields on Site for the primary hostname). `site.add_domain` is
+only sent once the domain resolves (via 1.1.1.1/8.8.8.8) to the server — Server `dns_target_ips` override, else
+`public_ipv4`/`public_ipv6` + facts `public_ips`, else `agent_ip` (heartbeat source) — or is a CNAME to the
+site's primary hostname. `verify_pending_domains` (5 min) re-checks with back-off (5/15/30/60 min) and gives up
+after 72 h (Broken). TLS reports (heartbeat `tls`, `site.tls_status`) flag the Traefik default certificate after
+15 min and emit `ssl_expiring` via `nexaploy.notify.notify` (optional) at 14/7/3/1/0 days left.
 
 ## 9. Teams (Phase 3 — shared contract for all later features)
 

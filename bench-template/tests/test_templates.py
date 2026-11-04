@@ -387,8 +387,17 @@ def test_route_single_domain():
 
 def test_route_multi_domain_dedup_and_primary():
     r = route(site="a.example.com", domains=["www.shop.io", "a.example.com", "www.shop.io"], bench="b-v14")
-    rt = r["http"]["routers"]["site-a-example-com"]
-    assert rt["rule"] == "Host(`a.example.com`) || Host(`www.shop.io`)"
+    routers = r["http"]["routers"]
+    # one router per host (own certificate each), primary first, duplicates dropped
+    assert list(routers) == ["site-a-example-com", "site-a-example-com--www-shop-io"]
+    assert routers["site-a-example-com"]["rule"] == "Host(`a.example.com`)"
+    custom = routers["site-a-example-com--www-shop-io"]
+    assert custom["rule"] == "Host(`www.shop.io`)"
+    assert custom["service"] == "svc-a-example-com"
+    assert custom["tls"] == {"certResolver": "letsencrypt"}
+    assert custom["middlewares"] == ["site-a-example-com-name@file", "security-headers@file", "compress@file"]
+    assert list(r["http"]["services"]) == ["svc-a-example-com"]
+    assert list(r["http"]["middlewares"]) == ["site-a-example-com-name"]
     assert r["http"]["services"]["svc-a-example-com"]["loadBalancer"]["servers"][0]["url"] == "http://b-v14-frontend:8080"
 
 

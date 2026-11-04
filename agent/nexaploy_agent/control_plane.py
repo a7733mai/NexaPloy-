@@ -1,7 +1,8 @@
 """Outbound control-plane protocol (§5.6).
 
-* heartbeat every ``heartbeat_seconds``: ``{server_id, facts, benches, agent_version[, usage]}``
-  (``usage`` - per-site CPU/DB/storage - at most every 15 minutes, see runtime/usage.py)
+* heartbeat every ``heartbeat_seconds``: ``{server_id, facts, benches, agent_version[, usage][, tls]}``
+  (``usage`` - per-site CPU/DB/storage - at most every 15 minutes, see runtime/usage.py;
+  ``tls`` - certificate served for every routed host - at most every 10 minutes, runtime/tls.py)
 * poll every ``poll_seconds``: ``{"message": [{job_id, kind, params}]}`` -> enqueued
   locally with ``origin=control_plane, remote_id=job_id`` (deduplicated)
 * job_update on every status/step change of control-plane jobs
@@ -134,7 +135,7 @@ class ControlPlaneClient:
 
     # ---- protocol calls ----------------------------------------------------------------
     def heartbeat(self, facts: dict[str, Any], benches: list[dict[str, Any]],
-                  usage: dict[str, Any] | None = None) -> Any:
+                  usage: dict[str, Any] | None = None, tls: dict[str, Any] | None = None) -> Any:
         if not self.enabled:
             return None
         body: dict[str, Any] = {
@@ -145,6 +146,8 @@ class ControlPlaneClient:
         }
         if usage:
             body["usage"] = usage
+        if tls:
+            body["tls"] = tls
         return self.request("POST", "heartbeat", json=body)
 
     def poll(self) -> list[dict[str, Any]]:
@@ -186,6 +189,9 @@ class ControlPlaneService:
         from .runtime.usage import HeartbeatUsage
 
         self.usage = HeartbeatUsage(lambda: self.ctx.usage)
+        from .runtime.tls import HeartbeatTls
+
+        self.tls = HeartbeatTls(lambda: self.ctx.tls)
 
     @property
     def enabled(self) -> bool:
@@ -205,11 +211,14 @@ class ControlPlaneService:
         for b in benches:
             b["sites"] = [self.ctx.sites.info(b["name"], s) for s in b.get("sites", [])]
         usage = self.usage.maybe_collect()
+        tls = self.tls.maybe_collect()
         try:
-            self.client.heartbeat(facts, benches, usage=usage)
+            self.client.heartbeat(facts, benches, usage=usage, tls=tls)
         except Exception:
             if usage is not None:
                 self.usage.last = None  # not delivered: send it with the next heartbeat
+            if tls is not None:
+                self.tls.last = None
             raise
 
     def poll_once(self) -> list[str]:

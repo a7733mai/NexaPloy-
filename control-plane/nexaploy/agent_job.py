@@ -43,6 +43,8 @@ JOB_KINDS = (
 	"site.slow_queries",
 	"site.sql",
 	"site.console",
+	# custom domains: certificate served per host (TLS health)
+	"site.tls_status",
 )
 
 

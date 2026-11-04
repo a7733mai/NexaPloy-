@@ -264,9 +264,9 @@ def on_site_domain(job):
 	domain = (_json(job.params, {}) or {}).get("domain")
 	ok = job.status == "Success"
 	if job.kind == "site.add_domain":
-		for row in site.domains:
-			if row.domain == domain:
-				row.status = "Active" if ok else "Broken"
+		from nexaploy.domains import on_add_domain_finished
+
+		on_add_domain_finished(site, domain, ok, job.error)
 	elif ok:
 		site.domains = [row for row in site.domains if row.domain != domain]
 	else:
@@ -274,6 +274,16 @@ def on_site_domain(job):
 			if row.domain == domain:
 				row.status = "Broken"
 	_save(site)
+
+
+@handles("site.tls_status")
+def on_site_tls_status(job):
+	"""Certificate report for a site's hosts -> TLS fields on Site / Site Domain."""
+	if job.status != "Success":
+		return
+	from nexaploy.domains import ingest_tls
+
+	ingest_tls(job.server, _json(job.result, {}))
 
 
 # --------------------------------------------------------------------------- backups

@@ -860,3 +860,29 @@ scheduler_events["daily"] += ["nexaploy.billing.payouts.generate_publisher_payou
 
 Not yet verified on a bench: the desk buttons (Marketplace App review, Publisher Payout, Support Ticket
 Reply), `format:` naming of payouts/tickets, the GitHub branch listing on approval, email delivery.
+
+## Custom domains: DNS verification & TLS health
+
+Code: `nexaploy/domains.py` (lookups, rows, jobs, TLS ingest), pure logic `nexaploy/domain_utils.py`,
+portal API `nexaploy/api/domains.py`, portal component `public/js/domains.js` (`nxDomains`, Domains tab of
+`/dashboard/site`).
+
+- **Add**: `Site.add_domain(domain, skip_dns_check=False)` appends a `Pending DNS` row and checks DNS at once
+  (dnspython against 1.1.1.1 / 8.8.8.8; `socket` fallback). Correct = A/AAAA records only point to the server
+  (Server `dns_target_ips` override, else `public_ipv4`/`public_ipv6` + agent facts `public_ips`, else
+  `agent_ip`, the heartbeat's source address) or a CNAME (anywhere in the chain) to the site's primary
+  hostname. Then the row becomes `Verifying` and `site.add_domain` is sent; the callback sets `Active`
+  (+ `activated_at`) or `Broken` (agent error in `dns_check_message`).
+- **Not yet correct**: the portal shows the records to create (CNAME for subdomains, A/AAAA for apex
+  domains) with copy buttons and the reason (no record, wrong IP, stray AAAA, dangling CNAME...).
+  Cloudflare-proxied records (orange cloud) are detected and explained (`proxied`).
+  `nexaploy.domains.verify_pending_domains` (every 5 min) re-checks every 5/15/30/60 min depending on age and
+  marks the row `Broken` after 72 h; "Verify now" starts a new window.
+- **Operator override**: System Managers can tick `skip_dns_check` (portal: "Skip DNS check" / API
+  `set_skip_dns_check`) e.g. for a Cloudflare-proxied domain; `verification_type` becomes `Skipped`.
+- **TLS**: heartbeat `tls` (every 10 min) and `site.tls_status` (portal "Check certificates") update
+  `tls_status/tls_issuer/tls_expires_on/tls_checked_at/tls_message` on Site Domain and, for the primary
+  hostname, on Site. Traefik's default certificate is flagged (`Default Certificate`, with a DNS / port 80 /
+  rate-limit hint) once the domain has been active for 15 min. Certificates with < 14 days left call
+  `nexaploy.notify.notify(team, "ssl_expiring", ...)` when that module exists, once per threshold
+  (14/7/3/1/0 days; `tls_alert_marker`).

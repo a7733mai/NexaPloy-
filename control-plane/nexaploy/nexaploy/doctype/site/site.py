@@ -5,9 +5,19 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from nexaploy import domain_utils as du
 from nexaploy import lifecycle_utils as lu
 from nexaploy.agent_job import create_agent_job
 from nexaploy.utils import is_valid_domain, is_valid_site_name, secret_ref
+
+
+# Site Domain values carried over when the rows are rebuilt (rename)
+DOMAIN_ROW_FIELDS = (
+	"domain", "status", "verification_type", "skip_dns_check", "proxied", "dns_requested_at",
+	"last_checked_at", "dns_check_attempts", "activated_at", "dns_check_message", "dns_check_detail",
+	"tls_status", "tls_issuer", "tls_expires_on", "tls_checked_at", "tls_message", "tls_detail",
+	"tls_alert_marker",
+)
 
 
 class Site(Document):
@@ -20,7 +30,9 @@ class Site(Document):
 		for row in self.apps:
 			row.status = "Pending"
 		for row in self.domains:
-			row.status = "Pending"
+			# verified by nexaploy.domains.verify_pending_domains once the site is Active
+			row.status = du.PENDING_DNS
+			row.dns_requested_at = frappe.utils.now_datetime()
 
 	@staticmethod
 	def _current_team():
@@ -140,16 +152,36 @@ class Site(Document):
 		return self._job("site.uninstall_app", {"app": app})
 
 	@frappe.whitelist()
-	def add_domain(self, domain):
+	def add_domain(self, domain, skip_dns_check=False):
+		"""Attach a custom domain. DNS is verified first (nexaploy.domains): only when the
+		domain resolves to the server (A/AAAA) or is a CNAME to the site's primary hostname is
+		site.add_domain sent to the agent; otherwise the row stays "Pending DNS" and the
+		scheduler re-checks it for 72 hours. `skip_dns_check` (System Manager only) skips the
+		check, e.g. for a domain behind the Cloudflare proxy.
+
+		Returns the site.add_domain Agent Job name, or None while DNS is pending."""
+		from nexaploy.domains import verify_domain
+
 		self._ensure_active()
-		domain = (domain or "").strip().lower()
+		domain = du.normalize_host(domain)
+		skip = bool(frappe.parse_json(skip_dns_check) if isinstance(skip_dns_check, str) else skip_dns_check)
+		if skip and "System Manager" not in frappe.get_roles():
+			raise frappe.PermissionError(_("Only administrators can skip DNS verification"))
 		if frappe.db.exists("Site Domain", {"domain": domain, "parenttype": "Site"}) or frappe.db.exists(
 			"Site", domain
 		):
 			frappe.throw(_("Domain {0} is already in use").format(domain))
-		self.append("domains", {"domain": domain, "status": "Pending"})
+		self.append(
+			"domains",
+			{
+				"domain": domain,
+				"status": du.PENDING_DNS,
+				"dns_requested_at": frappe.utils.now_datetime(),
+				"skip_dns_check": int(skip),
+			},
+		)
 		self.save()  # validate() checks the FQDN rule
-		return self._job("site.add_domain", {"domain": domain})
+		return verify_domain(self.name, domain, manual=True).get("job")
 
 	@frappe.whitelist()
 	def remove_domain(self, domain):
@@ -157,6 +189,11 @@ class Site(Document):
 		rows = [row for row in self.domains if row.domain == domain]
 		if not rows:
 			frappe.throw(_("Domain {0} is not attached to this site").format(domain))
+		if rows[0].status == du.PENDING_DNS:
+			# never sent to the server: nothing to undo there
+			self.domains = [row for row in self.domains if row.domain != domain]
+			self.save()
+			return None
 		rows[0].status = "Removing"
 		self.save()
 		return self._job("site.remove_domain", {"domain": domain})
@@ -353,9 +390,11 @@ class Site(Document):
 	def _readd_domains(self):
 		"""The restored site_config on the target has no custom domains: add them again."""
 		self.reload()
-		rows = [row for row in self.domains if row.status != "Removing"]
+		# Pending DNS rows were never on the server: the scheduler verifies them against the
+		# new server's IPs. The others are re-added (their DNS must follow the move).
+		rows = [row for row in self.domains if row.status not in ("Removing", du.PENDING_DNS)]
 		for row in rows:
-			row.status = "Pending"
+			row.status = du.VERIFYING
 		if rows:
 			self.flags.ignore_permissions = True
 			self.save()
@@ -419,9 +458,13 @@ class Site(Document):
 		domains = [row for row in doc.domains if row.domain not in (new_name, old_name)]
 		doc.set("domains", [])
 		for row in domains:
-			doc.append("domains", {"domain": row.domain, "status": row.status})
+			doc.append("domains", {k: row.get(k) for k in DOMAIN_ROW_FIELDS})
 		if keep_old:
-			doc.append("domains", {"domain": old_name, "status": "Active"})
+			doc.append(
+				"domains",
+				{"domain": old_name, "status": "Active", "verification_type": "Skipped",
+				 "activated_at": frappe.utils.now_datetime()},
+			)
 		doc.status = "Active"
 		doc.flags.ignore_permissions = True
 		doc.save()

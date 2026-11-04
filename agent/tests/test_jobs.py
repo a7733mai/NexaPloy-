@@ -207,9 +207,8 @@ def test_domains(ctx, worker, runner):
     job = run_job(ctx, worker, "site.add_domain", {"site": "a.example.com", "domain": "WWW.Example.com"})
     assert job["status"] == "success", job
     assert runner.called("bench setup add-domain www.example.com --site a.example.com")
-    rule = yaml.safe_load(ctx.proxy.route_path("a.example.com").read_text())["http"]["routers"][
-        "site-a-example-com"]["rule"]
-    assert rule == "Host(`a.example.com`) || Host(`www.example.com`)"
+    routers = yaml.safe_load(ctx.proxy.route_path("a.example.com").read_text())["http"]["routers"]
+    assert [r["rule"] for r in routers.values()] == ["Host(`a.example.com`)", "Host(`www.example.com`)"]
     # idempotent
     runner.reset()
     job = run_job(ctx, worker, "site.add_domain", {"site": "a.example.com", "domain": "www.example.com"})

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import os
 import platform
 import shutil
@@ -157,6 +158,36 @@ def _bench_names(root: Path) -> list[str]:
     return sorted(p.name for p in d.iterdir() if p.is_dir() and v.BENCH_RE.match(p.name))
 
 
+# Public resolvers used only as routing targets: connect() on a UDP socket sends nothing,
+# it just makes the kernel pick the source address of the default route.
+_ROUTE_PROBES = ((socket.AF_INET, "1.1.1.1"), (socket.AF_INET6, "2606:4700:4700::1111"))
+
+
+def public_addresses(probes=_ROUTE_PROBES) -> list[str]:
+    """Global (public) source addresses of the default IPv4/IPv6 routes.
+
+    Used by the control plane as the DNS target for custom domains (A/AAAA records) when the
+    Server has no public_ipv4/public_ipv6. Behind NAT (private source address) nothing is
+    reported for that family; the control plane then falls back to the address the agent
+    connects from, or to the operator's override.
+    """
+    found: list[str] = []
+    for family, target in probes:
+        try:
+            with socket.socket(family, socket.SOCK_DGRAM) as sock:
+                sock.connect((target, 53))
+                addr = sock.getsockname()[0]
+        except OSError:
+            continue
+        try:
+            ip = ipaddress.ip_address(str(addr).split("%", 1)[0])
+        except ValueError:
+            continue
+        if ip.is_global and str(ip) not in found:
+            found.append(str(ip))
+    return found
+
+
 def host_facts(docker: Docker | None, root: Path) -> dict[str, Any]:
     mem = _meminfo()
     osr = _os_release()
@@ -191,6 +222,7 @@ def host_facts(docker: Docker | None, root: Path) -> dict[str, Any]:
         "docker_version": docker.server_version() if docker else None,
         "compose_version": docker.compose_version() if docker else None,
         "agent_version": __version__,
+        "public_ips": public_addresses(),
     }
     if docker:
         facts.update(container_facts(docker, _bench_names(root)))
