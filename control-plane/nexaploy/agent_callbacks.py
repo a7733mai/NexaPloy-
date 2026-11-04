@@ -584,3 +584,11 @@ import nexaploy.agent_upgrades  # noqa: E402,F401
 from nexaploy import storage as _storage  # noqa: E402
 
 _storage.register(handles)
+
+
+@handles("controlplane.update")
+def on_controlplane_update(job):
+	"""Control plane self-update (references its host Server): activity log entry."""
+	from nexaploy.controlplane import on_update_job
+
+	on_update_job(job)

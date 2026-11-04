@@ -3,6 +3,7 @@
 {% block head %}
 <!-- synchronous on purpose: registers its alpine:init listener before Alpine (deferred) starts -->
 <script src="/assets/nexaploy/js/admin.js"></script>
+<script src="/assets/nexaploy/js/controlplane_admin.js"></script>
 <style>
 	.nx-admin-stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
 	.nx-admin-form { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); align-items: end; }
@@ -30,6 +31,7 @@
 	<!-- ============================================================ overview -->
 	<template x-if="tab === 'overview' && ov">
 		<div class="stack">
+			{% include "templates/includes/controlplane_admin.html" %}
 			<div class="nx-admin-stats">
 				<div class="card stat">
 					<div class="label">{{ _("Servers") }}</div>

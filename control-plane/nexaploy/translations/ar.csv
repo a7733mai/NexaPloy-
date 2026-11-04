@@ -2079,3 +2079,39 @@ Now,الآن
 Peak,الذروة
 No measurements yet: the agent reports them every 5 minutes.,لا توجد قياسات بعد: يرسلها الـ agent كل 5 دقائق.
 Could not load the charts,تعذّر تحميل الرسوم البيانية
+Setup checklist,قائمة الإعداد
+Dismiss,إخفاء
+Done,تم
+To do,مطلوب
+Platform name and root domain,اسم المنصة والنطاق الرئيسي
+Billing currency,عملة الفوترة
+Payment gateway (Stripe or Paymob),بوابة الدفع (Stripe أو Paymob)
+Backup storage,تخزين النسخ الاحتياطية
+Outgoing e-mail,البريد الصادر
+First plans,الباقات الأولى
+External uptime probe,مسبار مراقبة خارجي
+Create and verify a test site,إنشاء موقع تجريبي والتحقق منه
+Check for updates,التحقق من التحديثات
+Latest release,أحدث إصدار
+Version or image (empty = latest release),الإصدار أو الصورة (فارغ = أحدث إصدار)
+Update control plane,تحديث لوحة التحكم
+"A backup of the control plane is taken first. The panel restarts during the update; if migrating or the health check fails, the previous version and database are restored automatically.",تُؤخذ نسخة احتياطية من لوحة التحكم أولاً. تُعاد تشغيل اللوحة أثناء التحديث؛ وإذا فشل الترحيل أو فحص السلامة تُستعاد النسخة السابقة وقاعدة البيانات تلقائياً.
+Step,الخطوة
+The control plane is restarting…,لوحة التحكم قيد إعادة التشغيل…
+Update the control plane now? It restarts during the update.,تحديث لوحة التحكم الآن؟ ستُعاد تشغيلها أثناء التحديث.
+Updating,جارٍ التحديث
+Already up to date,محدّثة بالفعل
+Rolled back,تم التراجع
+Rollback incomplete,التراجع غير مكتمل
+prepare,التحضير
+backup,النسخ الاحتياطي
+pull,تنزيل الصورة
+switch,تبديل الصورة
+migrate,الترحيل
+health,فحص السلامة
+finalize,الإنهاء
+No release found; enter an image or a version,لم يُعثر على إصدار؛ أدخل صورة أو إصداراً
+A control plane update is already in progress ({0}),يوجد تحديث للوحة التحكم قيد التنفيذ ({0})
+Invalid image {0},صورة غير صالحة {0}
+Invalid version {0},إصدار غير صالح {0}
+"This control plane does not run on a server managed by Nexaploy (it was not installed with install.sh --with-control-plane), so it cannot update itself. Update it where it runs: back up the site, pull the new image (docker compose pull), restart (docker compose up -d) and run bench --site <site> migrate.",لوحة التحكم هذه لا تعمل على خادم يديره Nexaploy (لم تُثبَّت بـ install.sh --with-control-plane)، لذا لا يمكنها تحديث نفسها. حدّثها حيث تعمل: انسخ الموقع احتياطياً، ونزّل الصورة الجديدة (docker compose pull)، وأعد التشغيل (docker compose up -d)، ثم شغّل bench --site <site> migrate.

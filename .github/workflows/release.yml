@@ -57,6 +57,7 @@ jobs:
       - run: python -m pytest scripts/tests -q
       - run: bash -n agent/install/install.sh image-builder/build.sh scripts/release.sh packer/scripts/*.sh packer/files/usr/local/sbin/nexaploy-firstboot
       - run: bash packer/tests/test_firstboot.sh
+      - run: for t in agent/install/tests/*.sh; do bash "$t"; done
 
   image:
     needs: [meta, test]
@@ -79,7 +80,9 @@ jobs:
       - name: Build
         run: |
           test -x control-plane/docker/build.sh || chmod +x control-plane/docker/build.sh
-          control-plane/docker/build.sh --from-official "$OFFICIAL_IMAGE" --tag "$IMAGE:$VERSION"
+          # the pinned official image (same one install.sh builds from when no image is published)
+          pinned="$(python3 -c 'import json; print(json.load(open("image-builder/versions.json"))[__import__("os").environ["FRAPPE_MAJOR"]].get("official_image", ""))')"
+          control-plane/docker/build.sh --from-official "${pinned:-$OFFICIAL_IMAGE}" --tag "$IMAGE:$VERSION"
       - name: Push
         run: |
           docker push "$IMAGE:$VERSION"
@@ -120,7 +123,10 @@ jobs:
             echo "### Install"
             echo
             echo '```bash'
-            echo "curl -fsSL https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/install.sh | sudo bash -s -- --branch ${GITHUB_REF_NAME} ..."
+            echo "# all-in-one (control plane on this server):"
+            echo "curl -fsSL https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/install.sh | sudo bash -s -- --branch ${GITHUB_REF_NAME} --with-control-plane cp.example.com --acme-email you@example.com"
+            echo "# join an existing control plane:"
+            echo "curl -fsSL https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/install.sh | sudo bash -s -- --branch ${GITHUB_REF_NAME} --control-plane https://cp.example.com --token <TOKEN>"
             echo '```'
             echo
             echo "Control plane image: \`${IMAGE}:${VERSION}\`"

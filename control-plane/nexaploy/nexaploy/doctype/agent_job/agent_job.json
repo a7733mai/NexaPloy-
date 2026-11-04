@@ -42,7 +42,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Kind",
-   "options": "image.build\nbench.create\nbench.start\nbench.stop\nbench.restart\nbench.update\nbench.remove\nsite.create\nsite.install_app\nsite.uninstall_app\nsite.add_domain\nsite.remove_domain\nsite.backup\nsite.restore\nsite.migrate\nsite.set_config\nsite.drop\nserver.configure_backups\nserver.health\nbackup.prune_remote\nbackup.test_remote\nsite.usage\nsite.get_config\nsite.update_config\nsite.clone\nsite.rename\nsite.logs\nsite.analytics\nsite.slow_queries\nsite.sql\nsite.console\nsite.tls_status\nsite.configure_email\nsite.smoke_check\nsite.restore_pitr\nserver.archive_binlogs\nagent.upgrade\nagent.rollback\nsite.storage_configure\nsite.storage_migrate\nsite.storage_status\nsite.storage_failover\nsite.storage_trash_list\nsite.storage_trash_restore\nserver.storage_replicate\nserver.storage_prune_trash",
+   "options": "image.build\nbench.create\nbench.start\nbench.stop\nbench.restart\nbench.update\nbench.remove\nsite.create\nsite.install_app\nsite.uninstall_app\nsite.add_domain\nsite.remove_domain\nsite.backup\nsite.restore\nsite.migrate\nsite.set_config\nsite.drop\nserver.configure_backups\nserver.health\nbackup.prune_remote\nbackup.test_remote\nsite.usage\nsite.get_config\nsite.update_config\nsite.clone\nsite.rename\nsite.logs\nsite.analytics\nsite.slow_queries\nsite.sql\nsite.console\nsite.tls_status\nsite.configure_email\nsite.smoke_check\nsite.restore_pitr\nserver.archive_binlogs\nagent.upgrade\nagent.rollback\nsite.storage_configure\nsite.storage_migrate\nsite.storage_status\nsite.storage_failover\nsite.storage_trash_list\nsite.storage_trash_restore\nserver.storage_replicate\nserver.storage_prune_trash\ncontrolplane.update",
    "reqd": 1
   },
   {

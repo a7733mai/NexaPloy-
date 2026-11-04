@@ -1,0 +1,66 @@
+<!-- /dashboard/admin Overview: first-run setup checklist + control plane version / self-update
+     (public/js/controlplane_admin.js, API nexaploy.api.controlplane.*) -->
+<div class="stack" x-data="nxControlPlane">
+	<template x-if="setup && setup.show">
+		<section class="card">
+			<div class="card-head">
+				<h2>{{ _("Setup checklist") }} <span class="small muted"><span x-text="setup.completed"></span>/<span x-text="setup.total"></span></span></h2>
+				<button class="btn sm" type="button" @click="dismiss()" :disabled="busy">{{ _("Dismiss") }}</button>
+			</div>
+			<div class="card-body">
+				<template x-for="i in setup.items" :key="i.key">
+					<div class="row small">
+						<span :class="i.done ? 'badge success' : 'badge warning'" x-text="i.done ? __('Done') : __('To do')"></span>
+						<a :href="i.link" x-text="__(i.label)"></a>
+					</div>
+				</template>
+			</div>
+		</section>
+	</template>
+
+	<section class="card" x-show="st">
+		<div class="card-head">
+			<h2>{{ _("Control plane") }}</h2>
+			<button class="btn sm" type="button" @click="load(true)" :disabled="busy">{{ _("Check for updates") }}</button>
+		</div>
+		<div class="card-body" x-show="st">
+			<dl class="kv">
+				<dt>{{ _("Version") }}</dt><dd class="ltr" x-text="st && st.version"></dd>
+				<dt>{{ _("Image") }}</dt><dd class="ltr small" x-text="(st && st.image) || '—'"></dd>
+				<dt>{{ _("Latest release") }}</dt>
+				<dd>
+					<span class="ltr" x-text="st && st.latest ? st.latest.version : '—'"></span>
+					<span class="badge info" x-show="st && st.update_available">{{ _("Update available") }}</span>
+					<span class="small muted" x-show="st && st.latest_error" x-text="st && st.latest_error"></span>
+				</dd>
+			</dl>
+			<template x-if="st && !st.can_update">
+				<p class="alert" x-text="__(st.reason)"></p>
+			</template>
+			<template x-if="st && st.can_update">
+				<div class="stack">
+					<div class="nx-admin-form">
+						<label>{{ _("Version or image (empty = latest release)") }}
+							<input type="text" class="ltr" x-model="target" :placeholder="st.latest_image || ''">
+						</label>
+						<div class="nx-admin-actions">
+							<button class="btn primary" type="button" @click="update()" :disabled="busy || running()">{{ _("Update control plane") }}</button>
+						</div>
+					</div>
+					<p class="small muted">{{ _("A backup of the control plane is taken first. The panel restarts during the update; if migrating or the health check fails, the previous version and database are restored automatically.") }}</p>
+				</div>
+			</template>
+			<template x-if="job">
+				<div class="stack">
+					<div class="row small">
+						<span :class="stateClass()" x-text="stateLabel()"></span>
+						<span class="ltr" x-text="job.image"></span>
+						<span class="muted" x-show="job.step" x-text="__('Step') + ': ' + __(job.step || '')"></span>
+						<span class="muted" x-show="offline">{{ _("The control plane is restarting…") }}</span>
+					</div>
+					<p class="small" x-show="job.error" x-text="job.error"></p>
+				</div>
+			</template>
+		</div>
+	</section>
+</div>
