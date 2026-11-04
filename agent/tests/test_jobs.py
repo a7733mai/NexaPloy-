@@ -144,7 +144,7 @@ def test_site_create(ctx, worker, runner):
         "bench": "erp-v15", "name": "erp.example.com", "admin_password": "Adm1nPass!", "apps": ["erpnext", "hrms"],
     })
     assert job["status"] == "success", job
-    new_site = runner.find("new-site")[0].args
+    new_site = [c for c in runner.find("new-site") if "--help" not in c.args][0].args
     i = new_site.index("bench")
     assert new_site[:i] == ["docker", "compose", "-p", "erp-v15", "--project-directory",
                             str(ctx.benches.path("erp-v15")), "exec", "-T", "backend"]
@@ -153,6 +153,7 @@ def test_site_create(ctx, worker, runner):
     for flag, val in (("--db-host", "nexaploy-db"), ("--db-root-username", "root"),
                       ("--db-root-password", DB_PW), ("--admin-password", "Adm1nPass!")):
         assert tail[tail.index(flag) + 1] == val
+    # the fake `bench new-site --help` lists no login-scope flag -> treated as v14 (legacy flag)
     assert "--no-mariadb-socket" in tail
     assert installed == ["erpnext", "hrms"]
     assert job["result"]["apps"] == ["frappe", "erpnext", "hrms"]
@@ -364,3 +365,20 @@ def test_runner_result_helpers():
     assert not r.ok
     with pytest.raises(Exception):
         r.check()
+
+
+
+def test_new_site_flag_follows_frappe_version(ctx, worker, runner):
+    """v15+/v16 get --mariadb-user-host-login-scope=% (v16 deprecates --no-mariadb-socket);
+    v14 (no such option in `bench new-site --help`) keeps --no-mariadb-socket."""
+    make_bench(ctx, "erp-v16")
+    bench_running(runner)
+    runner.on("list-apps", returncode=1, stderr="no site")
+    _script_new_site(ctx, runner, bench="erp-v16")
+    runner.on("--help", stdout="Options:\n  --mariadb-user-host-login-scope TEXT\n")
+    job = run_job(ctx, worker, "site.create", {
+        "bench": "erp-v16", "name": "v16.example.com", "admin_password": "Adm1nPass!", "apps": [],
+    })
+    assert job["status"] == "success", (job["error"], [s["output"][-300:] for s in job["steps"] if s["status"]=="failure"])
+    args = [c for c in runner.find("new-site") if "--help" not in c.args][0].args
+    assert "--mariadb-user-host-login-scope=%" in args and "--no-mariadb-socket" not in args

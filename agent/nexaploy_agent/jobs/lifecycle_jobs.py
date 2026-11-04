@@ -116,7 +116,8 @@ class SiteClone(_SiteJob):
         else:
             password = self.secret(secrets.token_urlsafe(18))  # replaced by the restored database
             db_host = self.ctx.benches.read_env(bench).get("DB_HOST") or self.settings.bench.db_host
-            args = SiteManager.new_site_args(self.target, password, self.db_root_password(), db_host)
+            args = SiteManager.new_site_args(self.target, password, self.db_root_password(), db_host,
+                                             legacy_host_flag=self.ctx.sites.legacy_host_flag(bench))
             self.check(self.ctx.sites.bench(bench, args), "bench new-site")
         self.result["target_created"] = True
         self._write_target_config(lambda cfg: {**cfg, STAGING_CONFIG_KEY: self.site})

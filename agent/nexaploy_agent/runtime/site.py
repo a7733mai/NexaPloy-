@@ -127,14 +127,17 @@ class SiteManager:
     # ---- command builders (pure: used by jobs, unit-tested) ------------------------
     @staticmethod
     def new_site_args(site: str, admin_password: str, db_root_password: str, db_host: str,
-                      force: bool = False) -> list[str]:
+                      force: bool = False, legacy_host_flag: bool = False) -> list[str]:
+        """`legacy_host_flag`: Frappe v14 only knows --no-mariadb-socket; v15.x+ has
+        --mariadb-user-host-login-scope (v16 deprecates the old flag). Both let the site's DB
+        user connect from other containers (host '%')."""
         args = [
             "new-site", v.site_name(site),
             "--db-host", db_host,
             "--db-root-username", BENCH_DB_ROOT_USER,
             "--db-root-password", db_root_password,
             "--admin-password", admin_password,
-            "--no-mariadb-socket",
+            "--no-mariadb-socket" if legacy_host_flag else "--mariadb-user-host-login-scope=%",
         ]
         if force:
             args.append("--force")
@@ -151,6 +154,18 @@ class SiteManager:
     # ---- operations --------------------------------------------------------------
     def bench(self, bench: str, args: list[str], timeout: float | None = 3600) -> Result:
         return self.docker.bench_cmd(bench, args, timeout=timeout)
+
+    def legacy_host_flag(self, bench: str) -> bool:
+        """True when this bench's Frappe lacks --mariadb-user-host-login-scope (v14).
+        Asked once per bench image (`bench new-site --help`), cached in memory."""
+        image = self.benches.image(bench) if self.benches.exists(bench) else None
+        key = (bench, image)
+        cache = self.__dict__.setdefault("_host_flag_cache", {})
+        if key not in cache:
+            res = self.bench(bench, ["new-site", "--help"], timeout=120)
+            # unknown on failure: prefer the modern flag (v15+/v16 are the common case)
+            cache[key] = bool(res.ok) and "--mariadb-user-host-login-scope" not in (res.stdout or "")
+        return cache[key]
 
     def installed_apps(self, bench: str, site: str) -> list[str] | None:
         """Apps installed on the site, or None when the site is not usable."""

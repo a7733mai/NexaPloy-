@@ -63,3 +63,27 @@ All 15 portal pages were opened in Chromium (Playwright) as a customer: no JS er
 Alpine components initialise, English and Arabic (RTL). Screenshots: `docs/screenshots/`.
 Alpine.js is vendored (`control-plane/nexaploy/public/js/vendor/`) so customer pages load
 nothing from third-party CDNs.
+
+## Frappe v16 (verified)
+
+```bash
+e2e/build-test-image.sh mirror.gcr.io/frappe/erpnext:v16 nexaploy/bench:e2e-v16-20261104T0000
+```
+
+Verified with Frappe 16.55.1 / ERPNext 16.53.0 (Python 3.14, Node 24) on the same server
+as the v15 benches:
+
+- bench + site created from the control plane, HTTPS, login, records, assets
+- SQL (read-only), console, logs, backup on v16
+- **upgrade v15 → v16** from the portal (`move_site(..., allow_upgrade=1)`): backup on the
+  v15 bench → restore + migrate on the v16 bench; data kept, custom domain re-added
+- without `allow_upgrade` the move is refused
+
+What v16 changed for us (fixed):
+
+- its MariaDB 11.8 client requires TLS → the shared DB is now `mariadb:11.8` (TLS out of the
+  box); an existing 10.6 data dir upgraded in place with v15 sites still working
+- `--no-mariadb-socket` is deprecated → the agent uses `--mariadb-user-host-login-scope=%`
+  and falls back to the old flag only when `bench new-site --help` lacks the new one (v14)
+- the official v16 image already bakes assets in `./assets` and runs frappe as `1000:0`
+  (handled by `e2e/Containerfile.official`)

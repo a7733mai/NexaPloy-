@@ -28,7 +28,7 @@ is who pays for the VM.
 Rules:
 
 - A server hosts many benches (v14, v15, v16 side by side). Each bench has its own image, Redis pair and compose project.
-- A server has one shared MariaDB (`mariadb:10.6`) used by all benches; each site gets its own database/user (standard Frappe).
+- A server has one shared MariaDB (`mariadb:11.8` LTS; the v16 image's 11.8 client requires TLS, which 11.4+ servers provide out of the box; 10.6 data dirs upgrade in place) used by all benches; each site gets its own database/user (standard Frappe).
 - A bench hosts many sites. Traefik routes by Host and sets `X-Frappe-Site-Name: <site>` per site route; the bench frontend uses `FRAPPE_SITE_NAME_HEADER=$http_x_frappe_site_name`, so custom domains reach the right site.
 - Moving a site to another major (v14 → v15) = backup → restore on a bench of the target Release Group → migrate. Never in place.
 
@@ -145,7 +145,7 @@ Traefik v3, **file provider only** (no Docker provider, no docker socket): `prov
 
 ### 3.4 Shared DB stack
 
-`mariadb:10.6`, utf8mb4, `--skip-innodb-read-only-compressed`,
+`mariadb:11.8` (override with `MARIADB_IMAGE`), utf8mb4, `--skip-innodb-read-only-compressed`,
 `--innodb-buffer-pool-size=${DB_BUFFER_POOL:-1G}`, healthcheck, bind mount `./data`,
 network `nexaploy-db`, no published ports. Root password from `/opt/nexaploy/config/db.env` (`env_file`).
 

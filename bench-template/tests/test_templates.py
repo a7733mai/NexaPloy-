@@ -270,7 +270,8 @@ def test_db(db):
     assert db["name"] == "nexaploy-db"
     assert list(db["services"]) == ["mariadb"]
     m = db["services"]["mariadb"]
-    assert m["image"] == "mariadb:10.6"
+    # 11.8 LTS: the Frappe v16 image ships the 11.8 client, which requires TLS
+    assert m["image"] == "${MARIADB_IMAGE:-mariadb:11.8}"
     assert m["container_name"] == "nexaploy-db"
     assert m["user"] == "3101:3101"
     assert "ports" not in m

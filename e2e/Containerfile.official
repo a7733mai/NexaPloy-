@@ -7,14 +7,18 @@ ARG BASE=mirror.gcr.io/frappe/erpnext:v15.89.0
 FROM ${BASE}
 USER root
 RUN set -eux; \
-    groupmod -g 3113 frappe; usermod -u 3113 -g 3113 frappe; \
+    # v15 images: frappe 1000:1000; v16 images: frappe 1000:0 (group-writable, OpenShift style)
+    if getent group frappe >/dev/null; then groupmod -g 3113 frappe; else groupadd -g 3113 frappe; fi; \
+    usermod -u 3113 -g 3113 frappe; \
     chown -R 3113:3113 /home/frappe; \
     touch /run/nginx.pid; \
     chown -R 3113:3113 /etc/nginx/conf.d /var/log/nginx /var/lib/nginx /run/nginx.pid; \
     cd /home/frappe/frappe-bench; \
     mkdir -p .nexaploy; cp sites/apps.txt .nexaploy/apps.txt; \
     if [ -f sites/apps.json ]; then cp sites/apps.json .nexaploy/apps.json; fi; \
-    mv sites/assets assets; chown -R 3113:3113 .nexaploy assets
+    # v15: assets live in sites/assets; v16 already bakes them in ./assets
+    if [ -d sites/assets ] && [ ! -L sites/assets ]; then rm -rf assets; mv sites/assets assets; fi; \
+    chown -R 3113:3113 .nexaploy assets
 COPY --chmod=755 <<'EOF' /usr/local/bin/nexaploy-entrypoint.sh
 #!/bin/bash
 set -e

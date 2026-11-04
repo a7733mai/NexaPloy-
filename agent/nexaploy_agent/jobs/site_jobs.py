@@ -223,7 +223,8 @@ class SiteCreate(_SiteJob):
             force = True
         db_host = self.ctx.benches.read_env(bench).get("DB_HOST") or self.settings.bench.db_host
         args = SiteManager.new_site_args(
-            self.site, self.p.admin_password, self.db_root_password(), db_host, force=force
+            self.site, self.p.admin_password, self.db_root_password(), db_host, force=force,
+            legacy_host_flag=self.ctx.sites.legacy_host_flag(bench),
         )
         self.check(self.ctx.sites.bench(bench, args), "bench new-site")
 
@@ -503,7 +504,8 @@ class SiteRestore(_SiteJob):
             return
         password = self.secret(secrets.token_urlsafe(18))
         db_host = self.ctx.benches.read_env(bench).get("DB_HOST") or self.settings.bench.db_host
-        args = SiteManager.new_site_args(self.site, password, self.db_root_password(), db_host)
+        args = SiteManager.new_site_args(self.site, password, self.db_root_password(), db_host,
+                                         legacy_host_flag=self.ctx.sites.legacy_host_flag(bench))
         self.check(self.ctx.sites.bench(bench, args, timeout=3600), "bench new-site")
         self.result["created_site"] = True
 

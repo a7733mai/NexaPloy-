@@ -6,7 +6,10 @@ name: nexaploy-db
 
 services:
   mariadb:
-    image: mariadb:10.6
+    # 11.8 LTS: Frappe v16 ships the 11.8 client, which requires TLS; 11.4+ servers offer TLS
+    # with an auto-generated certificate (zero-config). 10.6 data dirs upgrade in place
+    # (MARIADB_AUTO_UPGRADE). Older bench images (10.x clients) connect as before.
+    image: ${MARIADB_IMAGE:-mariadb:11.8}
     container_name: nexaploy-db
     user: "3101:3101"
     # db.env carries DB_ROOT_PASSWORD; map it to the name the image expects
