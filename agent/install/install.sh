@@ -48,6 +48,8 @@ CP_ADMIN_PASSWORD=""
 CP_RESTORE=""
 SKIP_DNS_CHECK=0
 ASSUME_YES=0
+FIREWALL=1
+FAIL2BAN=1
 
 usage() {
     cat <<'EOF'
@@ -67,6 +69,10 @@ Usage: install.sh [options]
   --skip-packages          do not install OS packages (Docker, rclone, ... must already exist)
   --no-systemd             do not install systemd units (run `nexaploy-agent api|worker` yourself)
   --skip-frappe-docker     do not clone frappe_docker (no image builds on this server)
+
+ Server hardening:
+  --no-firewall            do not enable ufw (default: deny incoming except SSH, 80, 443)
+  --no-fail2ban            do not install fail2ban (default: SSH brute-force protection)
 
  Server update (done first, before anything is installed):
   --no-os-upgrade          do not run the full system upgrade (apt full-upgrade incl. kernel)
@@ -118,6 +124,8 @@ while [[ $# -gt 0 ]]; do
         --no-os-upgrade)     OS_UPGRADE=0; shift ;;
         --hwe-kernel)        HWE_KERNEL=1; shift ;;
         --no-reboot)         REBOOT=no; shift ;;
+        --no-firewall)       FIREWALL=0; shift ;;
+        --no-fail2ban)       FAIL2BAN=0; shift ;;
         --with-control-plane) need_val "$@"; CP_DOMAIN="${2,,}"; shift 2 ;;
         --control-plane-image) need_val "$@"; CP_IMAGE="$2"; shift 2 ;;
         --control-plane-port) need_val "$@"; CP_PORT="$2"; shift 2 ;;
@@ -389,7 +397,60 @@ dns_check() {
     done
 }
 
-# --------------------------------------------------------------------------- 3. packages
+# --------------------------------------------------------------------------- 3. hardening
+ssh_ports() {  # ports sshd listens on (+ the one of the current session), default 22
+    local ports=""
+    if command -v sshd >/dev/null 2>&1; then
+        ports="$(sshd -T 2>/dev/null | awk '$1 == "port" {print $2}' | tr '\n' ' ')"
+    fi
+    if [[ -n "${SSH_CONNECTION:-}" ]]; then ports="$ports $(awk '{print $4}' <<<"$SSH_CONNECTION")"; fi
+    ports="$(tr ' ' '\n' <<<"$ports" | grep -E '^[0-9]+$' | sort -un | tr '\n' ' ')"
+    echo "${ports:-22}"
+}
+
+configure_firewall() {
+    [[ $FIREWALL -eq 1 ]] || { log "skipping the firewall (--no-firewall)"; return 0; }
+    apt-get "${APT_OPTS[@]}" install ufw >/dev/null || { warn "could not install ufw; firewall not configured"; return 0; }
+    local port https_port http_port
+    http_port="$(sed -n 's/^HTTP_PORT=//p' "$ROOT/proxy/.env" 2>/dev/null)"; http_port="${http_port:-80}"
+    https_port="$(sed -n 's/^HTTPS_PORT=//p' "$ROOT/proxy/.env" 2>/dev/null)"; https_port="${https_port:-443}"
+    # SSH first, so enabling the firewall can never lock out the current session
+    for port in $(ssh_ports); do ufw allow "$port/tcp" comment "ssh" >/dev/null; done
+    ufw allow "$http_port/tcp" comment "nexaploy http (ACME + redirect)" >/dev/null
+    ufw allow "$https_port/tcp" comment "nexaploy https" >/dev/null
+    if ufw status 2>/dev/null | grep -q "^Status: active"; then
+        log "firewall already active: added SSH ($(ssh_ports | xargs)), $http_port and $https_port (existing rules kept)"
+    else
+        ufw default deny incoming >/dev/null
+        ufw default allow outgoing >/dev/null
+        ufw --force enable >/dev/null || { warn "could not enable ufw"; return 0; }
+        log "firewall enabled: incoming only SSH ($(ssh_ports | xargs)), $http_port, $https_port"
+    fi
+    # Docker publishes 80/443 itself (iptables DOCKER chain); nothing else is published:
+    # the DB has no ports, the agent API and the all-in-one control plane bind 127.0.0.1.
+}
+
+configure_fail2ban() {
+    [[ $FAIL2BAN -eq 1 ]] || { log "skipping fail2ban (--no-fail2ban)"; return 0; }
+    apt-get "${APT_OPTS[@]}" install fail2ban >/dev/null || { warn "could not install fail2ban"; return 0; }
+    local f=/etc/fail2ban/jail.d/nexaploy.local
+    if [[ ! -f "$f" ]]; then
+        cat > "$f" <<JAIL
+# Written by the Nexaploy installer (remove or edit freely; never overwritten).
+[sshd]
+enabled  = true
+port     = $(ssh_ports | xargs | tr ' ' ',')
+backend  = systemd
+maxretry = 5
+findtime = 10m
+bantime  = 1h
+JAIL
+    fi
+    systemctl enable --now fail2ban >/dev/null 2>&1 && systemctl restart fail2ban >/dev/null 2>&1 \
+        && log "fail2ban protects SSH (5 failures in 10 min -> 1 h ban)" || warn "fail2ban did not start"
+}
+
+# --------------------------------------------------------------------------- 3b. packages
 install_packages() {
     export DEBIAN_FRONTEND=noninteractive
     log "installing packages"
@@ -951,6 +1012,10 @@ main() {
         log "skipping systemd units (--no-systemd): run 'NEXAPLOY_CONFIG=$CONFIG nexaploy-agent api' and '... worker'"
     else
         install_units
+    fi
+    if [[ $SKIP_PACKAGES -eq 0 ]]; then
+        configure_firewall
+        configure_fail2ban
     fi
     start_stacks
     install_control_plane
