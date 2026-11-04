@@ -359,3 +359,7 @@ def test_no_for_update_in_get_all():
 			if name.endswith(".py"):
 				text = open(os.path.join(root, name)).read()
 				assert not call.search(text), os.path.join(root, name)
+
+
+# offsite attachments, DR replica, trash (section 11)
+EXPECTED.update({"Storage Profile", "Site Storage Policy", "Storage Settings"})

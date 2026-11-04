@@ -1,0 +1,216 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:site",
+ "creation": "2026-11-04 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "site",
+  "team",
+  "attachments_mode",
+  "status",
+  "column_break_1",
+  "primary_profile",
+  "replica_profile",
+  "trash_profile",
+  "trash_retention_days",
+  "section_break_state",
+  "active_target",
+  "server",
+  "offloaded_at",
+  "last_error",
+  "column_break_2",
+  "last_sync_at",
+  "last_sync_status",
+  "last_sync_error",
+  "last_trashed",
+  "last_prune_at",
+  "section_break_status",
+  "last_status",
+  "last_status_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Site",
+   "options": "Site",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fetch_from": "site.team",
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Team",
+   "options": "Team",
+   "read_only": 1
+  },
+  {
+   "default": "Local",
+   "fieldname": "attachments_mode",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Attachments",
+   "options": "Local\nOffloaded",
+   "reqd": 1
+  },
+  {
+   "default": "Local",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Local\nMigrating\nOffloaded\nMigrating Back\nFailed Over\nError",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "primary_profile",
+   "fieldtype": "Link",
+   "label": "Primary Profile",
+   "options": "Storage Profile"
+  },
+  {
+   "description": "Disaster recovery copy in another region (optional)",
+   "fieldname": "replica_profile",
+   "fieldtype": "Link",
+   "label": "Replica Profile",
+   "options": "Storage Profile"
+  },
+  {
+   "description": "Deleted files are kept here (needs a replica)",
+   "fieldname": "trash_profile",
+   "fieldtype": "Link",
+   "label": "Trash Profile",
+   "options": "Storage Profile"
+  },
+  {
+   "default": "30",
+   "fieldname": "trash_retention_days",
+   "fieldtype": "Int",
+   "label": "Trash Retention (Days)"
+  },
+  {
+   "fieldname": "section_break_state",
+   "fieldtype": "Section Break",
+   "label": "State"
+  },
+  {
+   "default": "primary",
+   "fieldname": "active_target",
+   "fieldtype": "Select",
+   "label": "Serving From",
+   "options": "primary\nreplica",
+   "read_only": 1
+  },
+  {
+   "description": "Server the mounts were set up on (a moved site is re-mounted on its new server)",
+   "fieldname": "server",
+   "fieldtype": "Link",
+   "label": "Server",
+   "options": "Server",
+   "read_only": 1
+  },
+  {
+   "fieldname": "offloaded_at",
+   "fieldtype": "Datetime",
+   "label": "Offloaded At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_error",
+   "fieldtype": "Small Text",
+   "label": "Last Error",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_sync_at",
+   "fieldtype": "Datetime",
+   "label": "Last Replication",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_sync_status",
+   "fieldtype": "Select",
+   "label": "Last Replication Status",
+   "options": "\nSuccess\nFailure\nSkipped",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_sync_error",
+   "fieldtype": "Small Text",
+   "label": "Last Replication Error",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_trashed",
+   "fieldtype": "Int",
+   "label": "Files Moved to Trash (Last Run)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_prune_at",
+   "fieldtype": "Datetime",
+   "label": "Last Trash Prune",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_status",
+   "fieldtype": "Section Break",
+   "label": "Agent Status"
+  },
+  {
+   "fieldname": "last_status",
+   "fieldtype": "JSON",
+   "label": "Last Status",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_status_at",
+   "fieldtype": "Datetime",
+   "label": "Last Status At",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-04 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Site Storage Policy",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "site",
+ "track_changes": 1
+}

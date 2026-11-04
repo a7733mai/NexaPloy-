@@ -103,7 +103,7 @@ services:
     environment:
       <<: *frappe-env
     volumes:
-      - ./sites:/home/frappe/frappe-bench/sites
+      - ./sites:/home/frappe/frappe-bench/sites:${SITES_PROPAGATION:-rprivate}
       - ./logs:/home/frappe/frappe-bench/logs
     networks:
       - bench-net
@@ -128,7 +128,7 @@ services:
     environment:
       <<: *frappe-env
     volumes:
-      - ./sites:/home/frappe/frappe-bench/sites
+      - ./sites:/home/frappe/frappe-bench/sites:${SITES_PROPAGATION:-rprivate}
       - ./logs:/home/frappe/frappe-bench/logs
     networks:
       - bench-net
@@ -170,7 +170,7 @@ services:
       PROXY_READ_TIMEOUT: ${PROXY_READ_TIMEOUT:-120}
       CLIENT_MAX_BODY_SIZE: ${CLIENT_MAX_BODY_SIZE:-50m}
     volumes:
-      - ./sites:/home/frappe/frappe-bench/sites:ro
+      - ./sites:/home/frappe/frappe-bench/sites:ro,${SITES_PROPAGATION:-rprivate}
     networks:
       - bench-net
       - proxy-network
@@ -198,7 +198,7 @@ services:
     environment:
       TZ: ${TZ:-UTC}
     volumes:
-      - ./sites:/home/frappe/frappe-bench/sites
+      - ./sites:/home/frappe/frappe-bench/sites:${SITES_PROPAGATION:-rprivate}
       - ./logs:/home/frappe/frappe-bench/logs
     networks:
       - bench-net
@@ -224,7 +224,7 @@ services:
     environment:
       <<: *frappe-env
     volumes:
-      - ./sites:/home/frappe/frappe-bench/sites
+      - ./sites:/home/frappe/frappe-bench/sites:${SITES_PROPAGATION:-rprivate}
       - ./logs:/home/frappe/frappe-bench/logs
     networks:
       - bench-net
@@ -242,7 +242,7 @@ services:
     environment:
       <<: *frappe-env
     volumes:
-      - ./sites:/home/frappe/frappe-bench/sites
+      - ./sites:/home/frappe/frappe-bench/sites:${SITES_PROPAGATION:-rprivate}
       - ./logs:/home/frappe/frappe-bench/logs
     networks:
       - bench-net
@@ -260,7 +260,7 @@ services:
     environment:
       <<: *frappe-env
     volumes:
-      - ./sites:/home/frappe/frappe-bench/sites
+      - ./sites:/home/frappe/frappe-bench/sites:${SITES_PROPAGATION:-rprivate}
       - ./logs:/home/frappe/frappe-bench/logs
     networks:
       - bench-net
@@ -278,7 +278,7 @@ services:
     environment:
       <<: *frappe-env
     volumes:
-      - ./sites:/home/frappe/frappe-bench/sites
+      - ./sites:/home/frappe/frappe-bench/sites:${SITES_PROPAGATION:-rprivate}
       - ./logs:/home/frappe/frappe-bench/logs
     networks:
       - bench-net
@@ -333,6 +333,11 @@ services:
         limits:
           cpus: "${REDIS_CPUS:-0.5}"
           memory: ${REDIS_QUEUE_MEM:-512M}
+
+# ./sites propagation: SITES_PROPAGATION=rslave (set by the agent when a site's files are
+# offloaded to object storage, ARCHITECTURE.md §11) lets containers follow the per-site
+# rclone FUSE mounts on sites/<site>/{public,private}/files as they (re)mount on the host.
+# Default rprivate = Docker's default for bind mounts.
 
 # Built assets: the image entrypoint (nexaploy-entrypoint.sh) symlinks
 # sites/assets -> /home/frappe/frappe-bench/assets (baked into the image) on

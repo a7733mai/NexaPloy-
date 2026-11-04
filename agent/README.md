@@ -270,3 +270,15 @@ The GET routes enqueue a job like every other route (`202 {job_id}`); jobs still
   `frappe.db.commit()` if `commit` else `rollback()`, `frappe.destroy()`; `signal.alarm(timeout)` inside the
   container. Refused when the bench is down or (without `allow_shared_bench`) hosts other sites.
 - `site.sql` in write mode and `site.console` are not re-run when a crash interrupted them (the resumed step fails).
+
+## Offsite attachments, DR replica, trash (ARCHITECTURE.md §11)
+
+`nexaploy_agent/jobs/storage_jobs.py`, runtime (pure argv/config/unit builders + `StorageManager`) in
+`runtime/storage.py`. One `rclone mount` systemd unit per site and kind mounted on
+`sites/<s>/{public,private}/files`; the bench gets `SITES_PROPAGATION=rslave`. Kinds: `site.storage_configure`,
+`site.storage_migrate` (`to_bucket` / `to_local`), `site.storage_status`, `site.storage_failover`,
+`site.storage_trash_list`, `site.storage_trash_restore`, `server.storage_replicate`, `server.storage_prune_trash`
+(routes `POST /v1/sites/{s}/storage/{configure|migrate|status|failover|trash|trash-restore}`,
+`POST /v1/storage/{replicate|prune-trash}`, `GET /v1/sites/{s}/storage` = local state). Optional `[storage]` in
+agent.toml: `rclone`, `fusermount` (`/usr/bin/fusermount3`), `systemd_dir`, `cache_max_size` (2G), `cache_max_age`
+(72h). Host needs `fuse3` and rclone ≥ 1.62.

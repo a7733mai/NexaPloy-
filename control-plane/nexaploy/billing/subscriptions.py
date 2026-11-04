@@ -36,6 +36,7 @@ def cancel_document_subscriptions(doc, method=None):
 	cancel_subscriptions(doc.doctype, doc.name)
 	if doc.doctype == "Site":
 		cancel_site_app_subscriptions(doc.name)
+		cancel_site_addon_subscriptions(doc.name)
 
 
 # --------------------------------------------------------------------------- servers & sites
@@ -57,6 +58,7 @@ def sync_site(doc):
 	if doc.status == "Archived" or not doc.team or doc.get("is_staging"):  # staging sites are free
 		cancel_subscriptions("Site", doc.name)
 		cancel_site_app_subscriptions(doc.name)
+		cancel_site_addon_subscriptions(doc.name)
 		return
 	settings = _settings()
 	start = _site_billing_start(doc)
@@ -64,6 +66,7 @@ def sync_site(doc):
 		doc.team, "Site", doc.name, pricing.site_plan(doc.plan, settings.default_site_plan), start_date=start
 	)
 	sync_site_apps(doc, start_date=start)
+	sync_site_addons(doc, start_date=start)
 
 
 def _site_billing_start(doc):
@@ -92,6 +95,26 @@ def sync_site_apps(doc, start_date=None):
 		_end(existing[app])
 	for app in to_create:
 		_create(doc.team, "Marketplace App", app, desired[app], site=doc.name, start_date=start_date)
+
+
+def sync_site_addons(doc, start_date=None):
+	"""One Active subscription per paid add-on of the site (e.g. storage: offsite attachments,
+	DR replica, trash bin - nexaploy.storage.site_addon_plans). Keyed like paid apps:
+	document_type "Nexaploy Plan", document_name = the add-on plan, site = the site."""
+	from nexaploy.storage import site_addon_plans
+
+	if doc.status == "Archived" or not doc.team or doc.get("is_staging"):
+		cancel_site_addon_subscriptions(doc.name)
+		return
+	desired = site_addon_plans(doc.name)
+	existing = {s.document_name: s for s in _active("Nexaploy Plan", site=doc.name)}
+	to_create, to_cancel = pricing.diff_subscriptions(existing, desired)
+	for plan in to_cancel:
+		_end(existing[plan])
+	for plan in to_create:
+		currency = frappe.db.get_value("Nexaploy Plan", plan, "currency")
+		_create(doc.team, "Nexaploy Plan", plan, desired[plan], plan=plan, site=doc.name, currency=currency,
+		        start_date=start_date)
 
 
 def ensure_plan_subscription(team, document_type, document_name, plan, start_date=None):
@@ -126,6 +149,11 @@ def cancel_subscriptions(document_type, document_name):
 
 def cancel_site_app_subscriptions(site):
 	for sub in _active("Marketplace App", site=site):
+		_end(sub)
+
+
+def cancel_site_addon_subscriptions(site):
+	for sub in _active("Nexaploy Plan", site=site):
 		_end(sub)
 
 

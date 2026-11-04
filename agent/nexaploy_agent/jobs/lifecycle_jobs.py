@@ -275,6 +275,9 @@ class SiteRename(_SiteJob):
             self.fail(f"both sites/{self.site} and sites/{self.new} exist on {bench}; resolve manually")
         if state == "missing":
             self.fail(f"site {self.site} not found on bench {bench}")
+        if state != "moved" and self.ctx.storage.is_offloaded(self.site):
+            self.fail(f"{self.site}: files are offloaded to object storage (bucket mounts); "
+                      "move them back (site.storage_migrate to_local) before renaming")
         other = self.ctx.sites.find_bench(self.new)
         if other and other != bench:
             self.fail(f"{self.new} already exists on bench {other}")

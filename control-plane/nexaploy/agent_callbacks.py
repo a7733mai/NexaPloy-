@@ -406,3 +406,9 @@ def on_site_rename(job):
 	if job.status not in TERMINAL_JOB_STATUSES:
 		return
 	_ref(job).rename_finished(job)
+
+
+# offsite attachments, DR replica and trash (§11): handlers live in nexaploy.storage
+from nexaploy import storage as _storage  # noqa: E402
+
+_storage.register(handles)

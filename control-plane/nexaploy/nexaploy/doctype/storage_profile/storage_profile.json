@@ -1,0 +1,190 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:profile_name",
+ "creation": "2026-11-04 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "profile_name",
+  "title",
+  "provider",
+  "enabled",
+  "column_break_1",
+  "team",
+  "region_label",
+  "section_break_bucket",
+  "endpoint",
+  "region",
+  "addressing",
+  "column_break_2",
+  "bucket",
+  "path_prefix",
+  "section_break_credentials",
+  "access_key",
+  "column_break_3",
+  "secret_key",
+  "section_break_meta",
+  "config_hash",
+  "description"
+ ],
+ "fields": [
+  {
+   "description": "Lowercase letters, numbers and dashes (e.g. de-primary). Also the rclone remote name nxs-<name>; cannot be changed.",
+   "fieldname": "profile_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Profile Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Title"
+  },
+  {
+   "default": "Other",
+   "description": "AWS S3, iDrive e2, Wasabi, Backblaze B2, Cloudflare R2, MinIO, Hetzner Object Storage or any other S3-compatible service",
+   "fieldname": "provider",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Provider",
+   "options": "AWS\nIDrive\nWasabi\nB2\nR2\nMinIO\nHetzner\nOther",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Empty = platform profile managed by the operator. Set = a team's own bucket (BYO).",
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Team",
+   "options": "Team"
+  },
+  {
+   "description": "Shown to customers, e.g. Germany (Falkenstein)",
+   "fieldname": "region_label",
+   "fieldtype": "Data",
+   "label": "Location"
+  },
+  {
+   "fieldname": "section_break_bucket",
+   "fieldtype": "Section Break",
+   "label": "Bucket"
+  },
+  {
+   "description": "Empty for AWS / Wasabi / B2 / Hetzner (derived from the region). R2: https://<account id>.r2.cloudflarestorage.com",
+   "fieldname": "endpoint",
+   "fieldtype": "Data",
+   "label": "Endpoint"
+  },
+  {
+   "description": "AWS/Wasabi region, B2 region (us-west-004), Hetzner location (fsn1, nbg1, hel1)",
+   "fieldname": "region",
+   "fieldtype": "Data",
+   "label": "Region"
+  },
+  {
+   "default": "Preset default",
+   "fieldname": "addressing",
+   "fieldtype": "Select",
+   "label": "Addressing",
+   "options": "Preset default\nPath style\nVirtual-hosted style"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "bucket",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Bucket",
+   "reqd": 1
+  },
+  {
+   "description": "Optional folder inside the bucket",
+   "fieldname": "path_prefix",
+   "fieldtype": "Data",
+   "label": "Path Prefix"
+  },
+  {
+   "fieldname": "section_break_credentials",
+   "fieldtype": "Section Break",
+   "label": "Credentials"
+  },
+  {
+   "fieldname": "access_key",
+   "fieldtype": "Data",
+   "label": "Access Key ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "secret_key",
+   "fieldtype": "Password",
+   "label": "Secret Access Key"
+  },
+  {
+   "fieldname": "section_break_meta",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "config_hash",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Config Hash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-04 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Storage Profile",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}

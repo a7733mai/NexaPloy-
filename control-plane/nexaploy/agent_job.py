@@ -43,6 +43,15 @@ JOB_KINDS = (
 	"site.slow_queries",
 	"site.sql",
 	"site.console",
+	# offsite attachments, DR replica, trash (ARCHITECTURE.md §11)
+	"site.storage_configure",
+	"site.storage_migrate",
+	"site.storage_status",
+	"site.storage_failover",
+	"site.storage_trash_list",
+	"site.storage_trash_restore",
+	"server.storage_replicate",
+	"server.storage_prune_trash",
 )
 
 

@@ -38,7 +38,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Plan Type",
-   "options": "Server Hosted\nServer BYOS\nSite",
+   "options": "Server Hosted\nServer BYOS\nSite\nAdd-on",
    "reqd": 1
   },
   {

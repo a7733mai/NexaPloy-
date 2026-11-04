@@ -1,0 +1,201 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-04 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled",
+  "allow_byo_profiles",
+  "replica_enabled",
+  "trash_enabled",
+  "column_break_1",
+  "default_primary_profile",
+  "default_replica_profile",
+  "default_trash_profile",
+  "backup_storage_profile",
+  "section_break_tuning",
+  "replication_interval_minutes",
+  "replication_max_delete",
+  "replication_compare",
+  "column_break_2",
+  "default_trash_retention_days",
+  "max_trash_retention_days",
+  "cache_max_size",
+  "keep_local_copy",
+  "section_break_addons",
+  "offload_addon_plan",
+  "column_break_3",
+  "replica_addon_plan",
+  "column_break_4",
+  "trash_addon_plan"
+ ],
+ "fields": [
+  {
+   "default": "0",
+   "description": "Customers can move a site's attachments to object storage (paid add-on)",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Offer Offsite Attachments"
+  },
+  {
+   "default": "0",
+   "description": "Teams may add their own S3-compatible bucket (Storage Profile with a team)",
+   "fieldname": "allow_byo_profiles",
+   "fieldtype": "Check",
+   "label": "Allow Customer Buckets"
+  },
+  {
+   "default": "0",
+   "fieldname": "replica_enabled",
+   "fieldtype": "Check",
+   "label": "Offer DR Replica"
+  },
+  {
+   "default": "0",
+   "fieldname": "trash_enabled",
+   "fieldtype": "Check",
+   "label": "Offer Trash Bin"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_primary_profile",
+   "fieldtype": "Link",
+   "label": "Default Primary Profile",
+   "options": "Storage Profile"
+  },
+  {
+   "fieldname": "default_replica_profile",
+   "fieldtype": "Link",
+   "label": "Default Replica Profile",
+   "options": "Storage Profile"
+  },
+  {
+   "fieldname": "default_trash_profile",
+   "fieldtype": "Link",
+   "label": "Default Trash Profile",
+   "options": "Storage Profile"
+  },
+  {
+   "description": "Copy this profile into Nexaploy Settings backup storage (all servers back up there)",
+   "fieldname": "backup_storage_profile",
+   "fieldtype": "Link",
+   "label": "Database Backups Profile",
+   "options": "Storage Profile"
+  },
+  {
+   "fieldname": "section_break_tuning",
+   "fieldtype": "Section Break",
+   "label": "Replication & Cache"
+  },
+  {
+   "default": "15",
+   "fieldname": "replication_interval_minutes",
+   "fieldtype": "Int",
+   "label": "Replication Interval (Minutes)"
+  },
+  {
+   "default": "1000",
+   "description": "A replication run that would delete more files than this stops (protects the replica)",
+   "fieldname": "replication_max_delete",
+   "fieldtype": "Int",
+   "label": "Max Deletions per Run"
+  },
+  {
+   "default": "size",
+   "description": "size: cheapest (no HEAD per object). checksum: only within one provider",
+   "fieldname": "replication_compare",
+   "fieldtype": "Select",
+   "label": "Compare Files By",
+   "options": "size\nmodtime\nchecksum"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "30",
+   "fieldname": "default_trash_retention_days",
+   "fieldtype": "Int",
+   "label": "Default Trash Retention (Days)"
+  },
+  {
+   "default": "365",
+   "fieldname": "max_trash_retention_days",
+   "fieldtype": "Int",
+   "label": "Max Trash Retention (Days)"
+  },
+  {
+   "default": "2G",
+   "description": "rclone VFS cache bound, e.g. 512M, 2G",
+   "fieldname": "cache_max_size",
+   "fieldtype": "Data",
+   "label": "Local Cache per Mount"
+  },
+  {
+   "default": "0",
+   "fieldname": "keep_local_copy",
+   "fieldtype": "Check",
+   "label": "Keep Local Copy After Offload"
+  },
+  {
+   "fieldname": "section_break_addons",
+   "fieldtype": "Section Break",
+   "label": "Add-on Plans"
+  },
+  {
+   "fieldname": "offload_addon_plan",
+   "fieldtype": "Link",
+   "label": "Offsite Attachments Plan",
+   "options": "Nexaploy Plan"
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "replica_addon_plan",
+   "fieldtype": "Link",
+   "label": "DR Replica Plan",
+   "options": "Nexaploy Plan"
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "trash_addon_plan",
+   "fieldtype": "Link",
+   "label": "Trash Bin Plan",
+   "options": "Nexaploy Plan"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-04 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Storage Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

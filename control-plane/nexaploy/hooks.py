@@ -114,6 +114,8 @@ scheduler_events = {
 			"nexaploy.tasks.check_sites_uptime",
 			"nexaploy.provisioning.jobs.check_provisioning",
 			"nexaploy.agent_callbacks.retry_failed_callbacks",
+			# offsite attachments (§11): replication per Storage Settings interval, remount moved sites
+			"nexaploy.storage.schedule_replication",
 		],
 		"*/15 * * * *": ["nexaploy.tasks.apply_auto_updates", "nexaploy.tasks.enforce_plan_limits"],
 	},
@@ -131,5 +133,6 @@ scheduler_events = {
 		"nexaploy.billing.invoicing.mark_overdue_and_suspend",
 		"nexaploy.billing.payouts.generate_publisher_payouts",
 		"nexaploy.saas.expire_trials",
+		"nexaploy.storage.prune_trash",
 	],
 }
