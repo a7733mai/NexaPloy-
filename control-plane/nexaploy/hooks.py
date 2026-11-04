@@ -135,7 +135,11 @@ scheduler_events = {
 			"nexaploy.domains.verify_pending_domains",
 			"nexaploy.update_test.sync_update_tests",
 		],
-		"*/15 * * * *": ["nexaploy.tasks.apply_auto_updates", "nexaploy.tasks.enforce_plan_limits"],
+		"*/15 * * * *": [
+			"nexaploy.tasks.apply_auto_updates",
+			"nexaploy.tasks.enforce_plan_limits",
+			"nexaploy.pitr.schedule_binlog_archiving",
+		],
 	},
 	"hourly": [
 		"nexaploy.tasks.prune_registration_tokens",

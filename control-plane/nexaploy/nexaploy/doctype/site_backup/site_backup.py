@@ -15,7 +15,9 @@ class SiteBackup(Document):
 	def after_insert(self):
 		"""Enqueue site.backup {site, with_files, upload} on the site's server."""
 		server = frappe.db.get_value("Site", self.site, "server")
-		params = {"site": self.site, "with_files": bool(self.with_files), "upload": True}
+		# pitr: the dump carries its binlog position (point-in-time recovery, §14); the agent
+		# skips it when binary logging is off on the server
+		params = {"site": self.site, "with_files": bool(self.with_files), "upload": True, "pitr": True}
 		if self.purpose != "Move":
 			# a same-server move restores the local copy: keep it whatever the site's policy
 			try:

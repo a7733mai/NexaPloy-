@@ -7,7 +7,7 @@ Docker Compose building blocks for one Nexaploy server, per
 |---|---|---|
 | `bench/docker-compose.yml.j2` | `/opt/nexaploy/benches/<bench>/docker-compose.yml` | One bench (compose project `<bench>`), rendered by the agent |
 | `bench/env.example` | `/opt/nexaploy/benches/<bench>/.env` | Bench variables (§3.1) |
-| `db/docker-compose.yml`, `db/env.example` | `/opt/nexaploy/db/` | Shared MariaDB 10.6 (`nexaploy-db`) |
+| `db/docker-compose.yml`, `db/env.example` | `/opt/nexaploy/db/` | Shared MariaDB 11.8 (`nexaploy-db`, binary log on) |
 | `proxy/docker-compose.yml`, `proxy/env.example` | `/opt/nexaploy/proxy/` | Traefik v3, file provider only (+ optional CrowdSec) |
 | `proxy/config/traefik/dynamic.yml` | `/opt/nexaploy/proxy/config/traefik/` | Middlewares `security-headers`, `rate-limit`, `compress`; TLS defaults |
 | `site-route.yml.j2` | `/opt/nexaploy/proxy/config/sites/<site>.yml` | Traefik file-provider route for one site |
@@ -148,3 +148,26 @@ files are also validated with `docker compose config` (otherwise skipped).
 --long-query-time=${DB_LONG_QUERY_TIME:-1}` (seconds, `.env`). The file lands in `/opt/nexaploy/db/data/slow.log`
 and the agent's `site.slow_queries` job shows each site only the entries of its own schema. Rotate it with
 logrotate (`copytruncate`) on busy servers.
+
+### Binary log (point-in-time recovery)
+
+`db/docker-compose.yml` starts MariaDB with `--log-bin=mysql-bin --binlog-format=ROW --server-id
+--binlog-expire-logs-seconds=${DB_BINLOG_EXPIRE_SECONDS:-604800} --max-binlog-size=${DB_MAX_BINLOG_SIZE:-100M}
+--sync-binlog=${DB_SYNC_BINLOG:-1}`. Binlogs land in `/opt/nexaploy/db/data/mysql-bin.NNNNNN` (+ `mysql-bin.index`);
+the agent archives closed files to `<remote>:<prefix>/_binlogs/` (`server.archive_binlogs`), records the binlog
+position of every PITR-enabled backup and replays binlogs for `site.restore_pitr` (ARCHITECTURE.md §14).
+
+**Existing servers** (installed before this change) keep their old compose file until it is replaced. To enable
+binary logging there (restarts the shared DB: every site on the server is unavailable for a few seconds):
+
+```bash
+cp bench-template/db/docker-compose.yml /opt/nexaploy/db/docker-compose.yml   # or the agent's templates/db copy
+grep -q DB_BINLOG_EXPIRE_SECONDS /opt/nexaploy/db/.env || \
+  printf 'DB_BINLOG_EXPIRE_SECONDS=604800\nDB_MAX_BINLOG_SIZE=100M\nDB_SYNC_BINLOG=1\nDB_SERVER_ID=1\n' >> /opt/nexaploy/db/.env
+docker compose --project-directory /opt/nexaploy/db up -d
+docker exec -e MYSQL_PWD="$(sed -n 's/^DB_ROOT_PASSWORD=//p' /opt/nexaploy/config/db.env)" nexaploy-db \
+  mariadb -uroot -e "SELECT @@log_bin, @@binlog_format"     # -> 1  ROW
+```
+
+Backups taken before binary logging was on carry no binlog position, so the PITR window starts with the first
+backup taken afterwards.

@@ -148,7 +148,7 @@ Params are the agent REST body (§5.2) plus the path parameters of that endpoint
 | `site.create` | `{bench, name, admin_password, apps:[app_name]}` | Site insert |
 | `site.install_app` / `site.uninstall_app` | `{site, app}` | Site methods |
 | `site.add_domain` / `site.remove_domain` | `{site, domain}` | Site methods |
-| `site.backup` | `{site, with_files, upload: true, local_retention_days}` (no `local_retention_days` for move backups) | Site Backup insert |
+| `site.backup` | `{site, with_files, upload: true, local_retention_days, pitr: true}` (no `local_retention_days` for move backups) | Site Backup insert |
 | `site.restore` | `{site, remote_path, restore: all\|database\|files}` (restore; with `bench` = as a new site) or `{site, bench, backup_id\|remote_path, with_files}` (move target) | restore, `backup_destinations.restore_backup`, move |
 | `site.migrate` | `{site}` | `Site.migrate` |
 | `site.drop` | `{site, skip_backup}` | `Site.drop`, move |
@@ -156,6 +156,8 @@ Params are the agent REST body (§5.2) plus the path parameters of that endpoint
 | `server.health` | `{}` | `Server.health_check` |
 | `backup.prune_remote` | `{site, bench, prefix, keep_days, keep_min: 3, keep_daily, keep_weekly, keep_monthly}` | `tasks.prune_remote_backups` (daily, effective site policy) |
 | `backup.test_remote` | `{destination: <configure_backups params>, prefix}` | `backup_destinations.test_destination` |
+| `site.restore_pitr` | `{site, bench, backup_id\|remote_path, target_time, target_site \| in_place + confirm, with_files}` | `api.pitr.restore_to_point` (ARCHITECTURE.md §14) |
+| `server.archive_binlogs` | `{rotate: true, keep_days: 7}` | `pitr.schedule_binlog_archiving` (every 15 min) |
 
 `registry` is `{url, username, password}` and is only sent when the image lives on the configured
 registry. `registry.password` and `secret_access_key` are stored as secret placeholders
@@ -185,6 +187,9 @@ in the `poll` response, so plaintext secrets never land in the Agent Job table.
 | `server.health` | Server `facts` + monitoring fields / Server Metric | — |
 | `server.configure_backups` | — | error log |
 | `backup.test_remote` | Backup Destination Connected, `last_tested_at`, quota | Backup Destination Error + `last_error` |
+| `site.backup` (PITR) | Site Backup `binlog_*` fields from `result.binlog` (`pitr.backup_finished`) | — |
+| `site.restore_pitr` | restored Site (the copy, or the site in place) Active, pending apps Installed | copy Broken; in place unchanged if it failed before touching the site, else Broken |
+| `server.archive_binlogs` | — | error log |
 
 Site app and drop callbacks and `Server.archive` call `nexaploy.billing.subscriptions.sync_subscription`
 (errors are logged, never raised).
@@ -952,7 +957,7 @@ portal API `nexaploy/api/domains.py`, portal component `public/js/domains.js` (`
   (14/7/3/1/0 days; `tls_alert_marker`).
 ## Managed e-mail and white-label brands
 
-See ARCHITECTURE.md §11. Operator setup:
+See ARCHITECTURE.md §12. Operator setup:
 
 1. **Email Relay Settings** (desk): enable, pick the provider (host/port/SPF prefilled), enter the SMTP
    username/password and a `default_from_domain` that is already authenticated with the provider. Optional DNS

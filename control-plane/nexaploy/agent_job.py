@@ -50,6 +50,9 @@ JOB_KINDS = (
 	"site.configure_email",
 	# safe update (Site Update Test)
 	"site.smoke_check",
+	# point-in-time recovery
+	"site.restore_pitr",
+	"server.archive_binlogs",
 )
 
 

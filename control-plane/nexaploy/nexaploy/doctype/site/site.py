@@ -89,6 +89,10 @@ class Site(Document):
 			params.update({"site": self.site_name, "bench": frappe.db.get_value("Bench", self.bench, "bench_name")})
 			create_agent_job(self.server, "site.restore", params, self.doctype, self.name)
 			return
+		if self.flags.pitr_params:
+			# point-in-time copy (nexaploy.api.pitr.restore_to_point): restore, not new-site
+			create_agent_job(self.server, "site.restore_pitr", self.flags.pitr_params, self.doctype, self.name)
+			return
 		create_agent_job(
 			self.server,
 			"site.create",

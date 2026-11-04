@@ -35,6 +35,17 @@ services:
       - --slow-query-log=1
       - --slow-query-log-file=/var/lib/mysql/slow.log
       - --long-query-time=${DB_LONG_QUERY_TIME:-1}
+      # binary log for point-in-time recovery (agent jobs site.backup records the position,
+      # server.archive_binlogs uploads closed files, site.restore_pitr replays them).
+      # Files live in the data dir as mysql-bin.NNNNNN (+ mysql-bin.index): never in a
+      # sub-directory, which MariaDB would list as a database. ROW format is required: the
+      # replay filters and renames by database (mariadb-binlog --database / --rewrite-db).
+      - --log-bin=mysql-bin
+      - --binlog-format=ROW
+      - --server-id=${DB_SERVER_ID:-1}
+      - --binlog-expire-logs-seconds=${DB_BINLOG_EXPIRE_SECONDS:-604800}
+      - --max-binlog-size=${DB_MAX_BINLOG_SIZE:-100M}
+      - --sync-binlog=${DB_SYNC_BINLOG:-1}
     environment:
       TZ: ${TZ:-UTC}
       MARIADB_AUTO_UPGRADE: "1"

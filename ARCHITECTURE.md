@@ -54,7 +54,7 @@ Rules:
 ├── db/                         # shared MariaDB (compose project "nexaploy-db")
 │   ├── docker-compose.yml
 │   ├── .env
-│   └── data/                   # /var/lib/mysql  (uid 3101)
+│   └── data/                   # /var/lib/mysql  (uid 3101); binlog mysql-bin.NNNNNN + mysql-bin.index (§11)
 ├── images/
 │   ├── frappe_docker/          # upstream clone (pinned), used as build context
 │   ├── Containerfile           # Nexaploy parametrised Containerfile
@@ -68,6 +68,7 @@ Rules:
 │       ├── sites/              # bind mount -> /home/frappe/frappe-bench/sites (uid 3113)
 │       └── logs/               # bind mount -> /home/frappe/frappe-bench/logs  (uid 3113)
 └── backups/                    # staging area before rclone upload (uid 3113)
+    └── .pitr/<job>/            # site.restore_pitr work dir: binlogs/ (copies), work/replay.sql (§11)
 ```
 
 Fixed UIDs/GIDs: frappe / bench containers **3113**, MariaDB **3101**, Redis **3102**, Traefik **3100**.
@@ -151,6 +152,11 @@ Traefik v3, **file provider only** (no Docker provider, no docker socket): `prov
 `mariadb:11.8` (override with `MARIADB_IMAGE`), utf8mb4, `--skip-innodb-read-only-compressed`,
 `--innodb-buffer-pool-size=${DB_BUFFER_POOL:-1G}`, healthcheck, bind mount `./data`,
 network `nexaploy-db`, no published ports. Root password from `/opt/nexaploy/config/db.env` (`env_file`).
+Binary log for point-in-time recovery (§11): `--log-bin=mysql-bin` (files in the data dir, never a
+sub-directory — MariaDB would list it as a database), `--binlog-format=ROW`, `--server-id=${DB_SERVER_ID:-1}`,
+`--binlog-expire-logs-seconds=${DB_BINLOG_EXPIRE_SECONDS:-604800}`, `--max-binlog-size=${DB_MAX_BINLOG_SIZE:-100M}`,
+`--sync-binlog=${DB_SYNC_BINLOG:-1}`. Servers installed earlier enable it by replacing the compose file and
+`docker compose up -d` (restarts the DB; bench-template/README.md).
 
 ## 4. Image builder (component B)
 
@@ -274,10 +280,12 @@ retention_days = 14
 | DELETE | `/v1/sites/{s}/apps/{app}` | job `site.uninstall_app` |
 | POST | `/v1/sites/{s}/domains` | `{domain}` → job `site.add_domain` (route rewrite + add-domain) |
 | DELETE | `/v1/sites/{s}/domains/{d}` | job `site.remove_domain` |
-| POST | `/v1/sites/{s}/backup` | `{with_files: true, upload: true, local_retention_days?}` → job `site.backup` (result adds `backup_files:[{file_type: database\|public\|private\|site_config, name, size, sha256, remote_key}]`; `remote_key` = object key in the bucket) |
+| POST | `/v1/sites/{s}/backup` | `{with_files: true, upload: true, local_retention_days?, pitr: false}` → job `site.backup` (with `pitr` the DB dump carries its binlog coordinates, §14) (result adds `backup_files:[{file_type: database\|public\|private\|site_config, name, size, sha256, remote_key}]`; `remote_key` = object key in the bucket) |
 | GET | `/v1/sites/{s}/backups` | list local + remote |
 | POST | `/v1/sites/{s}/backups/prune-remote` | `{bench?, keep_days=14, keep_min=3, keep_daily=0, keep_weekly=0, keep_monthly=0, prefix?}` → job `backup.prune_remote` (`rclone lsf` the dated dirs, `rclone purge` those older than `keep_days`, never the newest `keep_min` nor the newest of each of the last N days / ISO weeks / months) |
 | POST | `/v1/sites/{s}/restore` | `{backup_id}` or `{remote_path}`, `restore: all\|database\|files` (default all; `with_files: false` = database) → job `site.restore` |
+| POST | `/v1/sites/{s}/restore-pitr` | `{backup_id\|remote_path, target_time, target_site?, bench?, in_place?, confirm?}` → job `site.restore_pitr` (§14) |
+| POST | `/v1/server/archive-binlogs` | `{rotate?, keep_days?, prefix?}` → job `server.archive_binlogs` (§14) |
 | POST | `/v1/sites/{s}/migrate` | job `site.migrate` |
 | POST | `/v1/sites/{s}/config` | `{key, value}` → job `site.set_config` |
 | GET | `/v1/sites/{s}/config` | site_config.json, secrets redacted (`db_password`, `encryption_key`, keys matching `password\|secret\|token\|key`); the CP uses job `site.get_config` `{site}` (same result) |
@@ -440,7 +448,9 @@ Operations fields: Server `cpu_count`, `memory_total_mb`, `disk_total_gb`, `disk
 `backup_retention_days` (14), `backup_with_files`, `last_backup_at`, `is_up`, `last_uptime_check`;
 Site Backup status adds `Deleted`; Release Group `auto_update`, `update_window` (`HH:MM-HH:MM`,
 server-local). Agent Job kinds add `server.configure_backups`, `server.health`, `backup.prune_remote`, `backup.test_remote`, `site.usage`,
-`site.get_config`, `site.update_config`, `site.tls_status`. Plan limits: Nexaploy Plan `cpu_seconds_per_day`, `max_storage_mb`,
+`site.get_config`, `site.update_config`, `site.tls_status`, and (§14) `site.restore_pitr`, `server.archive_binlogs`. Site Backup adds
+`binlog_file`, `binlog_position`, `binlog_gtid`, `binlog_db`, `binlog_ready_at` (UTC), `binlog_server` (Link
+Server); Site adds `pitr_of` (Link Site, set on a point-in-time copy). Plan limits: Nexaploy Plan `cpu_seconds_per_day`, `max_storage_mb`,
 `max_database_mb` (0 = unlimited), `overage_action` (Notify/Throttle/Suspend), `plan_order`; Site
 `current_cpu_seconds_today`, `database_mb`, `storage_mb`, `over_limit`, `throttled` (+ hidden `usage_suspended`).
 
@@ -566,6 +576,8 @@ Phase 4 job kinds (agent ↔ CP), owners in brackets:
 | `site.console` | `{site, code, commit: false, timeout}` | observability |
 | `site.clone` | `{bench, site, target_site, scrub: true}` (staging) | lifecycle |
 | `site.rename` | `{bench, site, new_name, keep_old_domain: true}` | lifecycle |
+| `site.restore_pitr` | `{site, bench, backup_id\|remote_path, target_time, target_site?, in_place, confirm?, with_files}` (§11) | pitr |
+| `server.archive_binlogs` | `{rotate: true, keep_days: 7, prefix?}` (§11, every 15 min) | pitr |
 | (move) | no new kinds: `site.backup` → `site.restore {site, bench, backup_id\|remote_path}` (restores as a new site on `bench`) → `site.drop {skip_backup}`; cross-server uses `remote_path` (bucket required) | lifecycle |
 
 Lifecycle (owner: lifecycle, `nexaploy/api/site_lifecycle.py`, pure logic `nexaploy/lifecycle_utils.py`):
@@ -665,3 +677,72 @@ deletable by customers. Activity actions: `site.update_test`, `site.update_test_
 `site.update_test_passed`, `site.update_apply`, `site.update_applied`, `site.update_test_cleanup`,
 `site.auto_update_blocked`, `release_group.safe_auto_update`, `team.console_permissions`,
 `team.console_two_factor`.
+
+## 14. Point-in-time recovery (PITR)
+
+"Restore my site to how it was at 15:15 today." Agent: `jobs/pitr_jobs.py`, pure helpers `runtime/pitr.py`;
+control plane: `nexaploy/api/pitr.py` (portal), `nexaploy/pitr.py` (scheduler, callbacks), pure
+`nexaploy/pitr_utils.py`.
+
+**Binary log.** The shared MariaDB writes a ROW-format binlog (§3.4) to `/opt/nexaploy/db/data/mysql-bin.*`,
+kept locally `DB_BINLOG_EXPIRE_SECONDS` (7 days).
+
+**Base backups with a position.** The control plane sends every `site.backup` with `pitr: true`. After
+`bench backup`, step `pitr_dump` replaces bench's database dump with
+`mariadb-dump --single-transaction --quick --master-data=2 --gtid --routines --triggers <db>` (one-shot
+`docker run` of the bench image: the same client `bench restore` uses; written to a temp file and renamed over
+bench's file). With `--single-transaction`, MariaDB takes the coordinates *of the consistent snapshot*
+(`binlog_snapshot_file/position`, no global read lock): the dump holds exactly the transactions committed
+before that position, so a replay from it applies every later transaction once and none twice. (Recording
+`SHOW MASTER STATUS` before/after `bench backup` is not correct: transactions committed between that position
+and the dump's snapshot would be applied twice, or missed.) The coordinates are parsed from the commented
+header (`-- CHANGE MASTER TO MASTER_LOG_FILE='mysql-bin.000042', MASTER_LOG_POS=…;`, `-- SET GLOBAL
+gtid_slave_pos='…'`; an uncommented statement is refused) into the result and manifest:
+`binlog: {file, position, gtid, db_name, ready_at, server_id}`. `ready_at` = when the dump finished (≥ the
+snapshot) = the earliest time the backup restores to. Binlog off / not ROW / dump failure: the backup still
+succeeds with bench's dump, `binlog: null`, `pitr_error`. Caveat (as for every `--single-transaction`
+dump): DDL on the site's tables during the dump (a `bench migrate`) breaks the snapshot.
+
+**Archive.** `server.archive_binlogs` (control plane, every 15 min per Active server with an Active site, when
+backup storage is configured): `FLUSH BINARY LOGS`, upload the closed files (all but the last of
+`mysql-bin.index`) with `rclone copy --immutable` to `<remote>:<prefix>/_binlogs/` (`_` cannot start a bench
+name, so the dir never collides with `<prefix>/<bench>/`), delete archived files older than `keep_days`
+(7). Recovery point if the server is lost: ≤ 15 min. `--immutable` refuses to overwrite an archived file
+with a different one of the same name (a re-initialised database restarting at 000001: move the old
+archive away).
+
+**Window** (`pitr_utils.pitr_window`): from the oldest Success Site Backup with a binlog position taken on
+the site's current server (`binlog_server`), uploaded, with `binlog_ready_at` inside the last 7 days, to now
+− 5 min. The base of a restore is the latest such backup with `binlog_ready_at <= target`.
+
+**Restore** `site.restore_pitr {site, bench, backup_id|remote_path, target_time (UTC), target_site?,
+in_place, confirm?, with_files, scrub}`:
+
+- default: a NEW site on the same bench (portal name `<first label>-pitr-<YYYYmmddHHMM>.<root domain>`, a
+  new Site document with `pitr_of`, billed like any site until dropped), marked `nexaploy_pitr_of` /
+  `nexaploy_pitr_target` with `mute_emails=1, pause_scheduler=1`, so the customer inspects it before
+  switching; `in_place` + `confirm == site` overwrites the site itself after a safety backup, in
+  maintenance mode.
+- steps: check (target in the past; never overwrite an unrelated site) → locate/fetch/verify (sha256,
+  manifest `binlog`, `ready_at <= target`) → collect_binlogs (`FLUSH BINARY LOGS`, so every event before the
+  target is in a closed file; consecutive files from the backup's file, local first, else from the archive;
+  a gap fails here, before anything is changed) → [copy: ensure_site] / [in place: safety_backup,
+  maintenance_on] → restore (`bench restore --force` of the base) → restore_config (encryption_key) →
+  [copy: scrub, sync_files (files uploaded after the backup copied from the live site)] → decode → apply →
+  migrate → [in place: maintenance_off] → write_route → cleanup.
+- decode: `mariadb-binlog --disable-log-bin --start-position=<pos> --stop-datetime='<target UTC>'
+  [--rewrite-db='<src>-><dst>'] --database=<dst> <files>` in a one-shot container of the DB server's own
+  image with `TZ=UTC` (the stop time is read in the client's zone) → `work/replay.sql`, counts
+  `{bytes, row_events, commits}` reported. `--start-position` applies to the first file; MariaDB filters
+  `--database` after `--rewrite-db`; ROW events are renamed, statements by default database (Frappe does
+  not qualify table names). The cut stops at the first event at/after the target, so an open transaction
+  is not committed. `--disable-log-bin`: the replay is not binlogged again (no duplicate GTIDs).
+- apply: `mariadb --binary-mode -h nexaploy-db -u root <dst> < replay.sql` (`MYSQL_PWD` via env). Not
+  idempotent: `apply_started` is saved first and a resumed apply restores the base backup again.
+
+Portal: Site → Backups → "Restore to a point in time" (datetime picker limited to the window, browser time
+zone; the API takes/returns UTC ISO). `get_pitr_window` needs `read`, `restore_to_point` needs `write`
+(Owner/Admin/Developer); activity `site.restore_pitr`. Callbacks: `site.backup` copies the position onto the
+Site Backup; `site.restore_pitr` → copy Active (apps Installed) / Broken; in place Active, or unchanged when it
+failed before touching the site (check … safety_backup), else Broken; `server.archive_binlogs` failures go to
+the error log.

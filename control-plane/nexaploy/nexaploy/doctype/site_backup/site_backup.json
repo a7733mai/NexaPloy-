@@ -17,7 +17,15 @@
   "remote_path",
   "team",
   "section_break_files",
-  "files"
+  "files",
+  "section_break_pitr",
+  "binlog_file",
+  "binlog_position",
+  "binlog_gtid",
+  "column_break_pitr",
+  "binlog_db",
+  "binlog_ready_at",
+  "binlog_server"
  ],
  "fields": [
   {
@@ -99,12 +107,61 @@
    "label": "Files",
    "options": "Site Backup File",
    "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_pitr",
+   "fieldtype": "Section Break",
+   "label": "Point-in-time Recovery"
+  },
+  {
+   "fieldname": "binlog_file",
+   "fieldtype": "Data",
+   "label": "Binlog File",
+   "read_only": 1,
+   "description": "Binary log coordinates of the database dump (mariadb-dump --master-data); empty when binary logging was off"
+  },
+  {
+   "fieldname": "binlog_position",
+   "fieldtype": "Int",
+   "label": "Binlog Position",
+   "read_only": 1
+  },
+  {
+   "fieldname": "binlog_gtid",
+   "fieldtype": "Data",
+   "label": "Binlog GTID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_pitr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "binlog_db",
+   "fieldtype": "Data",
+   "label": "Database",
+   "read_only": 1
+  },
+  {
+   "fieldname": "binlog_ready_at",
+   "fieldtype": "Datetime",
+   "label": "Restorable From (UTC)",
+   "read_only": 1,
+   "description": "Earliest point in time this backup can be restored to"
+  },
+  {
+   "fieldname": "binlog_server",
+   "fieldtype": "Link",
+   "label": "Binlog Server",
+   "options": "Server",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-20 12:00:00.000000",
+ "modified": "2026-12-04 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Site Backup",

@@ -8,6 +8,8 @@
 {# custom domains: DNS verification and TLS health #}
 <script src="/assets/nexaploy/js/domains.js"></script>
 <script src="/assets/nexaploy/js/site_email.js"></script>
+{# point-in-time recovery card (Backups tab): plain script, registers before Alpine starts #}
+<script src="/assets/nexaploy/js/pitr.js"></script>
 <style>
 	.nx-meter { height: 8px; border-radius: 99px; background: var(--nx-border); overflow: hidden; }
 	.nx-meter > span { display: block; height: 100%; background: var(--nx-primary); border-radius: inherit; }
@@ -289,6 +291,57 @@
 							</template>
 						</tbody>
 					</table>
+				</div>
+			</section>
+
+			<!-- Point-in-time recovery (public/js/pitr.js nxSitePitr, nexaploy.api.pitr) -->
+			<section class="card" x-show="tab === 'backups'" x-data="nxSitePitr" x-effect="if (tab === 'backups' && !pitr && !pitrLoading && !pitrError) loadPitr()">
+				<div class="card-head">
+					<h2>{{ _("Restore to a point in time") }}</h2>
+					<span class="spinner" x-show="pitrLoading"></span>
+				</div>
+				<div class="card-body stack">
+					<template x-if="pitrError"><div class="alert danger" x-text="pitrError"></div></template>
+					<template x-if="pitr && !pitr.available"><div class="alert info" x-text="pitr.reason"></div></template>
+					<template x-if="pitr && pitr.available">
+						<div class="stack">
+							<span class="muted">{{ _("Bring the database back to how it was at any minute of the window below: the nearest earlier backup is restored and the database changes recorded since then are replayed up to that time.") }}</span>
+							<div class="small muted">
+								<span>{{ _("Available from") }}</span> <b x-text="nx.fmtDate(pitr.start)"></b>
+								<span>{{ _("to") }}</span> <b x-text="nx.fmtDate(pitr.end)"></b>
+								<span x-text="__('(last {0} days, up to {1} minutes ago)', [pitr.retention_days, pitr.margin_minutes])"></span>
+							</div>
+							<div class="row" x-show="pitr.can_write">
+								<label class="field">{{ _("Restore to") }}
+									<input class="input ltr" type="datetime-local" step="60" x-model="pitrAt" :min="pitrMin()" :max="pitrMax()">
+								</label>
+							</div>
+							<template x-if="pitr.can_write && pitrAt && !pitrInWindow()"><div class="alert warning">{{ _("Choose a time inside the available window.") }}</div></template>
+							<div class="stack" x-show="pitr.can_write">
+								<label class="check"><input type="radio" value="copy" x-model="pitrMode"> <span>{{ _("Restore into a new site to inspect it first (recommended)") }}</span></label>
+								<template x-if="pitrMode === 'copy' && pitr.copy_name"><div class="small muted"><span>{{ _("New site") }}:</span> <span class="ltr">…-pitr-YYYYMMDDHHMM.</span><span class="ltr" x-text="pitr.copy_name.split('.').slice(1).join('.')"></span> · {{ _("Outgoing emails are muted and the scheduler is paused on the copy. It is billed like any site until you drop it.") }}</div></template>
+								<label class="check"><input type="radio" value="in_place" x-model="pitrMode"> <span>{{ _("Overwrite this site") }}</span></label>
+								<template x-if="pitrMode === 'in_place'">
+									<div class="stack">
+										<div class="alert warning">{{ _("All changes made after the chosen time are lost. A backup of the current state is taken first and the site is in maintenance mode during the restore.") }}</div>
+										<label class="field">{{ _("Type the site name to confirm") }}
+											<input class="input ltr" type="text" style="max-width: 360px" x-model="pitrConfirm" :placeholder="site.name" spellcheck="false" autocomplete="off">
+										</label>
+									</div>
+								</template>
+							</div>
+							<div class="row" x-show="pitr.can_write">
+								<button class="btn primary" type="button" :disabled="!pitrCanRestore()" @click="restorePitr()">
+									<span class="spinner" x-show="pitrBusy"></span> {{ _("Restore") }}
+								</button>
+								<span class="small muted" x-show="pitrAt && pitrInWindow()" x-text="'UTC: ' + (pitrUtc() || '')"></span>
+							</div>
+							<template x-if="pitrResult && pitrResult.mode === 'copy'">
+								<div class="alert info"><span>{{ _("The copy is being restored:") }}</span> <a class="ltr" :href="'/dashboard/site?name=' + encodeURIComponent(pitrResult.name)" x-text="pitrResult.target_site"></a></div>
+							</template>
+							<div class="small muted">{{ _("Uploaded files come from the backup; files uploaded after it are kept from the current site.") }}</div>
+						</div>
+					</template>
 				</div>
 			</section>
 
