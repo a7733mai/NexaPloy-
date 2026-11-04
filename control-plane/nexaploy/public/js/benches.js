@@ -42,7 +42,7 @@
 				opts: null,
 				optsLoading: false,
 				majors: ["14", "15", "16"],
-				form: { title: "", frappe_major: "15", build_server: "", picks: [] },
+				form: { title: "", frappe_major: "16", build_server: "", picks: [] },
 				creating: false,
 				github: null,
 				customApps: [],

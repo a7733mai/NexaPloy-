@@ -29,7 +29,7 @@
    "unique": 1
   },
   {
-   "default": "15",
+   "default": "16",
    "fieldname": "frappe_major",
    "fieldtype": "Select",
    "in_list_view": 1,

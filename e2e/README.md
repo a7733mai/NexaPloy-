@@ -87,3 +87,10 @@ What v16 changed for us (fixed):
   and falls back to the old flag only when `bench new-site --help` lacks the new one (v14)
 - the official v16 image already bakes assets in `./assets` and runs frappe as `1000:0`
   (handled by `e2e/Containerfile.official`)
+
+### Control plane on Frappe v16 (verified)
+
+The `nexaploy` app installed and migrated on Frappe 16.55.1; all 18 scheduler jobs ran
+cleanly; agent registration/heartbeat, `bench.create`, `site.create` and `site.backup` from
+the v16 control plane; all 15 portal pages in Chromium without JS errors; cross-team
+isolation (portal API and `frappe.client`) holds. New Release Groups default to v16.
