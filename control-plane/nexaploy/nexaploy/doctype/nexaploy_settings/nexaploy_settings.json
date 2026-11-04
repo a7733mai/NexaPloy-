@@ -23,7 +23,24 @@
   "backup_prefix",
   "backup_access_key",
   "backup_secret_key",
-  "backup_config_hash"
+  "backup_config_hash",
+  "section_break_oauth",
+  "google_client_id",
+  "google_client_secret",
+  "microsoft_client_id",
+  "microsoft_client_secret",
+  "microsoft_tenant",
+  "column_break_oauth",
+  "dropbox_app_key",
+  "dropbox_app_secret",
+  "oauth_config_hash",
+  "section_break_retention",
+  "backup_retention_min_days",
+  "backup_retention_max_days",
+  "column_break_retention",
+  "backup_retention_included_days",
+  "backup_local_retention_max_days",
+  "backup_keep_monthly_max"
  ],
  "fields": [
   {
@@ -135,6 +152,105 @@
    "hidden": 1,
    "label": "Backup Config Hash",
    "read_only": 1
+  },
+  {
+   "fieldname": "section_break_oauth",
+   "fieldtype": "Section Break",
+   "label": "Backup OAuth Apps",
+   "description": "OAuth apps customers use to connect Google Drive, OneDrive and Dropbox as backup destinations. Register this redirect URI with each provider: https://<control plane>/api/method/nexaploy.api.backup_destinations.oauth_callback"
+  },
+  {
+   "fieldname": "google_client_id",
+   "fieldtype": "Data",
+   "label": "Google Client ID",
+   "description": "Google Cloud OAuth client (Web application) with the Drive API enabled; scope drive.file."
+  },
+  {
+   "fieldname": "google_client_secret",
+   "fieldtype": "Password",
+   "label": "Google Client Secret"
+  },
+  {
+   "fieldname": "microsoft_client_id",
+   "fieldtype": "Data",
+   "label": "Microsoft Application (client) ID",
+   "description": "Microsoft Entra app registration; delegated permissions offline_access, Files.ReadWrite, User.Read."
+  },
+  {
+   "fieldname": "microsoft_client_secret",
+   "fieldtype": "Password",
+   "label": "Microsoft Client Secret"
+  },
+  {
+   "fieldname": "microsoft_tenant",
+   "fieldtype": "Data",
+   "label": "Microsoft Tenant",
+   "default": "common",
+   "description": "common (work and personal accounts), organizations, consumers or a tenant id."
+  },
+  {
+   "fieldname": "column_break_oauth",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "dropbox_app_key",
+   "fieldtype": "Data",
+   "label": "Dropbox App Key",
+   "description": "Dropbox scoped app (full Dropbox or App folder) with files.content.read/write, files.metadata.read/write, account_info.read."
+  },
+  {
+   "fieldname": "dropbox_app_secret",
+   "fieldtype": "Password",
+   "label": "Dropbox App Secret"
+  },
+  {
+   "fieldname": "oauth_config_hash",
+   "fieldtype": "Data",
+   "label": "OAuth Config Hash",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_retention",
+   "fieldtype": "Section Break",
+   "label": "Backup Retention Limits",
+   "description": "Bounds for the retention customers choose per site / team (0 = no limit)."
+  },
+  {
+   "fieldname": "backup_retention_min_days",
+   "fieldtype": "Int",
+   "label": "Minimum Retention (days)",
+   "default": "1"
+  },
+  {
+   "fieldname": "backup_retention_max_days",
+   "fieldtype": "Int",
+   "label": "Maximum Retention (days)",
+   "default": "0",
+   "description": "Longest span of remote backups incl. weekly/monthly keeps; 0 = unlimited (also allows keep forever)."
+  },
+  {
+   "fieldname": "column_break_retention",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "backup_retention_included_days",
+   "fieldtype": "Int",
+   "label": "Included Retention (days)",
+   "default": "0",
+   "description": "Retention beyond this needs the paid Extended Backup Retention add-on (Team); 0 = all included."
+  },
+  {
+   "fieldname": "backup_local_retention_max_days",
+   "fieldtype": "Int",
+   "label": "Max Days On Server",
+   "default": "0"
+  },
+  {
+   "fieldname": "backup_keep_monthly_max",
+   "fieldtype": "Int",
+   "label": "Max Monthly Backups",
+   "default": "0"
   }
  ],
  "index_web_pages_for_search": 0,

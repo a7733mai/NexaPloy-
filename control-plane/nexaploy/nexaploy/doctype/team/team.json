@@ -16,7 +16,14 @@
   "two_factor_required",
   "credit_balance",
   "members_section",
-  "members"
+  "members",
+  "section_break_backups",
+  "backup_retention_days",
+  "backup_keep_daily",
+  "backup_keep_weekly",
+  "backup_keep_monthly",
+  "backup_local_retention_days",
+  "extended_backup_retention"
  ],
  "fields": [
   {
@@ -92,6 +99,54 @@
    "fieldtype": "Table",
    "label": "Members",
    "options": "Team Member"
+  },
+  {
+   "fieldname": "section_break_backups",
+   "fieldtype": "Section Break",
+   "label": "Backup Retention (team default)"
+  },
+  {
+   "fieldname": "backup_retention_days",
+   "fieldtype": "Int",
+   "label": "Keep Remote Backups (days)",
+   "default": "14",
+   "description": "Remote copies older than this are deleted (0 = forever)."
+  },
+  {
+   "fieldname": "backup_keep_daily",
+   "fieldtype": "Int",
+   "label": "Keep Daily Backups",
+   "default": "0",
+   "description": "Also keep the newest backup of each of the last N days (0 = off)."
+  },
+  {
+   "fieldname": "backup_keep_weekly",
+   "fieldtype": "Int",
+   "label": "Keep Weekly Backups",
+   "default": "0",
+   "description": "Also keep the newest backup of each of the last N weeks (0 = off)."
+  },
+  {
+   "fieldname": "backup_keep_monthly",
+   "fieldtype": "Int",
+   "label": "Keep Monthly Backups",
+   "default": "0",
+   "description": "Also keep the newest backup of each of the last N months (0 = off)."
+  },
+  {
+   "fieldname": "backup_local_retention_days",
+   "fieldtype": "Int",
+   "label": "Keep On Server (days)",
+   "default": "14",
+   "description": "Days uploaded backups stay on the server; 0 = delete right after upload."
+  },
+  {
+   "fieldname": "extended_backup_retention",
+   "fieldtype": "Check",
+   "label": "Extended Backup Retention Add-on",
+   "default": "0",
+   "read_only": 1,
+   "description": "Set by billing: allows retention beyond Nexaploy Settings > Included Retention."
   }
  ],
  "index_web_pages_for_search": 0,

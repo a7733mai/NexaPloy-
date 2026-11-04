@@ -21,7 +21,12 @@
   "domains",
   "section_break_backups",
   "backup_frequency",
+  "backup_retention_custom",
   "backup_retention_days",
+  "backup_keep_daily",
+  "backup_keep_weekly",
+  "backup_keep_monthly",
+  "backup_local_retention_days",
   "backup_with_files",
   "last_backup_at",
   "column_break_monitoring",
@@ -159,11 +164,46 @@
    "options": "Daily\nEvery 12 hours\nWeekly\nOff"
   },
   {
+   "fieldname": "backup_retention_custom",
+   "fieldtype": "Check",
+   "label": "Custom Backup Retention",
+   "default": "0",
+   "description": "Use this site's retention below instead of the team default."
+  },
+  {
    "default": "14",
-   "description": "Remote backups older than this are deleted (the newest 3 are always kept). 0 = keep forever.",
+   "description": "Remote copies older than this are deleted (0 = forever). Used when Custom Backup Retention is set.",
    "fieldname": "backup_retention_days",
    "fieldtype": "Int",
    "label": "Backup Retention (days)"
+  },
+  {
+   "fieldname": "backup_keep_daily",
+   "fieldtype": "Int",
+   "label": "Keep Daily Backups",
+   "default": "0",
+   "description": "Also keep the newest backup of each of the last N days (0 = off)."
+  },
+  {
+   "fieldname": "backup_keep_weekly",
+   "fieldtype": "Int",
+   "label": "Keep Weekly Backups",
+   "default": "0",
+   "description": "Also keep the newest backup of each of the last N weeks (0 = off)."
+  },
+  {
+   "fieldname": "backup_keep_monthly",
+   "fieldtype": "Int",
+   "label": "Keep Monthly Backups",
+   "default": "0",
+   "description": "Also keep the newest backup of each of the last N months (0 = off)."
+  },
+  {
+   "fieldname": "backup_local_retention_days",
+   "fieldtype": "Int",
+   "label": "Keep On Server (days)",
+   "default": "14",
+   "description": "Days uploaded backups stay on the server; 0 = delete right after upload."
   },
   {
    "default": "1",

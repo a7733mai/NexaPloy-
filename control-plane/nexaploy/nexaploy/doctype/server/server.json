@@ -14,6 +14,7 @@
   "team",
   "plan",
   "is_build_server",
+  "backup_destination",
   "section_break_agent",
   "agent_version",
   "last_heartbeat",
@@ -102,6 +103,13 @@
    "fieldname": "is_build_server",
    "fieldtype": "Check",
    "label": "Is Build Server"
+  },
+  {
+   "fieldname": "backup_destination",
+   "fieldtype": "Link",
+   "label": "Backup Destination",
+   "options": "Backup Destination",
+   "description": "Where this server uploads backups. Empty: the team's default destination, else the platform storage (Nexaploy Settings)."
   },
   {
    "fieldname": "section_break_agent",

@@ -148,13 +148,14 @@ Params are the agent REST body (§5.2) plus the path parameters of that endpoint
 | `site.create` | `{bench, name, admin_password, apps:[app_name]}` | Site insert |
 | `site.install_app` / `site.uninstall_app` | `{site, app}` | Site methods |
 | `site.add_domain` / `site.remove_domain` | `{site, domain}` | Site methods |
-| `site.backup` | `{site, with_files, upload: true}` | Site Backup insert |
-| `site.restore` | `{site, remote_path}` (restore) or `{site, bench, backup_id\|remote_path, with_files}` (move target) | restore, move |
+| `site.backup` | `{site, with_files, upload: true, local_retention_days}` (no `local_retention_days` for move backups) | Site Backup insert |
+| `site.restore` | `{site, remote_path, restore: all\|database\|files}` (restore; with `bench` = as a new site) or `{site, bench, backup_id\|remote_path, with_files}` (move target) | restore, `backup_destinations.restore_backup`, move |
 | `site.migrate` | `{site}` | `Site.migrate` |
 | `site.drop` | `{site, skip_backup}` | `Site.drop`, move |
-| `server.configure_backups` | `{remote, type, provider, endpoint, region, bucket, access_key_id, secret_access_key, prefix}` | Server becomes Active (register / first heartbeat), Settings backup change, `Server.configure_backups` |
+| `server.configure_backups` | `{remote, type: s3, provider, endpoint, region, bucket, access_key_id, secret_access_key, prefix}` or, for a Backup Destination of type Google Drive / OneDrive / Dropbox, `{remote, type: drive\|onedrive\|dropbox, prefix, token, client_id, client_secret[, root_folder_id \| drive_id, drive_type, tenant]}` | Server becomes Active (register / first heartbeat), Settings backup / OAuth app change, Backup Destination change, `set_server_destination`, `Server.configure_backups` |
 | `server.health` | `{}` | `Server.health_check` |
-| `backup.prune_remote` | `{site, bench, prefix, keep_days, keep_min: 3}` | `tasks.prune_remote_backups` (daily) |
+| `backup.prune_remote` | `{site, bench, prefix, keep_days, keep_min: 3, keep_daily, keep_weekly, keep_monthly}` | `tasks.prune_remote_backups` (daily, effective site policy) |
+| `backup.test_remote` | `{destination: <configure_backups params>, prefix}` | `backup_destinations.test_destination` |
 
 `registry` is `{url, username, password}` and is only sent when the image lives on the configured
 registry. `registry.password` and `secret_access_key` are stored as secret placeholders
@@ -183,6 +184,7 @@ in the `poll` response, so plaintext secrets never land in the Agent Job table.
 | `backup.prune_remote` | Site Backups whose `remote_path` was purged → Deleted | error log |
 | `server.health` | Server `facts` + monitoring fields / Server Metric | — |
 | `server.configure_backups` | — | error log |
+| `backup.test_remote` | Backup Destination Connected, `last_tested_at`, quota | Backup Destination Error + `last_error` |
 
 Site app and drop callbacks and `Server.archive` call `nexaploy.billing.subscriptions.sync_subscription`
 (errors are logged, never raised).

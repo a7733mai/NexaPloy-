@@ -7,7 +7,7 @@ from typing import Any
 from .base import Job
 from .bench_jobs import BenchCreate, BenchRemove, BenchRestart, BenchStart, BenchStop, BenchUpdate
 from .image_jobs import ImageBuild
-from .server_jobs import BackupPruneRemote, ServerConfigureBackups, ServerHealth
+from .server_jobs import BackupPruneRemote, BackupTestRemote, ServerConfigureBackups, ServerHealth
 from .site_jobs import (
     SiteAddDomain, SiteBackup, SiteCreate, SiteDrop, SiteInstallApp, SiteMigrate,
     SiteGetConfig, SiteRemoveDomain, SiteRestore, SiteSetConfig, SiteUninstallApp, SiteUpdateConfig,
@@ -21,7 +21,7 @@ JOB_CLASSES: tuple[type[Job], ...] = (
     BenchCreate, BenchStart, BenchStop, BenchRestart, BenchUpdate, BenchRemove,
     SiteCreate, SiteInstallApp, SiteUninstallApp, SiteAddDomain, SiteRemoveDomain,
     SiteBackup, SiteRestore, SiteMigrate, SiteSetConfig, SiteDrop,
-    ServerConfigureBackups, ServerHealth, BackupPruneRemote,
+    ServerConfigureBackups, ServerHealth, BackupPruneRemote, BackupTestRemote,
     SiteUsage, SiteGetConfig, SiteUpdateConfig,
     SiteClone, SiteRename,
     SiteLogs, SiteAnalytics, SiteSlowQueries, SiteSql, SiteConsole,

@@ -68,6 +68,13 @@ class Site(Document):
 		if self.flags.clone_from:
 			self.enqueue_clone(self.flags.clone_from)
 			return
+		if self.flags.restore_params:
+			# restored from a backup as a new site (nexaploy.api.backup_destinations.restore_backup):
+			# the agent creates the empty site itself, then restores into it
+			params = dict(self.flags.restore_params)
+			params.update({"site": self.site_name, "bench": frappe.db.get_value("Bench", self.bench, "bench_name")})
+			create_agent_job(self.server, "site.restore", params, self.doctype, self.name)
+			return
 		create_agent_job(
 			self.server,
 			"site.create",

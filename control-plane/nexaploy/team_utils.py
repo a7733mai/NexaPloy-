@@ -43,7 +43,7 @@ EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 READ_PTYPES = frozenset({"read", "select", "print", "export", "report", "email", "share"})
 WRITE_PTYPES = frozenset({"write", "create", "submit", "cancel", "delete", "amend", "import"})
 BILLING_DOCTYPES = frozenset({"Nexaploy Invoice", "Nexaploy Payment", "Nexaploy Subscription"})
-ADMIN_DOCTYPES = frozenset({"Server", "Server Registration Token", "Team", "Team Invitation"})
+ADMIN_DOCTYPES = frozenset({"Server", "Server Registration Token", "Team", "Team Invitation", "Backup Destination"})
 
 
 # --------------------------------------------------------------------------- roles

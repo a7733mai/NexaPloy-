@@ -90,18 +90,29 @@ def schedule_backups():
 
 def prune_remote_backups():
 	"""Daily: backup.prune_remote per site and remote location (prefix/bench) its backups live in,
-	keeping backup_retention_days (0 = forever) and always the newest 3. Archived sites are kept.
+	keeping the site's effective retention policy (its own when backup_retention_custom, else
+	the team default; days 0 = forever, plus daily/weekly/monthly keeps) and always the newest 3.
+	Archived sites are kept.
 	"""
+	from nexaploy import backup_policy_utils as bpu
+
+	policy_fields = list(bpu.DOC_FIELDS.values())
 	sites = frappe.get_all(
 		"Site",
-		filters={"status": ["in", ["Active", "Broken", "Suspended"]], "backup_retention_days": [">", 0]},
-		fields=["name", "server", "backup_retention_days"],
+		filters={"status": ["in", ["Active", "Broken", "Suspended"]]},
+		fields=["name", "server", "team", "backup_retention_custom", *policy_fields],
 	)
+	team_rows = {}
 	from nexaploy.agent_job import create_agent_job
 
 	for site in sites:
 		if frappe.db.get_value("Server", site.server, "status") != "Active":
 			continue
+		if site.team and site.team not in team_rows:
+			team_rows[site.team] = frappe.db.get_value("Team", site.team, policy_fields, as_dict=True)
+		retention = bpu.prune_params(bpu.effective_policy(site, team_rows.get(site.team)))
+		if not retention:
+			continue  # kept forever
 		if frappe.db.exists(
 			"Agent Job",
 			{"kind": "backup.prune_remote", "reference_doctype": "Site", "reference_name": site.name,
@@ -116,8 +127,7 @@ def prune_remote_backups():
 				create_agent_job(
 					site.server,
 					"backup.prune_remote",
-					{"site": site.name, "bench": bench, "prefix": prefix or None,
-					 "keep_days": int(site.backup_retention_days), "keep_min": ou.KEEP_MIN_DEFAULT},
+					{"site": site.name, "bench": bench, "prefix": prefix or None, **retention},
 					"Site",
 					site.name,
 				)

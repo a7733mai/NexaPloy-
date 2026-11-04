@@ -1015,3 +1015,111 @@ Revenue share must be a number,يجب أن تكون حصة الإيرادات ر
 Revenue share must be between 0 and 100 percent,يجب أن تكون حصة الإيرادات بين 0 و100 بالمئة
 Please enter a subject,يرجى إدخال موضوع
 Get help,احصل على مساعدة
+Backup destinations,وجهات النسخ الاحتياطي
+Add destination,إضافة وجهة
+"Choose where your servers upload site backups. Connect Google Drive, OneDrive or Dropbox with one click, or use your own S3 bucket. Without a destination, backups go to the platform storage.",اختر المكان الذي ترفع إليه خوادمك النسخ الاحتياطية للمواقع. اربط Google Drive أو OneDrive أو Dropbox بنقرة واحدة، أو استخدم حاوية S3 الخاصة بك. بدون وجهة تُحفظ النسخ في تخزين المنصة.
+e.g. Company Drive,مثال: Drive الشركة
+Folder,المجلد
+Each server writes into a sub-folder named after its server ID.,يكتب كل خادم في مجلد فرعي يحمل معرّف الخادم.
+Use for all team servers without their own destination,استخدمها لكل خوادم الفريق التي ليس لها وجهة خاصة
+Bucket,الحاوية
+S3 provider,مزوّد S3
+Endpoint,نقطة الاتصال
+Access key ID,معرّف مفتاح الوصول
+Secret access key,مفتاح الوصول السري
+Leave empty to keep the current secret.,اتركه فارغًا للإبقاء على المفتاح السري الحالي.
+Root folder ID (optional),معرّف المجلد الجذر (اختياري)
+Nexaploy only sees the files it creates in your Drive.,لا يرى Nexaploy إلا الملفات التي ينشئها في Drive الخاص بك.
+Save and connect,حفظ وربط
+No destinations yet. Backups go to the platform storage.,لا توجد وجهات بعد. تُحفظ النسخ الاحتياطية في تخزين المنصة.
+Last test,آخر اختبار
+Default,افتراضي
+Reconnect,إعادة الربط
+Connect,ربط
+Test,اختبار
+Disconnect,فصل
+Backups go to,تُحفظ النسخ في
+Backup destination,وجهة النسخ الاحتياطي
+Retention,مدة الاحتفاظ
+Team default for every site without its own retention.,الإعداد الافتراضي للفريق لكل موقع ليس له مدة احتفاظ خاصة.
+Keep backups in storage (days),الاحتفاظ بالنسخ في التخزين (أيام)
+0 = keep forever,0 = الاحتفاظ دائمًا
+Keep on the server (days),الاحتفاظ على الخادم (أيام)
+0 = delete from the server right after upload,0 = الحذف من الخادم مباشرة بعد الرفع
+Daily backups to keep,عدد النسخ اليومية المحتفظ بها
+Weekly backups to keep,عدد النسخ الأسبوعية المحتفظ بها
+Monthly backups to keep,عدد النسخ الشهرية المحتفظ بها
+Save team default,حفظ الإعداد الافتراضي للفريق
+In storage,في التخزين
+On server,على الخادم
+Daily / weekly / monthly,يومي / أسبوعي / شهري
+Team default,افتراضي الفريق
+Restore…,استعادة…
+Restoring into the same site replaces its current data. Restore into a new site to inspect a backup safely.,الاستعادة إلى الموقع نفسه تستبدل بياناته الحالية. استعد إلى موقع جديد لفحص النسخة بأمان.
+No uploaded backups for this site yet.,لا توجد نسخ احتياطية مرفوعة لهذا الموقع بعد.
+Contents,المحتويات
+Restore what,ما الذي تريد استعادته
+Database and files,قاعدة البيانات والملفات
+Database only,قاعدة البيانات فقط
+Files only,الملفات فقط
+Restore into this site,استعادة إلى هذا الموقع
+Restore as new site,استعادة كموقع جديد
+New site name,اسم الموقع الجديد
+Connected. Your servers will use it for the next backups.,تم الربط. ستستخدمه خوادمك في النسخ الاحتياطية القادمة.
+Team default ({0}),افتراضي الفريق ({0})
+Platform storage,تخزين المنصة
+Not configured,غير مُعد
+at least {0} days,{0} يوم على الأقل
+at most {0} days,{0} يوم على الأكثر
+at most {0} days on the server,{0} يوم على الأكثر على الخادم
+at most {0} monthly backups,{0} نسخة شهرية على الأكثر
+longer than {0} days needs the extended retention add-on,الاحتفاظ لأكثر من {0} يوم يتطلب إضافة الاحتفاظ الممتد
+Limits: {0},الحدود: {0}
+Disconnect {0}? Servers using it fall back to the platform storage.,فصل {0}؟ ستعود الخوادم التي تستخدمها إلى تخزين المنصة.
+Disconnected,تم الفصل
+Delete {0}? Backups already stored there are not deleted.,حذف {0}؟ لن تُحذف النسخ المخزنة هناك مسبقًا.
+Connection test started,بدأ اختبار الاتصال
+{0} is reachable and writable,{0} متاح وقابل للكتابة
+Connection test failed: {0},فشل اختبار الاتصال: {0}
+Backup destination updated,تم تحديث وجهة النسخ الاحتياطي
+Restore {0} into {1}? Current data is replaced ({2}).,استعادة {0} إلى {1}؟ ستُستبدل البيانات الحالية ({2}).
+Restore started,بدأت الاستعادة
+Backup destination {0} not found,وجهة النسخ الاحتياطي {0} غير موجودة
+Backup destination {0} belongs to another team,وجهة النسخ الاحتياطي {0} تابعة لفريق آخر
+The type of a destination cannot change; add a new destination instead,لا يمكن تغيير نوع الوجهة؛ أضف وجهة جديدة بدلًا من ذلك
+"Choose S3, Google Drive, OneDrive or Dropbox",اختر S3 أو Google Drive أو OneDrive أو Dropbox
+Secret access key is required,مفتاح الوصول السري مطلوب
+Connecting {0} is not available yet; ask the platform operator,ربط {0} غير متاح بعد؛ تواصل مع مشغّل المنصة
+"Only Google Drive, OneDrive and Dropbox destinations can be disconnected",يمكن فصل وجهات Google Drive وOneDrive وDropbox فقط
+Connect the account first,اربط الحساب أولًا
+Server {0} is not active,الخادم {0} غير نشط
+Add an active server to your team to test this destination,أضف خادمًا نشطًا إلى فريقك لاختبار هذه الوجهة
+Connect {0} first,اربط {0} أولًا
+Site {0} belongs to another team,الموقع {0} تابع لفريق آخر
+Backup {0} belongs to another team,النسخة الاحتياطية {0} تابعة لفريق آخر
+The target server uses another backup storage; restore on a server with the same destination,الخادم الهدف يستخدم تخزين نسخ احتياطي آخر؛ استعد على خادم يستخدم الوجهة نفسها
+Unknown backup destination type {0},نوع وجهة النسخ الاحتياطي {0} غير معروف
+Servers still use this backup destination; choose another one for them first,ما زالت خوادم تستخدم هذه الوجهة؛ اختر لها وجهة أخرى أولًا
+Backup retention limits must be 0 or more,يجب أن تكون حدود الاحتفاظ بالنسخ 0 أو أكثر
+The sign-in link is invalid. Start again from this page.,رابط تسجيل الدخول غير صالح. ابدأ من جديد من هذه الصفحة.
+The sign-in took too long. Please connect again.,استغرق تسجيل الدخول وقتًا طويلًا. يرجى الربط مرة أخرى.
+Only team Owners and Admins can connect backup storage.,يمكن لمالكي الفريق ومسؤوليه فقط ربط تخزين النسخ الاحتياطية.
+The backup destination no longer exists.,وجهة النسخ الاحتياطي لم تعد موجودة.
+The connection was cancelled at the provider.,أُلغي الربط لدى المزوّد.
+Connecting failed. See the destination's error and try again.,فشل الربط. راجع خطأ الوجهة وحاول مرة أخرى.
+Connected,متصل
+Not Connected,غير متصل
+Error,خطأ
+database,قاعدة البيانات
+public,الملفات العامة
+site_config,إعدادات الموقع
+"Folder may only contain letters, digits, '.', '_', '-' and '/'",يمكن أن يحتوي المجلد على حروف وأرقام و'.' و'_' و'-' و'/' فقط
+Invalid bucket name,اسم حاوية غير صالح
+Access key ID is required,معرّف مفتاح الوصول مطلوب
+Invalid region,منطقة غير صالحة
+Invalid endpoint,نقطة اتصال غير صالحة
+Invalid S3 provider,مزوّد S3 غير صالح
+Invalid Google Drive folder id,معرّف مجلد Google Drive غير صالح
+"Restore what: all, database or files",ما الذي تريد استعادته: الكل أو قاعدة البيانات أو الملفات
+This backup was not uploaded and cannot be restored,لم تُرفع هذه النسخة ولا يمكن استعادتها
+A new site needs the database: restore everything or the database,يحتاج الموقع الجديد إلى قاعدة البيانات: استعد الكل أو قاعدة البيانات

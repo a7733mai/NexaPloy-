@@ -211,7 +211,11 @@ def on_site_restore(job):
 	site = _ref(job)
 	if _in_move(site, job):
 		return site.move_step_finished(job)
-	site.status = "Active" if job.status == "Success" else "Broken"
+	ok = job.status == "Success"
+	site.status = "Active" if ok else "Broken"
+	for row in site.apps:  # restored as a new site (nexaploy.api.backup_destinations.restore_backup)
+		if row.status == "Pending":
+			row.status = "Installed" if ok else "Failed"
 	_save(site)
 
 
@@ -374,6 +378,25 @@ def on_site_update_config(job):
 def on_configure_backups(job):
 	if job.status == "Failure":
 		frappe.log_error(title=f"Nexaploy: configure_backups failed on {job.server}", message=job.error or "")
+
+
+@handles("backup.test_remote")
+def on_backup_test_remote(job):
+	"""Record the connection test on the Backup Destination (status Connected / Error, quota)."""
+	if job.status not in TERMINAL_JOB_STATUSES or job.reference_doctype != "Backup Destination":
+		return
+	if not frappe.db.exists("Backup Destination", job.reference_name):
+		return
+	from nexaploy import backup_destination_utils as bdu
+
+	values = {"last_tested_at": job.ended_at or frappe.utils.now_datetime(), "last_test_server": job.server}
+	if job.status == "Success":
+		about = (_json(job.result, {}) or {}).get("about") or {}
+		values.update({"status": bdu.CONNECTED, "last_error": None,
+		               "quota_used": about.get("used"), "quota_total": about.get("total")})
+	else:
+		values.update({"status": bdu.ERROR, "last_error": (job.error or "connection test failed")[-1000:]})
+	frappe.db.set_value("Backup Destination", job.reference_name, values, update_modified=False)
 
 
 @handles("server.health")

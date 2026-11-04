@@ -256,7 +256,8 @@ retention_days = 14
 | GET | `/v1/server` | host facts |
 | GET | `/v1/jobs`, `/v1/jobs/{id}` | job with steps + output |
 | POST | `/v1/server/health` | job `server.health` (result = host facts, same as the heartbeat) |
-| POST | `/v1/server/backup-config` | `{remote, type: s3, provider, endpoint, region, bucket, access_key_id, secret_access_key, prefix}` → job `server.configure_backups` (writes `config/rclone.conf` mode 600 + `[backup]` in agent.toml; idempotent) |
+| POST | `/v1/server/backup-config` | `{remote, type: s3, provider, endpoint, region, bucket, access_key_id, secret_access_key, prefix}` or `{remote, type: drive\|onedrive\|dropbox, token, client_id?, client_secret?, root_folder_id? (drive), drive_id + drive_type + tenant? (onedrive), prefix}` → job `server.configure_backups` (writes `config/rclone.conf` mode 600 + `[backup]` in agent.toml; idempotent; §5.5) |
+| POST | `/v1/server/backup-test` | `{destination?: <backup-config body>, prefix?}` → job `backup.test_remote` (mkdir, write + delete a marker, list, quota; with `destination` from a throw-away rclone config) |
 | POST | `/v1/images/build` | `{major, apps_json, tag, frappe_branch?, push?, registry?: {url, username, password}}` → job `image.build` (`docker login --password-stdin` before pushing) |
 | GET | `/v1/benches` | list |
 | POST | `/v1/benches` | `{name, image, env?, apps_json?, registry?}` → job `bench.create` (render compose, login + pull if needed, up, run configurator) |
@@ -269,10 +270,10 @@ retention_days = 14
 | DELETE | `/v1/sites/{s}/apps/{app}` | job `site.uninstall_app` |
 | POST | `/v1/sites/{s}/domains` | `{domain}` → job `site.add_domain` (route rewrite + add-domain) |
 | DELETE | `/v1/sites/{s}/domains/{d}` | job `site.remove_domain` |
-| POST | `/v1/sites/{s}/backup` | `{with_files: true, upload: true}` → job `site.backup` (result adds `backup_files:[{file_type: database\|public\|private\|site_config, name, size, sha256, remote_key}]`; `remote_key` = object key in the bucket) |
+| POST | `/v1/sites/{s}/backup` | `{with_files: true, upload: true, local_retention_days?}` → job `site.backup` (result adds `backup_files:[{file_type: database\|public\|private\|site_config, name, size, sha256, remote_key}]`; `remote_key` = object key in the bucket) |
 | GET | `/v1/sites/{s}/backups` | list local + remote |
-| POST | `/v1/sites/{s}/backups/prune-remote` | `{bench?, keep_days=14, keep_min=3, prefix?}` → job `backup.prune_remote` (`rclone lsf` the dated dirs, `rclone purge` those older than `keep_days`, never the newest `keep_min`) |
-| POST | `/v1/sites/{s}/restore` | `{backup_id}` or `{remote_path}` → job `site.restore` |
+| POST | `/v1/sites/{s}/backups/prune-remote` | `{bench?, keep_days=14, keep_min=3, keep_daily=0, keep_weekly=0, keep_monthly=0, prefix?}` → job `backup.prune_remote` (`rclone lsf` the dated dirs, `rclone purge` those older than `keep_days`, never the newest `keep_min` nor the newest of each of the last N days / ISO weeks / months) |
+| POST | `/v1/sites/{s}/restore` | `{backup_id}` or `{remote_path}`, `restore: all\|database\|files` (default all; `with_files: false` = database) → job `site.restore` |
 | POST | `/v1/sites/{s}/migrate` | job `site.migrate` |
 | POST | `/v1/sites/{s}/config` | `{key, value}` → job `site.set_config` |
 | GET | `/v1/sites/{s}/config` | site_config.json, secrets redacted (`db_password`, `encryption_key`, keys matching `password\|secret\|token\|key`); the CP uses job `site.get_config` `{site}` (same result) |
@@ -312,6 +313,18 @@ lists (no `shell=True`); names are validated against §2 regexes first.
   (`{site, bench, image, created_at, files:[{name,size,sha256}]}`) and (if upload)
   `rclone copy` to `<remote>:<prefix>/<bench>/<s>/<ts>/`, then prunes local beyond retention.
 - Restore: fetch (rclone) if needed, verify sha256, `bench --site <s> restore <sql.gz> --with-public-files ... --with-private-files ... --db-root-password ...`, then `bench --site <s> migrate`.
+  `restore: database` skips the file archives; `restore: files` (existing site only) runs
+  `bench --site <s> execute frappe.installer.extract_files --args '["<s>", "<tar>"]'` per archive and
+  leaves the database, encryption key and migrations alone.
+- Local retention: after a successful upload the dir gets a `.uploaded` marker; `local_retention_days`
+  (per site from the CP) 0 deletes uploaded dirs right away, N deletes uploaded dirs older than N days;
+  without it (and for never-uploaded dirs) `[backup] retention_days`/`keep_min` apply.
+- Backends: `server.configure_backups` `type` = `s3` | `drive` (Google Drive, scope `drive.file`) |
+  `onedrive` | `dropbox`. Credentials live in `[<remote>-<type>]`, `[<remote>]` is an `alias` of it
+  (`<remote>-s3:<bucket>` or `<remote>-<type>:`), so every path above is unchanged. OAuth `token`
+  = rclone token JSON (`access_token`, `refresh_token`, `token_type`, `expiry`); rclone refreshes it and
+  rewrites rclone.conf. `config/rclone.state.json` (600) holds the sha256 of the token last written: a
+  re-push of the same token keeps the refreshed one on disk, a new token (reconnect) replaces it.
 
 ### 5.6 Control plane protocol
 
@@ -390,7 +403,7 @@ Operations fields: Server `cpu_count`, `memory_total_mb`, `disk_total_gb`, `disk
 `unhealthy_containers`, `last_alert_at`; Site `backup_frequency` (Daily/Every 12 hours/Weekly/Off),
 `backup_retention_days` (14), `backup_with_files`, `last_backup_at`, `is_up`, `last_uptime_check`;
 Site Backup status adds `Deleted`; Release Group `auto_update`, `update_window` (`HH:MM-HH:MM`,
-server-local). Agent Job kinds add `server.configure_backups`, `server.health`, `backup.prune_remote`, `site.usage`,
+server-local). Agent Job kinds add `server.configure_backups`, `server.health`, `backup.prune_remote`, `backup.test_remote`, `site.usage`,
 `site.get_config`, `site.update_config`. Plan limits: Nexaploy Plan `cpu_seconds_per_day`, `max_storage_mb`,
 `max_database_mb` (0 = unlimited), `overage_action` (Notify/Throttle/Suspend), `plan_order`; Site
 `current_cpu_seconds_today`, `database_mb`, `storage_mb`, `over_limit`, `throttled` (+ hidden `usage_suspended`).
@@ -413,6 +426,37 @@ automatically — CPU resets each UTC day), `prune_site_usage` (daily, 400 days)
 presigned S3 GET URLs (15 min) built from Nexaploy Settings backup credentials (`nexaploy.api.site_tools`). A Server that becomes Active (register / first heartbeat) and every change of the backup
 storage settings enqueue `server.configure_backups`; all servers share one bucket under
 `<backup_prefix>/<server_id>` so a backup taken on one server restores on another.
+
+### 8.1 Backup destinations, retention, restore
+
+**Backup Destination** (team-owned, `admin` action): `title`, `team`, `destination_type`
+(S3/Google Drive/OneDrive/Dropbox), `status` (Not Connected/Connected/Error), `is_default` (team
+default), `folder` (prefix; servers write under `<folder>/<server_id>`), `account_email`,
+`account_name`, S3 `s3_*` (+ `s3_secret_key` Password), OAuth `oauth_token` (Password, rclone token
+JSON), `root_folder_id` (Drive), `drive_id`/`drive_type` (OneDrive), test results (`last_tested_at`,
+`last_error`, `quota_used`/`quota_total`), hidden `config_hash`. Server `backup_destination` (Link);
+empty = the team default, else the platform storage of Nexaploy Settings. Agent params carry
+`__secret__:Backup Destination:<name>:oauth_token|s3_secret_key` (allow-listed in `_resolve_secret`,
+only for a server of the same team) and the platform OAuth client secret as a Nexaploy Settings
+placeholder. Nexaploy Settings: `google_client_id/secret`, `microsoft_client_id/secret`,
+`microsoft_tenant` (common), `dropbox_app_key/secret`; redirect URI
+`/api/method/nexaploy.api.backup_destinations.oauth_callback`. OAuth: `start_oauth` signs a 10-min
+`state` (HMAC, user + team + destination + provider + nonce; nonce and PKCE verifier in the cache,
+single use); the guest-allowed callback requires the same logged-in user and team `admin`, exchanges
+the code (Google `access_type=offline&prompt=consent`, scope `drive.file`; Microsoft
+`offline_access Files.ReadWrite User.Read`; Dropbox `token_access_type=offline`), stores the token,
+reads the account email (OneDrive: drive id/type) and re-pushes `server.configure_backups`. Pure
+logic: `nexaploy/backup_destination_utils.py`. Downloads (presigned URLs) only work for S3.
+
+Retention (`nexaploy/backup_policy_utils.py`): Team and Site `backup_retention_days` (remote, 0 =
+forever), `backup_keep_daily/weekly/monthly`, `backup_local_retention_days` (server, 0 = delete after
+upload); Site `backup_retention_custom` (else the team default). Nexaploy Settings limits
+`backup_retention_min_days`, `backup_retention_max_days`, `backup_local_retention_max_days`,
+`backup_keep_monthly_max`, `backup_retention_included_days` (longer needs the paid add-on: Team
+`extended_backup_retention` or a `nexaploy_backup_retention_addon` hook, see
+`ops.retention_addon_active`). Restore (`api/backup_destinations.restore_backup`): any uploaded
+backup, `all`/`database`/`files`, into the same site or (`all`/`database`) into a new site on a bench
+whose server reads the same storage. Agent Job kind adds `backup.test_remote`.
 
 ## 9. Teams (Phase 3 — shared contract for all later features)
 

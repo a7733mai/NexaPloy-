@@ -1,0 +1,295 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-11-04 12:00:00.000000",
+ "description": "Where a team's servers upload backups: S3, Google Drive, OneDrive or Dropbox (OAuth, see Nexaploy Settings > Backup OAuth Apps).",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "team",
+  "destination_type",
+  "status",
+  "is_default",
+  "column_break_1",
+  "folder",
+  "account_email",
+  "account_name",
+  "connected_at",
+  "connected_by",
+  "section_break_s3",
+  "s3_provider",
+  "s3_endpoint",
+  "s3_region",
+  "column_break_s3",
+  "s3_bucket",
+  "s3_access_key",
+  "s3_secret_key",
+  "section_break_oauth",
+  "oauth_token",
+  "root_folder_id",
+  "column_break_oauth",
+  "drive_id",
+  "drive_type",
+  "section_break_test",
+  "last_tested_at",
+  "last_test_server",
+  "last_error",
+  "column_break_test",
+  "quota_used",
+  "quota_total",
+  "config_hash"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "label": "Team",
+   "options": "Team",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "destination_type",
+   "fieldtype": "Select",
+   "label": "Type",
+   "options": "S3\nGoogle Drive\nOneDrive\nDropbox",
+   "default": "S3",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Not Connected\nConnected\nError",
+   "default": "Not Connected",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "default": "0",
+   "description": "Used by the team's servers that do not select a destination themselves.",
+   "fieldname": "is_default",
+   "fieldtype": "Check",
+   "label": "Team Default"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "nexaploy-backups",
+   "description": "Folder (path prefix) in the storage; each server writes under <folder>/<server_id>.",
+   "fieldname": "folder",
+   "fieldtype": "Data",
+   "label": "Folder"
+  },
+  {
+   "fieldname": "account_email",
+   "fieldtype": "Data",
+   "label": "Connected Account",
+   "options": "Email",
+   "read_only": 1
+  },
+  {
+   "fieldname": "account_name",
+   "fieldtype": "Data",
+   "label": "Account Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "connected_at",
+   "fieldtype": "Datetime",
+   "label": "Connected At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "connected_by",
+   "fieldtype": "Link",
+   "label": "Connected By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.destination_type=='S3'",
+   "fieldname": "section_break_s3",
+   "fieldtype": "Section Break",
+   "label": "S3"
+  },
+  {
+   "default": "Other",
+   "description": "rclone S3 provider: AWS, Cloudflare, DigitalOcean, Minio, Wasabi, Other, ...",
+   "fieldname": "s3_provider",
+   "fieldtype": "Data",
+   "label": "S3 Provider"
+  },
+  {
+   "fieldname": "s3_endpoint",
+   "fieldtype": "Data",
+   "label": "Endpoint"
+  },
+  {
+   "fieldname": "s3_region",
+   "fieldtype": "Data",
+   "label": "Region"
+  },
+  {
+   "fieldname": "column_break_s3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "s3_bucket",
+   "fieldtype": "Data",
+   "label": "Bucket"
+  },
+  {
+   "fieldname": "s3_access_key",
+   "fieldtype": "Data",
+   "label": "Access Key ID",
+   "length": 1000
+  },
+  {
+   "fieldname": "s3_secret_key",
+   "fieldtype": "Password",
+   "label": "Secret Access Key"
+  },
+  {
+   "depends_on": "eval:doc.destination_type!='S3'",
+   "fieldname": "section_break_oauth",
+   "fieldtype": "Section Break",
+   "label": "OAuth Connection"
+  },
+  {
+   "description": "rclone token JSON {access_token, token_type, refresh_token, expiry} from the Connect button. The agent refreshes it on the server.",
+   "fieldname": "oauth_token",
+   "fieldtype": "Password",
+   "label": "OAuth Token",
+   "length": 16384,
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.destination_type=='Google Drive'",
+   "description": "Optional Google Drive folder id to use as the root (must have been created by Nexaploy: the drive.file scope only sees its own files).",
+   "fieldname": "root_folder_id",
+   "fieldtype": "Data",
+   "label": "Root Folder ID"
+  },
+  {
+   "fieldname": "column_break_oauth",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.destination_type=='OneDrive'",
+   "fieldname": "drive_id",
+   "fieldtype": "Data",
+   "label": "OneDrive Drive ID",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.destination_type=='OneDrive'",
+   "fieldname": "drive_type",
+   "fieldtype": "Data",
+   "label": "OneDrive Drive Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_test",
+   "fieldtype": "Section Break",
+   "label": "Connection Test"
+  },
+  {
+   "fieldname": "last_tested_at",
+   "fieldtype": "Datetime",
+   "label": "Last Tested At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_test_server",
+   "fieldtype": "Link",
+   "label": "Tested From",
+   "options": "Server",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_error",
+   "fieldtype": "Small Text",
+   "label": "Last Error",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_test",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "quota_used",
+   "fieldtype": "Float",
+   "label": "Storage Used (bytes)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "quota_total",
+   "fieldtype": "Float",
+   "label": "Storage Total (bytes)",
+   "read_only": 1
+  },
+  {
+   "description": "sha256 of the configuration last pushed to servers.",
+   "fieldname": "config_hash",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Config Hash",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-04 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Backup Destination",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 0,
+   "print": 0,
+   "read": 1,
+   "report": 1,
+   "role": "Nexaploy Customer",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "show_title_field_in_link": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}

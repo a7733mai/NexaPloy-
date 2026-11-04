@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import configparser
+import hashlib
 import io
 import json
 import os
@@ -19,6 +20,7 @@ from .docker import Runner
 
 TS_FORMAT = "%Y%m%dT%H%M%SZ"
 MANIFEST = "manifest.json"
+UPLOADED_MARKER = ".uploaded"  # written after a successful rclone upload of the dir
 
 # Frappe backup file suffixes.
 SUFFIX_DB = "-database.sql.gz"
@@ -66,6 +68,37 @@ def select_prunable(timestamps: Iterable[str], retention_days: int, keep_min: in
     return sorted(t for i, (dt, t) in enumerate(dated) if i >= keep_min and dt < cutoff)
 
 
+def select_prunable_gfs(timestamps: Iterable[str], retention_days: int, keep_min: int,
+                        keep_daily: int = 0, keep_weekly: int = 0, keep_monthly: int = 0,
+                        now: datetime | None = None) -> list[str]:
+    """:func:`select_prunable` plus grandfather-father-son keeps.
+
+    Besides everything newer than ``retention_days`` and the newest ``keep_min``, keep the
+    newest backup of each of the last ``keep_daily`` days, ``keep_weekly`` ISO weeks and
+    ``keep_monthly`` months that have a backup (UTC).
+    """
+    doomed = set(select_prunable(timestamps, retention_days, keep_min, now))
+    if not doomed or not (keep_daily or keep_weekly or keep_monthly):
+        return sorted(doomed)
+    dated = sorted(((parse_ts(t), t) for t in timestamps if parse_ts(t)), reverse=True)
+    keep: set[str] = set()
+    for count, bucket in (
+        (keep_daily, lambda d: d.strftime("%Y-%m-%d")),
+        (keep_weekly, lambda d: "%d-W%02d" % d.isocalendar()[:2]),
+        (keep_monthly, lambda d: d.strftime("%Y-%m")),
+    ):
+        seen: list[str] = []
+        for dt, ts in dated:
+            key = bucket(dt)
+            if key in seen:
+                continue
+            if len(seen) >= count:
+                break
+            seen.append(key)
+            keep.add(ts)  # newest backup of that day/week/month
+    return sorted(doomed - keep)
+
+
 def rclone_sections(remote: str, *, provider: str, endpoint: str | None, region: str | None,
                     bucket: str, access_key_id: str, secret_access_key: str) -> dict[str, dict[str, str]]:
     """rclone.conf sections for an S3 backup target.
@@ -93,8 +126,48 @@ def rclone_sections(remote: str, *, provider: str, endpoint: str | None, region:
     }
 
 
-def merge_rclone_conf(existing: str, sections: dict[str, dict[str, str]]) -> str:
-    """Replace ``sections`` in an rclone.conf text, keeping every other remote."""
+# Backend types a backup remote can use. ``s3`` takes static keys; the others are OAuth
+# backends whose ``token`` rclone refreshes (and writes back into rclone.conf) by itself.
+BACKEND_TYPES = ("s3", "drive", "onedrive", "dropbox")
+OAUTH_TYPES = frozenset({"drive", "onedrive", "dropbox"})
+
+
+def backend_section(remote: str, backend: str) -> str:
+    return f"{remote}-{backend}"
+
+
+def oauth_sections(remote: str, backend: str, *, token: str, client_id: str | None = None,
+                   client_secret: str | None = None, root_folder_id: str | None = None,
+                   drive_id: str | None = None, drive_type: str | None = None,
+                   tenant: str | None = None) -> dict[str, dict[str, str]]:
+    """rclone.conf sections for a Google Drive / OneDrive / Dropbox backup target.
+
+    Same shape as :func:`rclone_sections`: ``<remote>-<backend>`` holds the credentials and
+    ``<remote>`` is an alias of its root, so paths stay ``<remote>:<prefix>/<bench>/<site>/<ts>``.
+    """
+    if backend not in OAUTH_TYPES:
+        raise ValueError(f"not an OAuth backend: {backend!r}")
+    section: dict[str, str] = {"type": backend}
+    if client_id:
+        section["client_id"] = client_id
+    if client_secret:
+        section["client_secret"] = client_secret
+    if backend == "drive":
+        # drive.file: the app only sees the files it created, never the user's other files
+        section["scope"] = "drive.file"
+        if root_folder_id:
+            section["root_folder_id"] = root_folder_id
+    elif backend == "onedrive":
+        section["drive_id"] = drive_id or ""
+        section["drive_type"] = drive_type or ""
+        if tenant:
+            section["tenant"] = tenant
+    section["token"] = token
+    name = backend_section(remote, backend)
+    return {name: section, remote: {"type": "alias", "remote": f"{name}:"}}
+
+
+def _parser(existing: str) -> configparser.RawConfigParser:
     cp = configparser.RawConfigParser(interpolation=None, strict=False, default_section="\0none")
     cp.optionxform = str  # keep key case
     try:
@@ -102,6 +175,19 @@ def merge_rclone_conf(existing: str, sections: dict[str, dict[str, str]]) -> str
     except configparser.Error:
         cp = configparser.RawConfigParser(interpolation=None, default_section="\0none")
         cp.optionxform = str
+    return cp
+
+
+def merge_rclone_conf(existing: str, sections: dict[str, dict[str, str]],
+                      remove: Iterable[str] = ()) -> str:
+    """Replace ``sections`` in an rclone.conf text, keeping every other remote.
+
+    ``remove`` names sections to drop (e.g. the S3 keys after switching to Google Drive).
+    """
+    cp = _parser(existing)
+    for name in remove:
+        if name not in sections and cp.has_section(name):
+            cp.remove_section(name)
     for name, values in sections.items():
         if cp.has_section(name):
             cp.remove_section(name)
@@ -111,6 +197,46 @@ def merge_rclone_conf(existing: str, sections: dict[str, dict[str, str]]) -> str
     buf = io.StringIO()
     cp.write(buf)
     return buf.getvalue().rstrip("\n") + "\n"
+
+
+def token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def plan_backup_remote(existing: str, remote: str, backend: str, sections: dict[str, dict[str, str]],
+                       state: dict[str, Any] | None) -> tuple[str, dict[str, Any], bool]:
+    """Merge the backup remote into rclone.conf without clobbering a refreshed OAuth token.
+
+    rclone refreshes OAuth access tokens itself and rewrites the ``token`` line of the
+    backend section in rclone.conf. The control plane keeps re-sending the token it got at
+    connect time, which is older. ``state`` (kept in a file next to rclone.conf, not inside
+    it, because rclone rewrites that file) remembers the sha256 of the token we last wrote:
+
+    * same hash as last time -> keep the token on disk (possibly refreshed by rclone);
+    * a different hash (the customer reconnected the account) -> write the new token;
+    * the section is missing or of another type -> write everything.
+
+    Our other backend sections (``<remote>-s3`` ...) are removed so the credentials of a
+    previous destination do not linger. Returns ``(text, new_state, kept_disk_token)``.
+    """
+    cp = _parser(existing)
+    name = backend_section(remote, backend)
+    desired = {k: dict(v) for k, v in sections.items()}
+    kept = False
+    new_state: dict[str, Any] = {}
+    section = desired.get(name, {})
+    if "token" in section:
+        digest = token_hash(section["token"])
+        on_disk = dict(cp.items(name)) if cp.has_section(name) else {}
+        previous = (state or {}).get(name) or {}
+        if (on_disk.get("type") == backend and on_disk.get("token")
+                and previous.get("token_hash") == digest
+                and on_disk["token"] != section["token"]):
+            section["token"] = on_disk["token"]
+            kept = True
+        new_state[name] = {"token_hash": digest}
+    others = [backend_section(remote, t) for t in BACKEND_TYPES if t != backend]
+    return merge_rclone_conf(existing, desired, remove=others), new_state, kept
 
 
 @dataclass
@@ -168,7 +294,8 @@ class BackupManager:
                 # the whole database and private files.
                 os.chmod(dest / name, 0o640)
                 chown(dest / name, FRAPPE_UID, FRAPPE_UID)
-        files = [p for p in sorted(dest.iterdir()) if p.is_file() and p.name != MANIFEST]
+        files = [p for p in sorted(dest.iterdir())
+                 if p.is_file() and p.name != MANIFEST and not p.name.startswith(".")]
         if not any(classify(p.name) == "database" for p in files):
             raise BackupError(f"no database dump found in {dest}")
         manifest = {
@@ -205,9 +332,9 @@ class BackupManager:
         return manifest
 
     # ---- rclone ----------------------------------------------------------------------
-    def rclone(self, *args: str, timeout: float | None = 6 * 3600):
+    def rclone(self, *args: str, timeout: float | None = 6 * 3600, config: Path | None = None):
         return self.runner.run(
-            ["rclone", "--config", str(self.settings.rclone_conf), *args], timeout=timeout
+            ["rclone", "--config", str(config or self.settings.rclone_conf), *args], timeout=timeout
         )
 
     def upload(self, bench: str, site: str, ts: str):
@@ -302,13 +429,38 @@ class BackupManager:
                 })
         return sorted(out, key=lambda b: b["id"], reverse=True)
 
-    def prune(self, bench: str, site: str, now: datetime | None = None) -> list[str]:
-        doomed = select_prunable(
-            self.local_timestamps(bench, site),
-            self.settings.backup.retention_days,
-            self.settings.backup.keep_min,
-            now,
-        )
+    def mark_uploaded(self, bench: str, site: str, ts: str) -> None:
+        """Remember that a local backup dir also exists in the remote (safe to delete locally)."""
+        atomic_write(self.backup_dir(bench, site, ts) / UPLOADED_MARKER, new_ts() + "\n", mode=0o640)
+
+    def is_uploaded(self, bench: str, site: str, ts: str) -> bool:
+        return (self.backup_dir(bench, site, ts) / UPLOADED_MARKER).is_file()
+
+    def prune(self, bench: str, site: str, now: datetime | None = None,
+              local_retention_days: int | None = None) -> list[str]:
+        """Local retention. ``local_retention_days`` (from the control plane, per site):
+
+        * ``None`` -> agent.toml ``[backup] retention_days`` / ``keep_min`` (default);
+        * ``0``    -> delete every local backup that was uploaded (the server keeps none);
+        * ``N``    -> delete uploaded backups older than N days.
+
+        With an explicit value, a backup that never reached the remote is only removed by
+        the agent default (it is the only copy).
+        """
+        stamps = self.local_timestamps(bench, site)
+        if local_retention_days is None:
+            doomed = select_prunable(stamps, self.settings.backup.retention_days,
+                                     self.settings.backup.keep_min, now)
+        else:
+            uploaded = [t for t in stamps if self.is_uploaded(bench, site, t)]
+            if local_retention_days == 0:
+                doomed = uploaded
+            else:
+                doomed = select_prunable(uploaded, local_retention_days, 0, now)
+            # never-uploaded leftovers still follow the agent default
+            doomed = sorted(set(doomed) | set(select_prunable(
+                [t for t in stamps if t not in uploaded], self.settings.backup.retention_days,
+                self.settings.backup.keep_min, now)))
         for ts in doomed:
             shutil.rmtree(self.backup_dir(bench, site, ts), ignore_errors=True)
         return doomed

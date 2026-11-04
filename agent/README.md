@@ -86,6 +86,14 @@ other remotes kept, unchanged file not rewritten) and `remote`/`prefix` into age
 The worker applies it immediately; restart `nexaploy-agent-api` for `GET /v1/sites/{s}/backups` to
 use a changed prefix.
 
+Google Drive / OneDrive / Dropbox (`type=drive|onedrive|dropbox`) use the same layout:
+`[<remote>-<type>]` holds the OAuth `token` and `[<remote>]` aliases `<remote>-<type>:`, so paths stay
+`<remote>:<prefix>/<bench>/<site>/<ts>`. Switching type removes the other `<remote>-*` sections.
+rclone refreshes the access token and rewrites `token` in rclone.conf itself; the agent stores the
+sha256 of the token it last wrote in `config/rclone.state.json` (mode 600, outside rclone.conf because
+rclone rewrites that file) and, while the control plane keeps sending that same token, keeps the
+(refreshed) token on disk. A different token (the customer reconnected) replaces it.
+
 ### Private registry
 
 `image.build`, `bench.create` and `bench.update` accept `registry: {url, username, password}`.
@@ -122,14 +130,15 @@ URL/token come from `agent.toml` (or `--url/--token`, `NEXAPLOY_URL/NEXAPLOY_TOK
 | `site.create` | `bench, name, admin_password, apps?` | check, new_site, install_apps, enable_monitor, write_route |
 | `site.install_app` / `site.uninstall_app` | `site, app` | install / uninstall |
 | `site.add_domain` / `site.remove_domain` | `site, domain` | add/remove domain in site_config, write_route |
-| `site.backup` | `site, with_files=true, upload=true` | backup, stage (manifest + sha256), upload, prune |
-| `site.restore` | `site, backup_id \| remote_path, bench?, with_files?` | locate, fetch, verify, restore, restore_config (encryption_key), migrate, write_route |
+| `site.backup` | `site, with_files=true, upload=true, local_retention_days?` | backup, stage (manifest + sha256), upload (marks the dir `.uploaded`), prune (`local_retention_days`: none = `[backup] retention_days`/`keep_min`; 0 = delete uploaded copies right away; N = uploaded copies older than N days; never-uploaded copies follow the default) |
+| `site.restore` | `site, backup_id \| remote_path, bench?, with_files?, restore=all\|database\|files` | locate, fetch, verify, restore (`files`: `bench execute frappe.installer.extract_files` per archive, database untouched, existing site only), restore_config (encryption_key; not for `files`), migrate (not for `files`), write_route |
 | `site.migrate` | `site` | migrate |
 | `site.set_config` | `site, key, value` | set_config |
 | `site.drop` | `site, skip_backup?` | backup, drop, remove_route |
-| `server.configure_backups` | `remote, type=s3, provider, endpoint?, region?, bucket, access_key_id, secret_access_key, prefix?, retention_days?` | write_rclone_conf, update_agent_config |
+| `server.configure_backups` | `remote, type=s3\|drive\|onedrive\|dropbox, prefix?, retention_days?`; s3: `provider, endpoint?, region?, bucket, access_key_id, secret_access_key`; OAuth types: `token` (rclone token JSON with `access_token` + `refresh_token`), `client_id?`+`client_secret?`, drive: `root_folder_id?` (scope `drive.file`), onedrive: `drive_id, drive_type, tenant?` | write_rclone_conf, update_agent_config |
+| `backup.test_remote` (`POST /v1/server/backup-test`) | `destination?` (configure_backups params, tested from a throw-away rclone config), `prefix?` | check (`rclone mkdir`, `touch` + `deletefile` a marker, `lsf`, `about --json` quota when supported) |
 | `server.health` | — | collect (result = host facts incl. containers / bench health) |
-| `backup.prune_remote` | `site, bench, keep_days=14, keep_min=3, prefix?` | list (`rclone lsf --dirs-only`, select dated dirs older than keep_days, newest keep_min kept), prune (`rclone purge` each) |
+| `backup.prune_remote` | `site, bench, keep_days=14, keep_min=3, keep_daily=0, keep_weekly=0, keep_monthly=0, prefix?` | list (`rclone lsf --dirs-only`, select dated dirs older than keep_days, newest keep_min kept, plus the newest of each of the last N days / ISO weeks / months), prune (`rclone purge` each) |
 
 ### Site lifecycle (`jobs/lifecycle_jobs.py`, `runtime/lifecycle.py`)
 

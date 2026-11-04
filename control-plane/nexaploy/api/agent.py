@@ -302,9 +302,14 @@ def poll(server_id=None, **kwargs):
 	)
 	now = now_datetime()
 	out = []
+	server_team = frappe.db.get_value("Server", server, "team") if jobs else None
+
+	def resolver(doctype, name, fieldname):
+		return _resolve_secret(doctype, name, fieldname, server_team=server_team)
+
 	for job in jobs:
 		frappe.db.set_value("Agent Job", job.name, {"status": "Queued", "queued_at": now})
-		params = resolve_secrets(_load_json(job.params, {}), _resolve_secret)
+		params = resolve_secrets(_load_json(job.params, {}), resolver)
 		out.append({"job_id": job.name, "kind": job.kind, "params": params})
 	if jobs:
 		# §5.6 polls with GET, and Frappe only auto-commits unsafe methods.
@@ -312,12 +317,22 @@ def poll(server_id=None, **kwargs):
 	return out
 
 
-def _resolve_secret(doctype, name, fieldname):
+def _resolve_secret(doctype, name, fieldname, server_team=None):
 	if doctype == "github":
 		# __secret__:github:<deploy candidate>:apps_json — fresh GitHub App tokens
 		from nexaploy.github_secrets import resolve
 
 		return resolve(name, fieldname)
+	if doctype == "Backup Destination":
+		# __secret__:Backup Destination:<name>:oauth_token|s3_secret_key - only those Password
+		# fields, only for a destination that belongs to the team of the server it goes to
+		from nexaploy.backup_destination_utils import SECRET_FIELDS
+
+		if fieldname not in SECRET_FIELDS:
+			return None
+		dest_team = frappe.db.get_value("Backup Destination", name, "team")
+		if not dest_team or dest_team != server_team:
+			return None
 	from frappe.utils.password import get_decrypted_password
 
 	return get_decrypted_password(doctype, name, fieldname, raise_exception=False)
