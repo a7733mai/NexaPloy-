@@ -45,7 +45,13 @@
   "allow_customer_agent_upgrade",
   "agent_upgrade_timeout_minutes",
   "column_break_agent_releases",
-  "agent_repo_url"
+  "agent_repo_url",
+  "section_break_control_plane",
+  "control_plane_release_channel",
+  "control_plane_image_repo",
+  "column_break_control_plane",
+  "control_plane_release_repo",
+  "setup_checklist_dismissed"
  ],
  "fields": [
   {
@@ -285,13 +291,49 @@
    "fieldtype": "Data",
    "label": "Agent Repository URL",
    "description": "Default git repository for Agent Releases without their own URL (https://). Empty: https://github.com/a7733mai/NexaPloy-.git"
+  },
+  {
+   "fieldname": "section_break_control_plane",
+   "fieldtype": "Section Break",
+   "label": "Control Plane Updates"
+  },
+  {
+   "fieldname": "control_plane_release_channel",
+   "fieldtype": "Select",
+   "label": "Control Plane Release Channel",
+   "options": "stable\nbeta",
+   "default": "stable",
+   "description": "Which GitHub releases the Update control plane card offers (beta includes pre-releases)."
+  },
+  {
+   "fieldname": "control_plane_image_repo",
+   "fieldtype": "Data",
+   "label": "Control Plane Image Repository",
+   "description": "Empty: ghcr.io/a7733mai/nexaploy-control-plane. The update runs <repository>:<version>."
+  },
+  {
+   "fieldname": "column_break_control_plane",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "control_plane_release_repo",
+   "fieldtype": "Data",
+   "label": "Release Repository (GitHub owner/repo)",
+   "description": "Empty: a7733mai/NexaPloy-"
+  },
+  {
+   "fieldname": "setup_checklist_dismissed",
+   "fieldtype": "Check",
+   "label": "Setup Checklist Dismissed",
+   "default": "0",
+   "description": "Hide the first-run setup checklist on /dashboard/admin."
   }
  ],
  "index_web_pages_for_search": 0,
  "issingle": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-12-05 00:00:00.000000",
+ "modified": "2026-12-06 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Nexaploy Settings",

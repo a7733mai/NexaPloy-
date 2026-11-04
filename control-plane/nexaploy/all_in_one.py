@@ -49,6 +49,10 @@ def mark_host(server_id, bench, site):
 	server = frappe.db.get_value("Server", {"server_id": server_id}, "name")
 	if not server:
 		frappe.throw(_("Server {0} is not registered").format(server_id))
+	# A restored control plane (install.sh --restore-control-plane) still flags its previous host:
+	# only one server hosts it.
+	for other in frappe.get_all("Server", filters={"hosts_control_plane": 1, "name": ["!=", server]}, pluck="name"):
+		frappe.db.set_value("Server", other, "hosts_control_plane", 0)
 	frappe.db.set_value(
 		"Server",
 		server,

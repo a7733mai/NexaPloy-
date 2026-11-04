@@ -65,6 +65,8 @@ JOB_KINDS = (
 	"site.storage_trash_restore",
 	"server.storage_replicate",
 	"server.storage_prune_trash",
+	# control plane self-update (all-in-one, nexaploy/controlplane.py)
+	"controlplane.update",
 )
 
 
