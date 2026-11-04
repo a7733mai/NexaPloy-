@@ -36,6 +36,8 @@ SERVER_FIELDS = [
 	"name", "hostname", "team", "status", "ownership", "last_heartbeat", "disk_used_percent", "agent_version",
 	"agent_channel", "agent_upgrade_status", "agent_upgrade_error", "hosts_control_plane", "is_build_server",
 	"cpu_count", "memory_total_mb", "disk_total_gb", "unhealthy_containers", "public_ipv4",
+	# server maintenance & health (§17)
+	"os_pending_updates", "os_security_updates", "os_reboot_required", "health_status",
 ]
 BRAND_LIST_FIELDS = ["name", "title", "enabled", "team", "is_default", "primary_color", "logo", "favicon",
                      "portal_domains", "support_email", "footer_text", "email_sender_name", "email_sender_address"]

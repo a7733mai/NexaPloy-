@@ -208,6 +208,7 @@ class CleanupOptions:
     image_min_age_hours: int = 72
     job_retention_days: int = 30
     build_logs_keep: int = 5
+    images_scope: str = "unused"  # "dangling": only untagged images (automatic cleanup)
 
 
 @dataclass
@@ -491,6 +492,8 @@ class Cleaner:
             return
         chosen, notes = select_images(parse_json_lines(listing.stdout), used, self._protected_refs(),
                                       self.clock(), self.opts.image_min_age_hours)
+        if self.opts.images_scope == "dangling":
+            chosen = [row for row in chosen if row.get("dangling")]
         res.notes.extend(notes)
         for row in chosen:
             size = parse_size(row.get("Size"))

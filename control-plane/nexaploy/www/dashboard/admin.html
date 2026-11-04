@@ -4,6 +4,7 @@
 <!-- synchronous on purpose: registers its alpine:init listener before Alpine (deferred) starts -->
 <script src="/assets/nexaploy/js/admin.js"></script>
 <script src="/assets/nexaploy/js/controlplane_admin.js"></script>
+<script src="/assets/nexaploy/js/server_maintenance.js"></script>
 <style>
 	.nx-admin-stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
 	.nx-admin-form { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); align-items: end; }
@@ -104,6 +105,28 @@
 					</div>
 				</section>
 			</div>
+
+			<!-- server maintenance & health (§17): public/js/server_maintenance.js -->
+			<section class="card" x-data="nxFleetHealth">
+				<div class="card-head"><h2>{{ _("Server health") }}</h2></div>
+				<div class="card-body flush table-wrap">
+					<template x-if="rows && !rows.length"><p class="empty">{{ _("No servers yet.") }}</p></template>
+					<table class="nx-table" x-show="rows && rows.length">
+						<thead><tr><th>{{ _("Server") }}</th><th>{{ _("Health") }}</th><th>{{ _("Issues") }}</th><th>{{ _("Pending") }}</th><th>{{ _("Checked") }}</th></tr></thead>
+						<tbody>
+							<template x-for="s in rows || []" :key="s.name">
+								<tr>
+									<td><a class="ltr" :href="'/dashboard/server?name=' + encodeURIComponent(s.name)" x-text="s.hostname || s.name"></a></td>
+									<td><span :class="healthClass(s.health_status || 'Unknown')" x-text="__(s.health_status || 'Unknown')"></span></td>
+									<td class="small" x-text="s.issues.map(function (i) { return i.title; }).join(', ')"></td>
+									<td class="small"><span x-text="s.os_pending_updates || 0"></span><template x-if="s.os_reboot_required"><span class="badge warning">{{ _("Reboot required") }}</span></template></td>
+									<td class="small muted nowrap" x-text="nx.since(s.health_checked_at)"></td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
 
 			<section class="card">
 				<div class="card-head"><h2>{{ _("Failed agent jobs in the last 24 hours") }}</h2></div>
@@ -702,7 +725,7 @@
 				<div class="card-head"><h2>{{ _("All servers") }}</h2></div>
 				<div class="card-body flush table-wrap">
 					<table class="nx-table">
-						<thead><tr><th>{{ _("Server") }}</th><th>{{ _("Team") }}</th><th>{{ _("Type") }}</th><th>{{ _("Status") }}</th><th>{{ _("Disk") }}</th><th>{{ _("Agent") }}</th><th>{{ _("Heartbeat") }}</th></tr></thead>
+						<thead><tr><th>{{ _("Server") }}</th><th>{{ _("Team") }}</th><th>{{ _("Type") }}</th><th>{{ _("Status") }}</th><th>{{ _("Disk") }}</th><th>{{ _("Agent") }}</th><th>{{ _("Pending") }}</th><th>{{ _("Security") }}</th><th>{{ _("Reboot") }}</th><th>{{ _("Heartbeat") }}</th></tr></thead>
 						<tbody>
 							<template x-for="s in servers" :key="s.name">
 								<tr>
@@ -712,12 +735,47 @@
 									<td><span :class="nx.statusClass(s.status)" x-text="__(s.status)"></span></td>
 									<td><span :class="(s.disk_used_percent || 0) >= 85 ? 'badge danger' : ''" x-text="s.disk_used_percent ? Math.round(s.disk_used_percent) + ' %' : ''"></span></td>
 									<td><span class="ltr" x-text="s.agent_version || '?'"></span> <span class="badge warning" x-show="s.outdated">{{ _("Outdated") }}</span></td>
+									<td x-text="s.os_pending_updates || 0"></td>
+									<td><span :class="s.os_security_updates ? 'badge warning' : ''" x-text="s.os_security_updates || 0"></span></td>
+									<td><span class="badge warning" x-show="s.os_reboot_required">{{ _("Reboot required") }}</span></td>
 									<td class="small muted nowrap" x-text="nx.since(s.last_heartbeat)"></td>
 								</tr>
 							</template>
 						</tbody>
 					</table>
 				</div>
+			</section>
+
+			<!-- server maintenance & health (§17): bulk actions and policy -->
+			<section class="card" x-data="nxFleetMaint">
+				<div class="card-head">
+					<h2>{{ _("Maintenance & cleanup policy") }}</h2>
+					<div class="nx-admin-actions">
+						<button class="btn sm" type="button" @click="updateAll()" :disabled="busy">{{ _("Update all servers") }}</button>
+						<button class="btn sm" type="button" @click="cleanAll()" :disabled="busy">{{ _("Clean up all servers") }}</button>
+					</div>
+				</div>
+				<template x-if="policy">
+					<form class="card-body form-grid" @submit.prevent="save()">
+						<div class="nx-admin-form">
+							<label class="field"><span>{{ _("Disk warning (%)") }}</span><input class="input" type="number" min="0" max="100" x-model="form.health_disk_warning_percent"></label>
+							<label class="field"><span>{{ _("Disk critical (%)") }}</span><input class="input" type="number" min="0" max="100" x-model="form.health_disk_critical_percent"></label>
+							<label class="field"><span>{{ _("Inodes warning (%)") }}</span><input class="input" type="number" min="0" max="100" x-model="form.health_inode_warning_percent"></label>
+							<label class="field"><span>{{ _("Memory warning (%)") }}</span><input class="input" type="number" min="0" max="100" x-model="form.health_memory_warning_percent"></label>
+							<label class="field"><span>{{ _("Load per CPU") }}</span><input class="input" type="number" min="0" step="0.1" x-model="form.health_load_per_cpu"></label>
+							<label class="field"><span>{{ _("Day") }}</span><select class="input" x-model="form.auto_cleanup_day"><template x-for="d in policy.days" :key="d"><option :value="d" x-text="__(d)"></option></template></select></label>
+							<label class="field"><span>{{ _("Hour (UTC)") }}</span><input class="input" type="number" min="0" max="23" x-model="form.auto_cleanup_hour"></label>
+							<label class="field"><span>{{ _("Log retention (days)") }}</span><input class="input" type="number" min="1" x-model="form.cleanup_log_retention_days"></label>
+							<label class="field"><span>{{ _("Local backups kept (days, 0 = agent default)") }}</span><input class="input" type="number" min="0" x-model="form.cleanup_backup_local_keep_days"></label>
+							<label class="field wide"><span>{{ _("Cleanup targets (one per line, empty = all)") }}</span><textarea class="input ltr" rows="4" x-model="form.auto_cleanup_targets"></textarea></label>
+						</div>
+						<label class="check"><input type="checkbox" x-model="form.allow_customer_os_updates" :true-value="1" :false-value="0"> {{ _("Customers may run updates and cleanup on their own servers") }}</label>
+						<label class="check"><input type="checkbox" x-model="form.auto_cleanup_policy_enabled" :true-value="1" :false-value="0"> {{ _("Weekly automatic cleanup") }}</label>
+						<label class="check"><input type="checkbox" x-model="form.auto_cleanup_on_disk_critical" :true-value="1" :false-value="0"> {{ _("Clean up automatically when a disk is critical") }}</label>
+						<div class="row"><button class="btn primary" type="submit" :disabled="busy">{{ _("Save") }}</button></div>
+						<template x-if="result"><p class="small" x-text="__('Jobs created: {0}', [result.filter(function (r) { return r.job; }).length])"></p></template>
+					</form>
+				</template>
 			</section>
 		</div>
 	</template>

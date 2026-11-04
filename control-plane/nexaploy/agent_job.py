@@ -65,6 +65,12 @@ JOB_KINDS = (
 	"site.storage_trash_restore",
 	"server.storage_replicate",
 	"server.storage_prune_trash",
+	# server maintenance & health (ARCHITECTURE.md §17)
+	"server.os_update",
+	"server.os_reboot",
+	"server.os_configure",
+	"server.diagnose",
+	"server.cleanup",
 	# control plane self-update (all-in-one, nexaploy/controlplane.py)
 	"controlplane.update",
 )

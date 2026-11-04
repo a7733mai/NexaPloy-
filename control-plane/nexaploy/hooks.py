@@ -150,6 +150,8 @@ scheduler_events = {
 			"nexaploy.domains.verify_pending_domains",
 			"nexaploy.update_test.sync_update_tests",
 			"nexaploy.agent_upgrades.check_agent_upgrades",
+			# server maintenance & health (§17): notifications, stuck updates
+			"nexaploy.server_maintenance.check_server_health",
 			# offsite attachments (§15): replication per Storage Settings interval, remount moved sites
 			"nexaploy.storage.schedule_replication",
 		],
@@ -160,6 +162,8 @@ scheduler_events = {
 		],
 	},
 	"hourly": [
+		# maintenance windows + weekly automatic cleanup (§17)
+		"nexaploy.server_maintenance.schedule_maintenance",
 		"nexaploy.tasks.prune_registration_tokens",
 		"nexaploy.tasks.schedule_backups",
 		"nexaploy.support_tasks.auto_close_resolved_tickets",

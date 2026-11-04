@@ -51,7 +51,24 @@
   "control_plane_image_repo",
   "column_break_control_plane",
   "control_plane_release_repo",
-  "setup_checklist_dismissed"
+  "setup_checklist_dismissed",
+  "section_break_maintenance",
+  "allow_customer_os_updates",
+  "health_disk_warning_percent",
+  "health_disk_critical_percent",
+  "health_inode_warning_percent",
+  "column_break_maintenance",
+  "health_memory_warning_percent",
+  "health_load_per_cpu",
+  "auto_cleanup_on_disk_critical",
+  "section_break_cleanup_policy",
+  "auto_cleanup_policy_enabled",
+  "auto_cleanup_day",
+  "auto_cleanup_hour",
+  "column_break_cleanup_policy",
+  "auto_cleanup_targets",
+  "cleanup_log_retention_days",
+  "cleanup_backup_local_keep_days"
  ],
  "fields": [
   {
@@ -327,13 +344,110 @@
    "label": "Setup Checklist Dismissed",
    "default": "0",
    "description": "Hide the first-run setup checklist on /dashboard/admin."
+  },
+  {
+   "fieldname": "section_break_maintenance",
+   "fieldtype": "Section Break",
+   "label": "Server Maintenance & Health"
+  },
+  {
+   "fieldname": "allow_customer_os_updates",
+   "fieldtype": "Check",
+   "label": "Allow customers to run system updates and cleanup on their BYOS servers",
+   "default": "1"
+  },
+  {
+   "fieldname": "health_disk_warning_percent",
+   "fieldtype": "Float",
+   "label": "Disk Warning (%)",
+   "default": "85"
+  },
+  {
+   "fieldname": "health_disk_critical_percent",
+   "fieldtype": "Float",
+   "label": "Disk Critical (%)",
+   "default": "95"
+  },
+  {
+   "fieldname": "health_inode_warning_percent",
+   "fieldtype": "Float",
+   "label": "Inodes Warning (%)",
+   "default": "90"
+  },
+  {
+   "fieldname": "column_break_maintenance",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "health_memory_warning_percent",
+   "fieldtype": "Float",
+   "label": "Memory Warning (%)",
+   "default": "90"
+  },
+  {
+   "fieldname": "health_load_per_cpu",
+   "fieldtype": "Float",
+   "label": "Load per CPU Warning",
+   "default": "2"
+  },
+  {
+   "fieldname": "auto_cleanup_on_disk_critical",
+   "fieldtype": "Check",
+   "label": "Clean up automatically when disk is critical",
+   "default": "1"
+  },
+  {
+   "fieldname": "section_break_cleanup_policy",
+   "fieldtype": "Section Break",
+   "label": "Automatic Cleanup"
+  },
+  {
+   "fieldname": "auto_cleanup_policy_enabled",
+   "fieldtype": "Check",
+   "label": "Weekly Automatic Cleanup",
+   "default": "1"
+  },
+  {
+   "fieldname": "auto_cleanup_day",
+   "fieldtype": "Select",
+   "label": "Cleanup Day",
+   "options": "Every day\nMonday\nTuesday\nWednesday\nThursday\nFriday\nSaturday\nSunday",
+   "default": "Sunday"
+  },
+  {
+   "fieldname": "auto_cleanup_hour",
+   "fieldtype": "Int",
+   "label": "Cleanup Hour (UTC)",
+   "default": "2"
+  },
+  {
+   "fieldname": "column_break_cleanup_policy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "auto_cleanup_targets",
+   "fieldtype": "Small Text",
+   "label": "Cleanup Targets",
+   "description": "One per line; empty: all targets."
+  },
+  {
+   "fieldname": "cleanup_log_retention_days",
+   "fieldtype": "Int",
+   "label": "Log Retention (days)",
+   "default": "14"
+  },
+  {
+   "fieldname": "cleanup_backup_local_keep_days",
+   "fieldtype": "Int",
+   "label": "Local Backups Kept (days)",
+   "description": "0 or empty: the agent's backup retention."
   }
  ],
  "index_web_pages_for_search": 0,
  "issingle": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-12-06 00:00:00.000000",
+ "modified": "2026-12-08 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Nexaploy Settings",

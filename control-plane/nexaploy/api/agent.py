@@ -284,6 +284,10 @@ def heartbeat(server_id=None, facts=None, benches=None, agent_version=None, **kw
 		from nexaploy.domains import ingest_tls
 
 		ingest_tls(server, kwargs.get("tls"))  # never raises
+	if facts is not None:
+		from nexaploy import server_maintenance
+
+		server_maintenance.on_heartbeat(server, _load_json(facts, None))  # OS updates & health; never raises
 	if agent_version:
 		from nexaploy.agent_upgrades import on_heartbeat
 

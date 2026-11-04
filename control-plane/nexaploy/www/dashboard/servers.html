@@ -181,6 +181,7 @@
 							<td class="small muted nowrap" x-text="nx.ago(s.heartbeat_age)"></td>
 							<td>
 								<span :class="nx.statusClass(s.status)" x-text="__(s.status)"></span>
+								<template x-if="s.health_status && s.health_status !== 'OK' && s.health_status !== 'Offline'"><span :class="'badge ' + ({Warning: 'warning', Critical: 'danger'}[s.health_status] || '')" :title="__('Health')" x-text="__(s.health_status)"></span></template>
 								<div class="small muted" x-show="s.provisioning_status && s.provisioning_status !== 'Not Provisioned' && s.provisioning_status !== 'Ready'">
 									<span x-text="__(s.provisioning_status)"></span>
 								</div>

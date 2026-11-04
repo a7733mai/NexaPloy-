@@ -42,6 +42,8 @@ SUPPORT_REPLY = "support_reply"
 # uptime monitors (§16) other than a site's default monitor, which keeps site_down/site_recovered
 MONITOR_DOWN = "monitor_down"
 MONITOR_UP = "monitor_up"
+SERVER_HEALTH_CRITICAL = "server_health_critical"
+SERVER_HEALTH_OK = "server_health_ok"
 TEST = "test"  # "Send test" from the portal; never subscribed, always delivered
 
 EVENTS = (
@@ -60,6 +62,8 @@ EVENTS = (
 	SUPPORT_REPLY,
 	MONITOR_DOWN,
 	MONITOR_UP,
+	SERVER_HEALTH_CRITICAL,
+	SERVER_HEALTH_OK,
 )
 
 EVENT_LABELS = {
@@ -78,10 +82,12 @@ EVENT_LABELS = {
 	SUPPORT_REPLY: "Support reply",
 	MONITOR_DOWN: "Monitor down",
 	MONITOR_UP: "Monitor back up",
+	SERVER_HEALTH_CRITICAL: "Server health critical",
+	SERVER_HEALTH_OK: "Server health back to OK",
 }
 
 EVENT_GROUPS = (
-	("Servers", (SERVER_DOWN, SERVER_RECOVERED, DISK_HIGH, CONTAINER_UNHEALTHY)),
+	("Servers", (SERVER_DOWN, SERVER_RECOVERED, DISK_HIGH, CONTAINER_UNHEALTHY, SERVER_HEALTH_CRITICAL, SERVER_HEALTH_OK)),
 	("Sites", (SITE_DOWN, SITE_RECOVERED, MONITOR_DOWN, MONITOR_UP, BACKUP_FAILED, JOB_FAILED, SSL_EXPIRING)),
 	("Billing", (INVOICE_ISSUED, PAYMENT_FAILED, SUSPENSION)),
 	("Support", (SUPPORT_REPLY,)),
@@ -109,12 +115,15 @@ DEFAULT_EMAIL = {
 	SUPPORT_REPLY: None,
 	MONITOR_DOWN: "ops",
 	MONITOR_UP: "ops",
+	SERVER_HEALTH_CRITICAL: "ops",
+	SERVER_HEALTH_OK: "ops",
 }
 
 # Platform operators (Nexaploy Settings.alert_email) keep a copy of infrastructure alerts
 # even when the team routes its own alerts to chat channels.
 PLATFORM_COPY_EVENTS = frozenset(
-	{SERVER_DOWN, SERVER_RECOVERED, DISK_HIGH, CONTAINER_UNHEALTHY, SITE_DOWN, SITE_RECOVERED}
+	{SERVER_DOWN, SERVER_RECOVERED, DISK_HIGH, CONTAINER_UNHEALTHY, SITE_DOWN, SITE_RECOVERED,
+	 SERVER_HEALTH_CRITICAL, SERVER_HEALTH_OK}
 )
 
 # server alert kinds (ops_utils.server_alerts) -> events; recovery events by kind
@@ -144,6 +153,7 @@ USER_FACING_JOB_KINDS = frozenset(
 		"site.drop",
 		"site.clone",
 		"site.rename",
+		"server.os_update",
 	}
 )
 

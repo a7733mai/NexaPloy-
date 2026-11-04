@@ -63,7 +63,7 @@ def test_event_catalogue():
 	assert nu.EVENTS == (
 		"server_down", "server_recovered", "disk_high", "container_unhealthy", "site_down", "site_recovered",
 		"backup_failed", "job_failed", "invoice_issued", "payment_failed", "suspension", "ssl_expiring", "support_reply",
-		"monitor_down", "monitor_up",
+		"monitor_down", "monitor_up", "server_health_critical", "server_health_ok",
 	)
 	assert set(nu.EVENT_LABELS) == set(nu.EVENTS) == set(nu.DEFAULT_EMAIL)
 	grouped = [e for _, events in nu.EVENT_GROUPS for e in events]
@@ -439,7 +439,7 @@ def test_emitters_wired():
 	for event in nu.EVENTS:
 		if event == nu.SSL_EXPIRING or event in mapped:
 			continue  # no emitter yet / emitted through the alert kind maps
-		src = tasks + cb + billing + support + read(os.path.join(APP, "monitoring.py"))
+		src = tasks + cb + billing + support + read(os.path.join(APP, "monitoring.py")) + read(os.path.join(APP, "server_maintenance.py"))
 		const = "nu." + event.upper()
 		assert f'"{event}"' in src or const in src, event
 

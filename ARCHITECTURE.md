@@ -1046,3 +1046,45 @@ hide_from_status_page)`, `add_incident_update(name, update)`, `get_status_page`,
 Activity: `monitor.create`, `monitor.update`, `monitor.delete`, `incident.update`, `incident.post_update`,
 `status_page.create`, `status_page.update`. Scheduler: `monitoring.run_builtin_probe` (every minute),
 `tasks.check_sites_uptime` (5 min), `monitoring.prune_monitoring_data` (daily).
+
+## 17. Server maintenance & health (OS updates, health, cleanup)
+
+**Agent.** Every heartbeat carries `facts.os_updates` (runtime/os_updates.py: apt only, `supported:false`
+elsewhere; pending / security counts from `apt list --upgradable` cached 6 h in `data/os_updates.json`,
+running vs newest `/boot/vmlinuz-*`, `reboot_required` + `.pkgs`, `boot_time` from `/proc/stat`,
+`unattended_security`) and `facts.health` (runtime/health.py: disk + inode use per filesystem, memory/swap,
+failed `nexaploy-*`/docker/rclone/mount units and `NTPSynchronized` at most every 5 min, `agent_time`).
+Jobs (jobs/maintenance_jobs.py):
+
+| kind | params | notes |
+|---|---|---|
+| `server.os_update` | `mode` all\|security, `reboot` never\|if_required\|always, `reboot_delay_seconds`=60 | update_lists → upgrade (`apt-get full-upgrade` with confdef/confold, `DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a`, `DPkg::Lock::Timeout=600`; security: `unattended-upgrade -v`) → cleanup → status → reboot (`systemd-run --on-active=Ns systemctl reboot` after the job reported, fallback `shutdown -r +1`) |
+| `server.os_reboot` | `delay_seconds` | |
+| `server.os_configure` | `unattended_security` | writes `20auto-upgrades` + `52nexaploy-unattended` (security origins, `Automatic-Reboot "false"`) |
+| `server.diagnose` | – | light facts + `docker system df`, OOM kills since boot, MariaDB connections / datadir / binlog size, TLS summary |
+| `server.cleanup` | `targets`, `dry_run`(default true), `log_retention_days`, `backup_local_keep_days`, `images_scope` unused\|dangling, … | one step per target + `summary`; each reports `freed_bytes` / `items` |
+
+Cleanup targets: `docker_images`, `docker_build_cache`, `docker_containers`, `docker_logs`, `bench_logs`,
+`backups_local`, `agent_data`, `journal`, `apt`, `tmp`. Safety (runtime/cleanup.py, tested): files only through
+`PathGuard` shapes under the Nexaploy root (bench/site/proxy/storage `logs/`, `backups/<bench>/<site>/<ts>`
+with `.uploaded` and never the newest, `backups/.pitr/<job>` of finished jobs, `images/builds/*`, agent upgrade
+leftovers) and docker's `containers/<id>/<id>-json.log`; never `sites/*/private|public`, `site_config.json`,
+`db/`, `config/`, `proxy/data`, symlinks. Images: never in use, never a bench `.env` IMAGE or proxy/db image,
+never mariadb/traefik/redis/socket-proxy, never younger than 72 h, newest unused per tag family kept; removal
+without `-f`. `daemon.json` gets `log-opts` max-size 50m / max-file 3 only when absent; docker is never restarted.
+
+**Control plane** (nexaploy/server_maintenance.py, pure logic in server_health_utils.py). Heartbeat ingest:
+os fields on Server, `os_update_status` In Progress → Rebooting (job scheduled a reboot) → Succeeded once the
+reported boot time is newer than the start (Failed on job failure or no report within 2 h); `evaluate_health`
+→ `health_status` (OK/Warning/Critical/Unknown/Offline) + `health_issues` [{code, severity, title, detail,
+hint}] with thresholds from Nexaploy Settings; the last `server.diagnose` result (`health_diagnose`) counts for
+24 h. A critical disk triggers a safe cleanup (`SAFE_TARGETS`, dangling images only) at most every 12 h.
+Schedulers: `check_server_health` (5 min; `server_health_critical` at most every 6 h while Critical,
+`server_health_ok` after it) and `schedule_maintenance` (hourly; per-server maintenance window in UTC, one run
+per window; weekly cleanup policy from Nexaploy Settings, skipped for servers with `auto_cleanup_enabled` off).
+API `nexaploy.api.server_maintenance`: `get_maintenance`, `update_os`, `reboot_server`, `set_unattended`,
+`save_maintenance`, `run_diagnose`, `cleanup`, `get_job` (platform admins: any server; team Owner/Admin on
+their own BYOS servers when `allow_customer_os_updates`), admin `fleet_health`, `bulk_os_update` (security,
+no reboot), `bulk_cleanup`, `get_policy`, `save_policy`. Activity: `server.os_update`, `server.os_reboot`,
+`server.os_configure`, `server.maintenance_window`, `server.diagnose`, `server.cleanup`,
+`platform.bulk_os_update`, `platform.bulk_cleanup`, `platform.maintenance_policy`.
