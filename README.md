@@ -20,6 +20,9 @@ Nexaploy manage it for a flat monthly fee.
 | [`agent/`](agent/) | `nexaploy-agent` (FastAPI + SQLite jobs), `nexaploy` CLI, `install.sh` |
 | [`control-plane/`](control-plane/) | Frappe app `nexaploy`: servers, marketplace, release groups, sites, backups, plans |
 | [`ROADMAP.md`](ROADMAP.md) | Phases |
+| [`docs/`](docs/) | User documentation, English + Arabic (MkDocs Material, published to GitHub Pages) |
+| [`packer/`](packer/) | Hetzner Cloud / DigitalOcean server images with the agent pre-installed |
+| [`scripts/release.sh`](scripts/release.sh), [`CHANGELOG.md`](CHANGELOG.md) | Releases: version bump + tag; `.github/workflows/release.yml` builds and publishes |
 
 ## Quick start (BYOS server)
 
@@ -28,3 +31,5 @@ curl -fsSL https://<control-plane>/install.sh | sudo bash -s -- --token <REGISTR
 ```
 
 Standalone (no control plane) — see `agent/README.md`.
+
+Documentation: https://a7733mai.github.io/NexaPloy-/ (source in `docs/`, `mkdocs serve` to preview).

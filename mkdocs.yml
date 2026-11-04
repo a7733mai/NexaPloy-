@@ -1,0 +1,92 @@
+site_name: Nexaploy
+site_description: Host Frappe / ERPNext on our servers or yours (BYOS) — documentation
+site_url: https://a7733mai.github.io/NexaPloy-/
+repo_url: https://github.com/a7733mai/NexaPloy-
+repo_name: a7733mai/NexaPloy-
+edit_uri: edit/main/docs/
+copyright: Nexaploy — MIT licensed
+
+docs_dir: docs
+exclude_docs: |
+  requirements.txt
+
+theme:
+  name: material
+  language: en
+  icon:
+    logo: material/server-network
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+    - search.highlight
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+plugins:
+  - search
+  # English pages are <page>.md, Arabic pages <page>.ar.md (served under /ar/, right-to-left)
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: ar
+          name: العربية
+          build: true
+          site_description: استضافة Frappe / ERPNext على خوادمنا أو خوادمك (BYOS) — التوثيق
+          nav_translations:
+            Overview: نظرة عامة
+            Quick start: البدء السريع
+            Install reference: مرجع التثبيت
+            Operating: التشغيل
+            Troubleshooting: حل المشكلات
+            Security model: نموذج الأمان
+            FAQ: الأسئلة الشائعة
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.inlinehilite
+  - pymdownx.highlight:
+      anchor_linenums: true
+
+nav:
+  - Overview: index.md
+  - Quick start: quick-start.md
+  - Install reference: install.md
+  - Operating: operating.md
+  - Troubleshooting: troubleshooting.md
+  - Security model: security.md
+  - FAQ: faq.md
+
+validation:
+  anchors: warn
+  unrecognized_links: warn

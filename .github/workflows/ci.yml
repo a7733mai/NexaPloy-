@@ -48,3 +48,34 @@ jobs:
       - run: bash -n agent/install/install.sh image-builder/build.sh
       - run: shellcheck -S warning image-builder/build.sh agent/install/install.sh
       - run: bash image-builder/tests/test_build_sh.sh
+
+  release-tooling:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pytest
+      - run: python -m pytest scripts/tests -q
+      - run: bash packer/tests/test_firstboot.sh
+      - run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - run: shellcheck -S warning scripts/release.sh packer/scripts/*.sh packer/files/usr/local/sbin/nexaploy-firstboot packer/tests/test_firstboot.sh
+
+  packer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-packer@v3
+      - run: packer init packer/
+      - run: packer validate -syntax-only packer/
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r docs/requirements.txt
+      - run: mkdocs build --strict
