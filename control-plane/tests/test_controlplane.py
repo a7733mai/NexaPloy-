@@ -137,7 +137,8 @@ def test_page_and_translations():
 	assert "controlplane_admin.js" in page and "nxControlPlane" in read("templates", "includes", "controlplane_admin.html")
 	js = read("public", "js", "controlplane_admin.js")
 	for m in ("get_status", "start_update", "get_update", "get_setup_checklist", "dismiss_setup"):
-		assert "nexaploy.api.controlplane." + m in js or "M + \"" + m in js, m
+		assert f'call("{m}"' in js, m
+	assert '"nexaploy.api.controlplane."' in js
 	with open(os.path.join(APP, "translations", "ar.csv"), encoding="utf-8") as fh:
 		source = {row[0] for row in csv.reader(fh) if row}
 	for s in ("Update control plane", "Setup checklist", "Dismiss", "Rolled back"):
