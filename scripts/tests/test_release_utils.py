@@ -21,7 +21,10 @@ def repo(tmp_path):
 	for rel, _ in ru.VERSION_FILES:
 		(tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
 		shutil.copy(REPO / rel, tmp_path / rel)
-	shutil.copy(REPO / "CHANGELOG.md", tmp_path / "CHANGELOG.md")
+	# a fixed, unreleased CHANGELOG: the real one gets dated when a version ships
+	(tmp_path / "CHANGELOG.md").write_text(
+		"# Changelog\n\n## [0.1.0] - Unreleased\n\n### Added\n\n- Agent upgrades from the control plane.\n"
+	)
 	(tmp_path / "scripts").mkdir()
 	shutil.copy(SCRIPTS / "release.sh", tmp_path / "scripts" / "release.sh")
 	shutil.copy(SCRIPTS / "release_utils.py", tmp_path / "scripts" / "release_utils.py")
