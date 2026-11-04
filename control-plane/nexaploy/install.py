@@ -174,3 +174,36 @@ def create_storage_settings():
 	if changed:
 		settings.flags.ignore_permissions = True
 		settings.save()
+
+
+# --------------------------------------------------------------------------- server maintenance defaults
+# Frappe returns 0 for a Check field of a Single that was never saved, so JSON defaults of 1
+# never apply to existing sites: write them once (only when no value is stored yet).
+MAINTENANCE_SETTING_DEFAULTS = {
+	"allow_customer_os_updates": 1,
+	"auto_cleanup_on_disk_critical": 1,
+	"auto_cleanup_policy_enabled": 1,
+}
+
+
+def ensure_maintenance_defaults():
+	try:
+		for field, value in MAINTENANCE_SETTING_DEFAULTS.items():
+			if not frappe.db.exists("Singles", {"doctype": "Nexaploy Settings", "field": field}):
+				frappe.db.set_single_value("Nexaploy Settings", field, value)
+	except Exception:
+		frappe.log_error(title="Nexaploy: writing server maintenance defaults failed")
+
+
+_maintenance_base_after_install = after_install
+_maintenance_base_after_migrate = after_migrate
+
+
+def after_install():  # noqa: F811
+	_maintenance_base_after_install()
+	ensure_maintenance_defaults()
+
+
+def after_migrate():  # noqa: F811
+	_maintenance_base_after_migrate()
+	ensure_maintenance_defaults()
