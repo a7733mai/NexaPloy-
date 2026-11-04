@@ -5,6 +5,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from nexaploy import marketplace_utils as mu
 from nexaploy.github_utils import is_valid_branch
 from nexaploy.ops_utils import parse_update_window
 from nexaploy.utils import (
@@ -49,6 +50,7 @@ class ReleaseGroup(Document):
 		from nexaploy.nexaploy.doctype.custom_app.custom_app import custom_app_row
 
 		rows = []
+		existing = self._apps_before_save()
 		for row in self.apps:
 			if row.source_type == CUSTOM_SOURCE:
 				if not row.custom_app or not frappe.db.exists("Custom App", row.custom_app):
@@ -59,10 +61,16 @@ class ReleaseGroup(Document):
 			else:
 				row.source_type = MARKETPLACE_SOURCE
 				app = frappe.get_cached_doc("Marketplace App", row.app)
-				item = app.as_compat_dict(branch=row.branch)
+				# apps already in the group keep working while a new release is being verified;
+				# newly added apps need a Verified release
+				item = app.as_compat_dict(branch=row.branch, include_unverified=row.app in existing)
 				item["source_type"] = MARKETPLACE_SOURCE
 				rows.append(item)
 		return rows
+
+	def _apps_before_save(self):
+		before = None if self.is_new() else self.get_doc_before_save()
+		return {r.app for r in before.apps if r.app} if before else set()
 
 	def validate_apps(self):
 		"""Marketplace apps: approved + a Marketplace App Release for frappe_major.
@@ -76,6 +84,7 @@ class ReleaseGroup(Document):
 					frappe.throw(_("Row {0}: select a marketplace app").format(row.idx))
 		rows = self._app_rows()
 		errors = check_group_apps(self.frappe_major, self.team, rows)
+		errors += mu.missing_requirements(rows)
 		if errors:
 			frappe.throw("<br>".join(errors), title=_("Incompatible apps"))
 		for row, item in zip(self.apps, rows):
@@ -88,6 +97,21 @@ class ReleaseGroup(Document):
 					row.branch = release_for_major(item["releases"], self.frappe_major)["branch"]
 			if not is_valid_branch(row.branch):
 				frappe.throw(_("Row {0}: invalid branch {1}").format(row.idx, row.branch))
+		self.sort_apps_by_requirements(rows)
+
+	def sort_apps_by_requirements(self, rows):
+		"""Required apps before the apps needing them (apps.json / bench get-app order)."""
+		catalog = {r.get("app_name"): r for r in rows if r.get("app_name")}
+		names = [row.app_name for row in self.apps]
+		try:
+			order = mu.sort_by_dependencies(names, catalog)
+		except mu.RequirementError as exc:
+			frappe.throw(_(str(exc)))
+		if order != names:
+			by_name = {row.app_name: row for row in self.apps}
+			self.apps = [by_name[n] for n in order]
+			for i, row in enumerate(self.apps, start=1):
+				row.idx = i
 
 	def get_apps_json(self):
 		"""apps.json for image-builder (§4): [{url, branch}, ...] (frappe itself excluded).

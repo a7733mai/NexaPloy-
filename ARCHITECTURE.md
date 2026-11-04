@@ -407,9 +407,10 @@ Compatible with Frappe v15+. DocTypes (module "Nexaploy"):
 |---|---|
 | Server | `server_id` (unique), `hostname`, `ownership` (Hosted/BYOS), `team`, `status` (Pending/Active/Offline/Archived), `token_hash`, `last_heartbeat`, `facts` (JSON), `plan` |
 | Server Registration Token | `token_hash`, `team`, `expires_on`, `used`, `server` |
-| Marketplace App | `app_name`, `title`, `repo_url`, `publisher`, `category`, `description`, `pricing` (Free/Paid), `price_monthly`, `approved`, child `Marketplace App Release` |
-| Marketplace App Release (child) | `frappe_major` (14/15/16), `branch`, `commit` |
-| Release Group | `title`, `frappe_major`, `frappe_branch`, `team`, child `Release Group App` (`app`, `branch`) — validate each app has a release for the major |
+| Marketplace App | `app_name`, `title`, `repo_url`, `publisher`, `category`, `description`, `pricing` (Free/Paid), `price_monthly`, `approved`, `required_apps` (python names, one per line), child `Marketplace App Release` |
+| Marketplace App Release (child) | `frappe_major` (14/15/16), `branch`, `commit`, `status` (Verified/Pending verification/Failed), `verification_job` — publisher releases are test-built (`image.build`, not pushed) before customers see them (`nexaploy/marketplace_verify.py`) |
+| Marketplace App Review | `app`, `team` (one per team and app; the team must have the app installed), `rating` 1-5, `review`, `publisher_reply`, `hidden` (platform admins) |
+| Release Group | `title`, `frappe_major`, `frappe_branch`, `team`, child `Release Group App` (`app`, `branch`) — validate each app has a Verified release for the major and that its `required_apps` are in the group (added automatically by the portal API); sites install required apps first (`nexaploy/marketplace_utils.py`) |
 | Deploy Candidate | `release_group`, `build_id`, `image_tag`, `apps_json`, `status`, `build_log` |
 | Bench | `bench_name`, `server`, `release_group`, `image_tag`, `status` |
 | Site | `site_name`, `bench`, `server`, `team`, `status`, `plan`, child `Site Domain`, child `Site App` |

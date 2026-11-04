@@ -111,11 +111,15 @@
 										<td>
 											<div x-text="a.title"></div>
 											<div class="small muted"><span class="ltr" x-text="a.app"></span><template x-if="a.category"><span x-text="' · ' + __(a.category)"></span></template></div>
+											<template x-if="a.required_apps && a.required_apps.length"><div class="small muted">{{ _("Requires:") }} <span class="ltr" x-text="a.required_apps.join(', ')"></span></div></template>
+											<template x-if="a.also_installs && a.also_installs.length"><div class="small">{{ _("Also installs first:") }} <span class="ltr" x-text="a.also_installs.join(', ')"></span></div></template>
+											<template x-if="a.deployed === false"><div class="small muted">{{ _("Not in the bench's current image yet: deploy the bench group first.") }}</div></template>
+											<template x-if="a.deployed !== false && a.blocked"><div class="small danger" x-text="a.blocked"></div></template>
 										</td>
 										<td class="small" x-text="a.pricing === 'Paid' ? nx.money(a.price_monthly) + ' ' + __('/ month') : __('Free')"></td>
 										<td class="actions">
-											<button class="btn sm primary" type="button" :disabled="site.status !== 'Active' || busy.install_app"
-												@click="run('install_app', { app: a.app })">{{ _("Install") }}</button>
+											<button class="btn sm primary" type="button" :disabled="site.status !== 'Active' || busy.install_app || a.deployed === false || !!a.blocked"
+												@click="run('install_app', { app: a.app }, a.also_installs && a.also_installs.length ? __('Install {0}? {1} will be installed first.', [a.title, a.also_installs.join(', ')]) : null)">{{ _("Install") }}</button>
 										</td>
 									</tr>
 								</template>

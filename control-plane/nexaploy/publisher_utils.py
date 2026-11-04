@@ -31,7 +31,10 @@ LISTING_STATUSES = (DRAFT, IN_REVIEW, PUBLISHED, REJECTED)
 PAYOUT_METHODS = ("Bank", "PayPal", "Credits")
 DEFAULT_REVENUE_SHARE = Decimal("80")
 PRICING = ("Free", "Paid")
-CATEGORIES = ("ERP", "HR", "CRM", "E-commerce", "Integration", "Utility", "Other")
+CATEGORIES = (
+	"ERP", "HR", "CRM", "Support", "Analytics", "Education", "Website", "Productivity", "E-commerce",
+	"Integration", "Utility", "Other",
+)
 MAX_SCREENSHOTS = 8
 MAX_PRICE = Decimal("10000")
 
@@ -46,7 +49,10 @@ LISTING_TRANSITIONS = {
 
 # Fields a publisher may change from the portal, per listing status. Pricing of a published
 # listing is locked (customers subscribed at that price): unpublish + resubmit to change it.
-LISTING_FIELDS = ("title", "category", "description", "logo", "screenshots", "documentation_url", "pricing", "price_monthly")
+LISTING_FIELDS = (
+	"title", "category", "description", "logo", "screenshots", "documentation_url", "pricing", "price_monthly",
+	"required_apps",
+)
 _EDITABLE = {
 	DRAFT: LISTING_FIELDS,
 	REJECTED: LISTING_FIELDS,
@@ -198,6 +204,13 @@ def clean_listing_values(values: Mapping[str, Any], status: str | None = None) -
 				raise ListingError("Pricing must be Free or Paid")
 		elif key == "price_monthly":
 			value = parse_price(value)
+		elif key == "required_apps":
+			from nexaploy.marketplace_utils import RequirementError, format_required_apps, parse_required_apps
+
+			try:
+				value = format_required_apps(parse_required_apps(value, values.get("app_name")))
+			except RequirementError as exc:
+				raise ListingError(str(exc)) from None
 		out[key] = value
 	pricing = out.get("pricing", values.get("pricing"))
 	if "pricing" in out or "price_monthly" in out:

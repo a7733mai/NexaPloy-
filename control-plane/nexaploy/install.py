@@ -117,3 +117,17 @@ def after_install():  # noqa: F811
 def after_migrate():  # noqa: F811
 	_base_after_migrate()
 	create_support_role()
+
+
+# --------------------------------------------------------------------------- official marketplace catalog
+# (appended: wraps after_install so hooks.py does not change; existing sites get it from patch
+# v0_4.seed_official_marketplace_apps - not after_migrate, so apps an admin deleted stay deleted)
+
+_catalog_base_after_install = after_install
+
+
+def after_install():  # noqa: F811
+	_catalog_base_after_install()
+	from nexaploy.marketplace_seed import safe_seed
+
+	safe_seed()

@@ -364,3 +364,23 @@ def test_no_for_update_in_get_all():
 # notification channels: register the new DocTypes with the checks above
 EXPECTED.update({"Notification Channel", "Notification Channel Event"})
 CHILD_TABLES.update({"Notification Channel Event"})
+
+# version-aware marketplace: ratings & reviews
+EXPECTED.update({"Marketplace App Review"})
+
+
+def test_marketplace_release_verification_and_requirements_fields():
+	fields = {d["name"]: {f["fieldname"]: f for f in d["fields"]} for d in BY_NAME.values()}
+	app = fields["Marketplace App"]
+	assert app["required_apps"]["fieldtype"] == "Small Text"
+	for cat in ("Support", "Analytics", "Education", "Website", "Productivity"):
+		assert cat in app["category"]["options"].split("\n")
+	rel = fields["Marketplace App Release"]
+	assert rel["status"]["options"].split("\n") == ["Verified", "Pending verification", "Failed"]
+	assert rel["status"]["default"] == "Verified"
+	assert rel["verification_job"]["options"] == "Agent Job"
+	review = fields["Marketplace App Review"]
+	assert review["app"]["options"] == "Marketplace App" and review["app"]["reqd"] == 1
+	assert review["team"]["options"] == "Team" and review["team"]["reqd"] == 1
+	assert review["rating"]["fieldtype"] == "Int"
+	assert {p["role"] for p in BY_NAME["Marketplace App Review"]["permissions"]} == {"System Manager"}

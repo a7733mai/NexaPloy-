@@ -1,0 +1,143 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-11-04 18:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "fields": [
+  {
+   "fieldname": "app",
+   "fieldtype": "Link",
+   "label": "App",
+   "options": "Marketplace App",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "label": "Team",
+   "options": "Team",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "reviewer",
+   "fieldtype": "Link",
+   "label": "Reviewer",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rating",
+   "fieldtype": "Int",
+   "label": "Rating",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "1 to 5 stars."
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "hidden",
+   "fieldtype": "Check",
+   "label": "Hidden",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Hidden reviews are not shown and do not count towards the rating."
+  },
+  {
+   "fieldname": "hidden_reason",
+   "fieldtype": "Small Text",
+   "label": "Hidden Reason"
+  },
+  {
+   "fieldname": "hidden_by",
+   "fieldtype": "Link",
+   "label": "Hidden By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_review",
+   "fieldtype": "Section Break",
+   "label": "Review"
+  },
+  {
+   "fieldname": "review",
+   "fieldtype": "Small Text",
+   "label": "Review"
+  },
+  {
+   "fieldname": "section_break_reply",
+   "fieldtype": "Section Break",
+   "label": "Publisher Reply"
+  },
+  {
+   "fieldname": "publisher_reply",
+   "fieldtype": "Small Text",
+   "label": "Publisher Reply"
+  },
+  {
+   "fieldname": "replied_by",
+   "fieldtype": "Link",
+   "label": "Replied By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "replied_on",
+   "fieldtype": "Datetime",
+   "label": "Replied On",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-04 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Marketplace App Review",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "app",
+ "track_changes": 1,
+ "field_order": [
+  "app",
+  "team",
+  "reviewer",
+  "rating",
+  "column_break_1",
+  "hidden",
+  "hidden_reason",
+  "hidden_by",
+  "section_break_review",
+  "review",
+  "section_break_reply",
+  "publisher_reply",
+  "replied_by",
+  "replied_on"
+ ]
+}

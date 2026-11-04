@@ -18,6 +18,7 @@
   "price_monthly",
   "approved",
   "status",
+  "required_apps",
   "section_break_desc",
   "description",
   "section_break_media",
@@ -90,7 +91,7 @@
    "fieldtype": "Select",
    "in_standard_filter": 1,
    "label": "Category",
-   "options": "\nERP\nHR\nCRM\nE-commerce\nIntegration\nUtility\nOther"
+   "options": "\nERP\nHR\nCRM\nSupport\nAnalytics\nEducation\nWebsite\nProductivity\nE-commerce\nIntegration\nUtility\nOther"
   },
   {
    "default": "Free",
@@ -122,6 +123,12 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "description": "Published <=> Approved. Review submitted listings with the Approve / Reject buttons."
+  },
+  {
+   "fieldname": "required_apps",
+   "fieldtype": "Small Text",
+   "label": "Required Apps",
+   "description": "Python app names this app needs, one per line (e.g. erpnext for hrms). Bench groups add them automatically; sites install them first."
   },
   {
    "fieldname": "section_break_desc",
@@ -208,7 +215,7 @@
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-04 12:00:00.000000",
+ "modified": "2026-11-04 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Marketplace App",

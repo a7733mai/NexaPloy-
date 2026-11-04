@@ -9,6 +9,7 @@
 
 	var M = "nexaploy.api.publisher.";
 	var STATUS = { Draft: "info", "In Review": "warning", Published: "success", Rejected: "danger", Approved: "info", Paid: "success" };
+	var RELEASE_STATUS = { Verified: "success", "Pending verification": "warning pulse", Failed: "danger" };
 
 	function nx() { return window.nx; }
 	function t(msg, args) { return typeof window.__ === "function" ? window.__(msg, args) : msg; }
@@ -30,10 +31,15 @@
 			editing: false,
 			form: {},
 			listingForm: null,
+			relApp: null,
+			relForm: { frappe_major: "16", branch: "", commit: "" },
+			relLog: null,
+			_relTimer: null,
 
 			init: function () { this.load(); },
 
 			statusClass: function (status) { return "badge " + (STATUS[status] || ""); },
+			releaseClass: function (status) { return "badge " + (RELEASE_STATUS[status] || ""); },
 
 			load: function () {
 				var self = this;
@@ -94,7 +100,7 @@
 
 			openNew: function () {
 				var self = this;
-				this.listingForm = { custom_app: "", title: "", category: "", pricing: "Free", price_monthly: 0, description: "", logo: "", documentation_url: "", screenshots: "" };
+				this.listingForm = { custom_app: "", title: "", category: "", pricing: "Free", price_monthly: 0, description: "", logo: "", documentation_url: "", screenshots: "", required_apps: "" };
 				return call("listable_custom_apps").then(function (r) { self.customApps = r; })
 					.catch(function (e) { toast(e.message, "error"); });
 			},
@@ -104,6 +110,7 @@
 					name: l.name, editable: l.editable, title: l.title, category: l.category || "", pricing: l.pricing,
 					price_monthly: l.price_monthly, description: l.description || "", logo: l.logo || "",
 					documentation_url: l.documentation_url || "", screenshots: (l.screenshots || []).join("\n"),
+					required_apps: (l.required_apps || []).join(", "),
 				};
 			},
 
@@ -141,6 +148,79 @@
 			},
 
 			withdraw: function (l) { return this._act("withdraw_listing", l, t("Listing withdrawn")); },
+
+			/* ---------------------------------------------------------- releases & verification */
+			openReleases: function (l) {
+				this.relApp = l;
+				this.relLog = null;
+				var have = l.releases.map(function (r) { return r.frappe_major; });
+				var major = ["16", "15", "14"].filter(function (m) { return have.indexOf(m) === -1; })[0] || "16";
+				this.relForm = { frappe_major: major, branch: "", commit: "" };
+				this._watchPending();
+			},
+			_setApp: function (l) {
+				this.listings = this.listings.map(function (x) { return x.name === l.name ? Object.assign({}, x, l) : x; });
+				if (this.relApp && this.relApp.name === l.name) this.relApp = Object.assign({}, this.relApp, l);
+				this._watchPending();
+			},
+			_watchPending: function () {
+				// refresh while a test build runs, so Verified / Failed shows up without a reload
+				var self = this;
+				clearTimeout(this._relTimer);
+				if (!this.relApp || !this.relApp.releases.some(function (r) { return r.status === "Pending verification" && r.verification_job; })) return;
+				this._relTimer = setTimeout(function () {
+					if (!self.relApp) return;
+					call("list_listings").then(function (r) {
+						self.listings = r.listings;
+						var l = r.listings.filter(function (x) { return x.name === self.relApp.name; })[0];
+						if (l) self._setApp(l);
+						if (self.relLog) self.showLog({ frappe_major: self.relLog.frappe_major });
+					}).catch(function () {});
+				}, 15000);
+			},
+			editRelease: function (r) {
+				this.relForm = { frappe_major: String(r.frappe_major), branch: r.branch || "", commit: r.commit || "" };
+			},
+			saveRelease: function () {
+				var self = this;
+				this.busy = true;
+				return call("save_release", { app: this.relApp.name, frappe_major: this.relForm.frappe_major, branch: this.relForm.branch.trim(), commit: this.relForm.commit.trim() || null })
+					.then(function (l) {
+						self._setApp(l);
+						self.relForm.branch = "";
+						self.relForm.commit = "";
+						toast(t("Release saved. A test build was started."), "success");
+					}).catch(function (e) { toast(e.message, "error"); }).finally(function () { self.busy = false; });
+			},
+			reverify: function (r) {
+				var self = this;
+				this.busy = true;
+				return call("verify_release", { app: this.relApp.name, frappe_major: r.frappe_major })
+					.then(function (l) { self._setApp(l); toast(t("Test build started"), "success"); })
+					.catch(function (e) { toast(e.message, "error"); }).finally(function () { self.busy = false; });
+			},
+			removeRelease: function (r) {
+				var self = this;
+				if (!window.confirm(t("Remove the release for Frappe {0}?", ["v" + r.frappe_major]))) return null;
+				this.busy = true;
+				return call("remove_release", { app: this.relApp.name, frappe_major: r.frappe_major })
+					.then(function (l) { self._setApp(l); })
+					.catch(function (e) { toast(e.message, "error"); }).finally(function () { self.busy = false; });
+			},
+			showLog: function (r) {
+				var self = this;
+				return nx().call(M + "release_log", { app: this.relApp.name, frappe_major: r.frappe_major })
+					.then(function (res) { self.relLog = res; })
+					.catch(function (e) { toast(e.message, "error"); });
+			},
+			formatLog: function (log) {
+				if (!log) return "";
+				var out = (log.steps || []).map(function (s) {
+					return "== [" + s.idx + "] " + (s.name || "") + " (" + s.status + ")" + (s.output ? "\n" + s.output : "");
+				});
+				if (log.error) out.push("ERROR: " + log.error);
+				return out.join("\n");
+			},
 		};
 	}
 

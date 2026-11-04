@@ -109,11 +109,31 @@
 					return this.form.picks.some(function (p) { return p.source_type === source && p.app === app; });
 				},
 				pick: function (source, app) {
+					var self = this;
 					if (this.isPicked(source, app)) {
 						this.form.picks = this.form.picks.filter(function (p) { return !(p.source_type === source && p.app === app); });
-					} else {
-						this.form.picks.push({ source_type: source, app: app });
+						return;
 					}
+					this.form.picks.push({ source_type: source, app: app });
+					// marketplace requirements (hrms -> erpnext) are picked too; the server adds them anyway
+					if (source !== "Marketplace" || !this.opts) return;
+					var byName = {};
+					this.opts.marketplace_apps.forEach(function (a) { byName[a.app_name] = a; });
+					var customNames = this.form.picks.filter(function (p) { return p.source_type === "Custom"; }).map(function (p) {
+						var c = self.opts.custom_apps.filter(function (x) { return x.name === p.app; })[0];
+						return c ? c.app_name : null;
+					});
+					(function require(name) {
+						((byName[name] || {}).required_apps || []).forEach(function (req) {
+							if (self.isPicked("Marketplace", req) || customNames.indexOf(req) !== -1 || !byName[req]) return;
+							self.form.picks.push({ source_type: "Marketplace", app: req });
+							toast(t("{0} requires {1}; it was selected too", [name, req]), "info");
+							require(req);
+						});
+					})(app);
+				},
+				requiresOf: function (a) {
+					return a && a.required_apps && a.required_apps.length ? t("requires {0}", [a.required_apps.join(", ")]) : "";
 				},
 				create: function () {
 					var self = this;
@@ -288,8 +308,10 @@
 							};
 						});
 					}
+					// options() only returns apps with a verified release for the group's Frappe major
 					return this.opts.marketplace_apps.map(function (a) {
-						return { value: a.app_name, label: a.title + " (" + a.app_name + ")", disabled: used.indexOf(a.app_name) !== -1 };
+						var req = a.required_apps && a.required_apps.length ? " · " + t("requires {0}", [a.required_apps.join(", ")]) : "";
+						return { value: a.app_name, label: a.title + " (" + a.app_name + ")" + req, disabled: used.indexOf(a.app_name) !== -1 };
 					});
 				},
 				addApp: function () {
@@ -305,6 +327,9 @@
 							self.group = g;
 							self.addingApp = false;
 							self.newApp = { source_type: self.newApp.source_type, app: "", branch: "" };
+							if (g.auto_added && g.auto_added.length) {
+								toast(t("Also added the required apps {0}.", [g.auto_added.join(", ")]), "info");
+							}
 							toast(t("App added. Deploy to include it in a new image."), "success");
 						},
 						function (e) { toast(e.message, "error"); }

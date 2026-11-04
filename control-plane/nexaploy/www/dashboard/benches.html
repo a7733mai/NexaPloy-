@@ -55,7 +55,7 @@
 							<input type="checkbox" :checked="isPicked('Marketplace', a.app_name)" @change="pick('Marketplace', a.app_name)">
 							<div>
 								<div x-text="a.title"></div>
-								<div class="small muted"><span class="ltr" x-text="a.app_name"></span> · <span class="ltr" x-text="a.releases.length ? a.releases[0].branch : ''"></span></div>
+								<div class="small muted"><span class="ltr" x-text="a.app_name"></span> · <span class="ltr" x-text="a.releases.length ? a.releases[0].branch : ''"></span><template x-if="a.required_apps && a.required_apps.length"><span x-text="' · ' + requiresOf(a)"></span></template></div>
 							</div>
 						</label>
 					</template>

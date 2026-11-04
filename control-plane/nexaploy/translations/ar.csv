@@ -1154,3 +1154,72 @@ The certificate for {0} is being issued.,جارٍ إصدار الشهادة لل
 The certificate for {0} expired on {1}. Check the DNS record and that port 80 is open.,انتهت شهادة {0} في {1}. تحقق من سجل DNS ومن أن المنفذ 80 مفتوح.
 The certificate for {0} is not trusted by browsers ({1}).,شهادة {0} غير موثوقة لدى المتصفحات ({1}).
 Could not check the certificate of {0}: {1},تعذّر فحص شهادة {0}: {1}
+A customer,أحد العملاء
+A test build of this release is already running,يجري حاليًا بناء تجريبي لهذا الإصدار
+"Add apps to a bench group (Bench groups page), deploy it, then install them on a site from the site's Apps tab. Required apps are added and installed first automatically.",أضف التطبيقات إلى مجموعة بنش (صفحة مجموعات البنش) وانشرها، ثم ثبّتها على موقع من تبويب التطبيقات في الموقع. تُضاف التطبيقات المطلوبة وتُثبَّت أولًا تلقائيًا.
+Also added the required apps {0}.,تمت أيضًا إضافة التطبيقات المطلوبة {0}.
+Also installs first:,يثبّت أولًا أيضًا:
+App {0} has no verified release yet,لا يوجد للتطبيق {0} إصدار موثَّق بعد
+Apps {0} are not available on bench {1} (release group {2}); add them to the group and deploy first,التطبيقات {0} غير متاحة على البنش {1} (مجموعة الإصدار {2})؛ أضفها إلى المجموعة وانشرها أولًا
+Bench groups on Frappe {0} use this release; it cannot be removed,تستخدم مجموعات البنش على Frappe {0} هذا الإصدار؛ لا يمكن حذفه
+Build log,سجل البناء
+Change,تغيير
+Commit (optional),الإيداع (اختياري)
+Commit must be a 7-40 character hexadecimal hash,يجب أن يكون الإيداع تجزئة ست عشرية من 7 إلى 40 حرفًا
+Delete your review?,حذف مراجعتك؟
+"Each new or changed release is test-built (Frappe, the required apps and your app) before customers can install it. Only verified releases are shown in the marketplace.",يُبنى كل إصدار جديد أو معدَّل بناءً تجريبيًا (Frappe والتطبيقات المطلوبة وتطبيقك) قبل أن يتمكن العملاء من تثبيته. لا تظهر في المتجر إلا الإصدارات الموثَّقة.
+Edit reply,تعديل الرد
+Education,التعليم
+Hidden,مخفي
+Hide,إخفاء
+Install this app on one of your sites to rate and review it.,ثبّت هذا التطبيق على أحد مواقعك لتقييمه ومراجعته.
+Install {0} on one of your sites before reviewing it,ثبّت {0} على أحد مواقعك قبل مراجعته
+Install {0}? {1} will be installed first.,تثبيت {0}؟ سيُثبَّت {1} أولًا.
+Invalid branch {0},فرع غير صالح {0}
+Missing required apps,تطبيقات مطلوبة مفقودة
+No releases yet.,لا توجد إصدارات بعد.
+No reviews yet.,لا توجد مراجعات بعد.
+Not in the bench's current image yet: deploy the bench group first.,غير موجود في صورة البنش الحالية بعد: انشر مجموعة البنش أولًا.
+Only platform administrators can hide reviews,يمكن لمسؤولي المنصة فقط إخفاء المراجعات
+Only the publisher of {0} can reply to its reviews,يمكن لناشر {0} فقط الرد على مراجعاته
+Pending verification,بانتظار التحقق
+Productivity,الإنتاجية
+Publisher reply,رد الناشر
+"Python app names your app needs, separated by commas. Bench groups add them automatically and sites install them first.",أسماء تطبيقات بايثون التي يحتاجها تطبيقك، مفصولة بفواصل. تضيفها مجموعات البنش تلقائيًا وتثبّتها المواقع أولًا.
+Rate this app,قيّم هذا التطبيق
+Ratings & reviews,التقييمات والمراجعات
+Release saved. A test build was started.,تم حفظ الإصدار. بدأ بناء تجريبي.
+Releases,الإصدارات
+Releases of {0},إصدارات {0}
+Remove the release for Frappe {0}?,حذف الإصدار الخاص بـ Frappe {0}؟
+Reply to this review (empty removes the reply),رد على هذه المراجعة (الترك فارغًا يحذف الرد)
+Required apps,التطبيقات المطلوبة
+Required apps {0} are not in the marketplace yet; bench groups cannot add {1} until they are.,التطبيقات المطلوبة {0} ليست في المتجر بعد؛ لا يمكن لمجموعات البنش إضافة {1} حتى تتوفر.
+Requires:,يتطلب:
+Save and test,حفظ واختبار
+Save review,حفظ المراجعة
+Set to {0} by {1},عُيّنت إلى {0} بواسطة {1}
+Show,إظهار
+Status must be one of {0},يجب أن تكون الحالة إحدى القيم {0}
+Supports Frappe {0},يدعم Frappe {0}
+Team {0} already reviewed {1},قام الفريق {0} بمراجعة {1} مسبقًا
+Test again,اختبار مجددًا
+Test build started,بدأ البناء التجريبي
+Thanks for your review,شكرًا على مراجعتك
+The build has not started yet.,لم يبدأ البناء بعد.
+They are added to the bench group and installed on the site first.,تُضاف إلى مجموعة البنش وتُثبَّت على الموقع أولًا.
+What do you like or miss? (optional),ما الذي أعجبك أو ينقصه؟ (اختياري)
+Why is this review hidden?,لماذا تُخفى هذه المراجعة؟
+You have not reviewed {0},لم تقم بمراجعة {0}
+Your review,مراجعتك
+requires {0},يتطلب {0}
+{0} has no release for Frappe {1},لا يوجد لـ {0} إصدار لـ Frappe {1}
+{0} is already being installed,يجري تثبيت {0} بالفعل
+{0} is already in this bench group,{0} موجود بالفعل في مجموعة البنش هذه
+{0} is already installed,{0} مثبّت بالفعل
+{0} is not installed,{0} غير مثبّت
+{0} is required by {1}; remove those first,{0} مطلوب من قبل {1}؛ احذفها أولًا
+{0} is required by {1}; uninstall those first,{0} مطلوب من قبل {1}؛ أزل تثبيتها أولًا
+{0} out of 5,{0} من 5
+{0} requires {1}; it was selected too,{0} يتطلب {1}؛ تم تحديده أيضًا
+{0} reviews,{0} مراجعات

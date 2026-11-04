@@ -830,18 +830,24 @@
 				apps: [],
 				categories: [],
 				majors: ["14", "15", "16"],
-				major: query("major") || "",
+				// Frappe 16 is the default; "all" lists every app with its supported versions
+				major: query("major") || "16",
 				category: query("category") || "",
-				q: "",
+				q: query("q") || "",
+				detailOpen: false,
+				detail: null,
+				form: { rating: 0, review: "" },
+				busy: false,
 				init: function () {
 					var self = this;
 					this.load();
 					this.$watch("major", function () { self.load(); });
+					if (query("app")) this.openApp(query("app"));
 				},
 				load: function () {
 					var self = this;
 					this.loading = true;
-					return api("marketplace", { frappe_major: this.major || null }).then(
+					return api("marketplace", { frappe_major: this.major === "all" ? null : this.major || null }).then(
 						function (r) {
 							self.apps = r.apps;
 							self.categories = r.categories;
@@ -850,6 +856,66 @@
 						},
 						function (e) { self.error = e.message; }
 					).finally(function () { self.loading = false; });
+				},
+				stars: function (value) {
+					var n = Math.round(Number(value) || 0);
+					return "★★★★★".slice(0, n) + "☆☆☆☆☆".slice(0, 5 - n);
+				},
+				openApp: function (name) {
+					var self = this;
+					this.detailOpen = true;
+					this.detail = null;
+					return call("nexaploy.api.marketplace.get_app", { app: name, frappe_major: this.major === "all" ? null : this.major }).then(
+						function (r) {
+							self.detail = r;
+							self.form = { rating: r.my_review ? r.my_review.rating : 0, review: r.my_review ? r.my_review.review || "" : "" };
+						},
+						function (e) { self.detailOpen = false; toast(e.message, "error"); }
+					);
+				},
+				closeApp: function () { this.detailOpen = false; this.detail = null; },
+				_refresh: function () {
+					var name = this.detail.app.app_name;
+					this.load();
+					return this.openApp(name);
+				},
+				saveReview: function () {
+					var self = this;
+					this.busy = true;
+					call("nexaploy.api.marketplace.save_review", { app: this.detail.app.app_name, rating: this.form.rating, review: this.form.review }).then(
+						function () { toast(__("Thanks for your review"), "success"); return self._refresh(); },
+						function (e) { toast(e.message, "error"); }
+					).finally(function () { self.busy = false; });
+				},
+				deleteReview: function () {
+					var self = this;
+					if (!window.confirm(__("Delete your review?"))) return;
+					this.busy = true;
+					call("nexaploy.api.marketplace.delete_review", { app: this.detail.app.app_name }).then(
+						function () { return self._refresh(); },
+						function (e) { toast(e.message, "error"); }
+					).finally(function () { self.busy = false; });
+				},
+				reply: function (r) {
+					var self = this;
+					var text = window.prompt(__("Reply to this review (empty removes the reply)"), r.publisher_reply || "");
+					if (text === null) return;
+					call("nexaploy.api.marketplace.reply_review", { review: r.name, reply: text }).then(
+						function () { return self._refresh(); },
+						function (e) { toast(e.message, "error"); }
+					);
+				},
+				toggleHidden: function (r) {
+					var self = this;
+					var reason = null;
+					if (!r.hidden) {
+						reason = window.prompt(__("Why is this review hidden?"), "");
+						if (reason === null) return;
+					}
+					call("nexaploy.api.marketplace.hide_review", { review: r.name, hidden: r.hidden ? 0 : 1, reason: reason }).then(
+						function () { return self._refresh(); },
+						function (e) { toast(e.message, "error"); }
+					);
 				},
 				get filtered() {
 					var q = this.q.trim().toLowerCase();
@@ -861,7 +927,9 @@
 					});
 				},
 				majorsOf: function (app) {
-					return (app.releases || []).map(function (r) { return "v" + r.frappe_major; });
+					// every verified Frappe major, also when the list is filtered to one
+					var majors = app.supported_majors || (app.releases || []).map(function (r) { return r.frappe_major; });
+					return majors.map(function (m) { return "v" + m; });
 				},
 				plain: stripHtml,
 			};
