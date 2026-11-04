@@ -484,3 +484,41 @@ Pending/Accepted/Rejected/Cancelled, `token_hash`, `expires_on`). Staging sites 
 `nexaploy_staging_of` and must not be billed. A site changes teams only while it lives on a shared hosted
 bench. Activity actions: `site.staging_create`, `site.staging_refresh`, `site.move`, `site.transfer_request`,
 `site.transfer`, `site.transfer_cancel`, `site.transfer_reject`, `site.rename`.
+
+## 11. Managed e-mail relay and white-label brands
+
+**E-mail relay.** Frappe sends mail through the default outgoing *Email Account*, so the platform
+relay is installed per site as the Email Account **"Nexaploy Relay"** by the agent job
+
+| Kind | Params | Result |
+|---|---|---|
+| `site.configure_email` (`POST /v1/sites/{s}/email`) | `{site, enabled, account_name="Nexaploy Relay", email_id, smtp_server, smtp_port, tls_mode: starttls\|ssl\|none, username?, password?, verify_smtp=true}` | `{ok, account, email_id, created, changed:[fields], enabled}` |
+
+The agent runs a fixed script in the bench `backend` container (`docker compose … exec -T -w sites backend
+env/bin/python -c <bootstrap> <site>`, like `site.console`, allowed on shared benches) and writes the settings
+**including the password to its stdin** (never argv/logs/files). Idempotent: only changed fields are saved;
+`enabled=false` clears enable/default outgoing and keeps the account. With `verify_smtp` Frappe's own SMTP login
+check runs on save. The CP sends the password as `__secret__:Email Relay Settings:Email Relay Settings:password`.
+
+Control plane: **Email Relay Settings** (single: `enabled`, `provider` Generic SMTP/Amazon SES/Postmark/Mailgun/Brevo,
+`region`, `smtp_host`, `smtp_port`, `tls_mode` STARTTLS/SSL/TLS/None, `username`, `password`, `verify_smtp`,
+`default_from_domain`, `daily_send_limit`, DNS guidance `spf_include`, `dkim_selector`, `dkim_record_type`,
+`dkim_value`, `dmarc_policy`, `dmarc_rua`, `return_path_host`, `return_path_value`); **Site Email** (team-owned,
+one per site: `site`, `team`, `enabled`, `status` Disabled/Pending/Active/Failed, `email_id`, `sender_domain`,
+`domain_verified`, `last_dns_check`, `dns_check_result`, `daily_limit`, per-domain `dkim_*`, `last_job`,
+`last_error`). Sender = `noreply@<verified sender_domain>` › `noreply@<default_from_domain>` › `noreply@<site>`.
+DNS checks use dnspython when installed (not a Frappe dependency), else DNS-over-HTTPS (Cloudflare JSON), else
+"unavailable". Changing the relay re-pushes every enabled site; `email_relay.recheck_domains` runs daily. The
+daily limit is written to site_config `nexaploy_email_daily_limit` (informational: Frappe has no daily limit;
+enforce it at the relay). Pure logic: `nexaploy/email_utils.py`; portal API `nexaploy.api.site_email`.
+
+**Brands.** **Brand** (`brand_name`, `title`, `enabled`, `team` (empty = platform brand), `is_default`,
+`primary_color`, `logo`, `favicon`, `portal_domains`, `support_email`, `footer_text`, `email_sender_name`,
+`email_sender_address`); **Team.reseller_brand** (Link Brand), set from the request host when a team is created.
+`nexaploy.branding.request_brand()` resolves the brand by `frappe.local.request.host` (Redis-cached index, cleared on
+Brand change) else the platform default brand else built-in Nexaploy; `update_website_context` brands every web page
+(portal, signup, Frappe login: `app_name`, `logo`, `favicon`) and `dashboard_base.html` / `signup_base.html` swap
+title, logo, favicon, footer and the `--nx-primary*` CSS variables. Team e-mails (alerts, usage, invitations,
+trial, support replies) go through `branding.mail_kwargs(team, subject, message)`: `[Brand]` subject prefix,
+footer, `Sender Name <address>`. A portal domain needs the operator to route it to the control plane (add the
+host to the control-plane site and its proxy/certificate) — not automated. Pure logic: `nexaploy/brand_utils.py`.

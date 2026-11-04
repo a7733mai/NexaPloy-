@@ -308,6 +308,11 @@ def create_app(ctx: AgentContext | None = None, settings: Settings | None = None
     def site_console(site: str, body: dict[str, Any] = Body(...)):
         return accepted("site.console", body_with(body, site=site))
 
+    # ---- outgoing e-mail relay: default outgoing Email Account of the site ---------------
+    @app.post("/v1/sites/{site}/email", dependencies=auth, status_code=202)
+    def site_configure_email(site: str, body: dict[str, Any] = Body(...)):
+        return accepted("site.configure_email", body_with(body, site=site))
+
     return app
 
 

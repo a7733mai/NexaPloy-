@@ -367,6 +367,13 @@ def on_site_update_config(job):
 			message=job.error or "")
 
 
+@handles("site.configure_email")
+def on_site_configure_email(job):
+	from nexaploy.email_relay import on_configure_email
+
+	on_configure_email(job)
+
+
 # --------------------------------------------------------------------------- servers
 
 

@@ -270,3 +270,14 @@ The GET routes enqueue a job like every other route (`202 {job_id}`); jobs still
   `frappe.db.commit()` if `commit` else `rollback()`, `frappe.destroy()`; `signal.alarm(timeout)` inside the
   container. Refused when the bench is down or (without `allow_shared_bench`) hosts other sites.
 - `site.sql` in write mode and `site.console` are not re-run when a crash interrupted them (the resumed step fails).
+
+### Managed e-mail relay
+
+**`site.configure_email`** — `POST /v1/sites/{s}/email` — `{site, enabled=true, account_name="Nexaploy Relay",
+email_id, smtp_server, smtp_port=587, tls_mode: starttls|ssl|none, username?, password?, verify_smtp=true}` →
+`{ok, account, email_id, created, changed, enabled}`. Runs a fixed script (`runtime/mail_relay.py`) with
+`docker compose … exec -T -w /home/frappe/frappe-bench/sites backend env/bin/python -c <bootstrap> <site>`; the
+settings JSON, password included, goes to **stdin** only. It creates/updates the site's default outgoing Email
+Account (only fields present in the site's Frappe version), saves only on change, and with `verify_smtp=false`
+saves under `flags.in_patch` (no SMTP login check). `enabled=false` turns outgoing off and keeps the account.
+Allowed on shared benches (no user code). Fails when the bench is down.

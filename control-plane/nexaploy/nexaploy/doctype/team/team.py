@@ -16,6 +16,11 @@ class Team(Document):
 		self._set_team_name()
 		if self.owner_user and not any(m.user == self.owner_user for m in self.members):
 			self.append("members", {"user": self.owner_user, "role": OWNER})
+		if not self.get("reseller_brand"):
+			# white-label: a team created on a brand's portal domain belongs to that brand
+			from nexaploy.branding import request_brand_name
+
+			self.reseller_brand = request_brand_name()
 
 	def before_naming(self):
 		self._set_team_name()

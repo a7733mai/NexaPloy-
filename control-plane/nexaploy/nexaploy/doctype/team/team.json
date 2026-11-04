@@ -15,6 +15,7 @@
   "enabled",
   "two_factor_required",
   "credit_balance",
+  "reseller_brand",
   "members_section",
   "members"
  ],
@@ -81,6 +82,13 @@
    "options": "currency",
    "read_only": 1,
    "no_copy": 1
+  },
+  {
+   "description": "Brand the team signed up through (white-label reseller). Set automatically from the portal host when the team is created; drives the portal look and the sender of the team's e-mails.",
+   "fieldname": "reseller_brand",
+   "fieldtype": "Link",
+   "label": "Reseller brand",
+   "options": "Brand"
   },
   {
    "fieldname": "members_section",

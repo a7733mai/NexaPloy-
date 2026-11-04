@@ -43,6 +43,8 @@ JOB_KINDS = (
 	"site.slow_queries",
 	"site.sql",
 	"site.console",
+	# managed e-mail relay (default outgoing Email Account)
+	"site.configure_email",
 )
 
 

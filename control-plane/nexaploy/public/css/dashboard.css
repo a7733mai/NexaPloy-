@@ -97,6 +97,8 @@ code, pre, .mono { font-family: var(--nx-mono); font-size: 12.5px; }
 }
 .nx-brand { display: flex; align-items: center; gap: 10px; padding: 4px 10px 18px; font-weight: 700; font-size: 16px; color: var(--nx-text); }
 .nx-brand:hover { text-decoration: none; }
+.nx-brand-logo { max-height: 32px; max-width: 160px; object-fit: contain; }
+.nx-brand-foot { margin-block-start: 10px; overflow-wrap: anywhere; }
 .nx-logo {
 	width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
 	background: linear-gradient(135deg, var(--nx-primary), #8a5cf6); color: #fff; font-size: 15px;

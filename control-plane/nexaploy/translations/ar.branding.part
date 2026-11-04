@@ -1,0 +1,43 @@
+Check DNS,تحقق من DNS
+Custom sending domain,نطاق إرسال مخصص
+Daily sending limit: {0} e-mails,حد الإرسال اليومي: {0} رسالة
+Enable managed e-mail,تفعيل البريد المُدار
+Host,المضيف
+Last checked {0},آخر تحقق {0}
+Managed e-mail,البريد المُدار
+Managed e-mail is not available on this platform yet.,البريد المُدار غير متاح على هذه المنصة بعد.
+Not verified,لم يتم التحقق
+OK,سليم
+Purpose,الغرض
+"Send as noreply@ your own domain. Add the DNS records below at your DNS provider, then check them. Until the domain is verified the default sender is used.",أرسل باسم noreply@ على نطاقك. أضف سجلات DNS أدناه لدى مزود DNS ثم تحقق منها. يُستخدم المرسل الافتراضي حتى يتم التحقق من النطاق.
+Send this site's e-mail through the platform's authenticated relay so it does not land in spam. The site gets a default outgoing Email Account named Nexaploy Relay.,أرسل بريد هذا الموقع عبر خادم الترحيل الموثّق للمنصة حتى لا يصل إلى مجلد الرسائل المزعجة. يحصل الموقع على حساب بريد صادر افتراضي باسم Nexaploy Relay.
+Sender,المرسل
+Disable managed e-mail? The site stops sending through the platform relay.,تعطيل البريد المُدار؟ سيتوقف الموقع عن الإرسال عبر خادم الترحيل للمنصة.
+Managed e-mail is being set up,جارٍ إعداد البريد المُدار
+Managed e-mail is being disabled,جارٍ تعطيل البريد المُدار
+Sending domain saved,تم حفظ نطاق الإرسال
+Domain verified,تم التحقق من النطاق
+"DNS lookup unavailable, try again later",تعذّر الاستعلام عن DNS، حاول لاحقًا
+Some records are missing or wrong,بعض السجلات مفقودة أو غير صحيحة
+DNS lookup unavailable,تعذّر الاستعلام عن DNS
+No SPF record,لا يوجد سجل SPF
+More than one SPF record,يوجد أكثر من سجل SPF
+No DMARC record,لا يوجد سجل DMARC
+More than one DMARC record,يوجد أكثر من سجل DMARC
+No DKIM record,لا يوجد سجل DKIM
+DKIM CNAME points elsewhere,سجل DKIM من نوع CNAME يشير إلى وجهة أخرى
+DKIM record does not match,سجل DKIM غير مطابق
+No record,لا يوجد سجل
+Points elsewhere,يشير إلى وجهة أخرى
+Merge into your existing SPF record: a domain may only have one v=spf1 record.,ادمجه في سجل SPF الحالي: يجب أن يكون للنطاق سجل v=spf1 واحد فقط.
+Keep your existing DMARC record if you already have one.,احتفظ بسجل DMARC الحالي إن وُجد.
+Recommended: aligns bounces with your domain.,موصى به: يربط الرسائل المرتدة بنطاقك.
+"Enter a valid domain, e.g. example.com",أدخل نطاقًا صالحًا، مثل example.com
+Set a sending domain first,حدّد نطاق إرسال أولًا
+Please wait a few seconds before checking again,يرجى الانتظار بضع ثوانٍ قبل التحقق مرة أخرى
+Managed e-mail is not available: the platform relay is not configured,البريد المُدار غير متاح: لم يتم إعداد خادم الترحيل للمنصة
+Daily send limit cannot be negative,لا يمكن أن يكون حد الإرسال اليومي سالبًا
+Color must be a hex value like #2f5bea,يجب أن يكون اللون قيمة سداسية عشرية مثل #2f5bea
+Portal domain {0} already belongs to another brand,نطاق البوابة {0} يتبع علامة تجارية أخرى
+"Sender name cannot contain <, >, "", @, comma, semicolon or line breaks","لا يمكن أن يحتوي اسم المرسل على < أو > أو "" أو @ أو فاصلة أو فاصلة منقوطة أو أسطر جديدة"
+Sender name is too long,اسم المرسل طويل جدًا

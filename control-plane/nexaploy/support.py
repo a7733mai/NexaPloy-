@@ -115,13 +115,18 @@ def notify_customer(ticket, reply):
 		recipients = _dedupe(team_notification_emails(ticket.team, "ops") + [_user_email(ticket.raised_by)])
 		if not recipients:
 			return
+		from nexaploy.branding import mail_kwargs, team_url
+
 		frappe.sendmail(
 			recipients=recipients,
-			subject=_("[{0}] Support replied: {1}").format(ticket.name, ticket.subject),
-			message=_message_html(
-				[_("Status: {0}").format(_(ticket.status))],
-				su.html_to_text(reply.message, 4000),
-				get_url(f"/dashboard/support?name={ticket.name}"),
+			**mail_kwargs(
+				ticket.team,
+				_("[{0}] Support replied: {1}").format(ticket.name, ticket.subject),
+				_message_html(
+					[_("Status: {0}").format(_(ticket.status))],
+					su.html_to_text(reply.message, 4000),
+					team_url(ticket.team, f"/dashboard/support?name={ticket.name}"),
+				),
 			),
 			reference_doctype=TICKET,
 			reference_name=ticket.name,

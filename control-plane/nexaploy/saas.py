@@ -269,7 +269,9 @@ def _billing_emails(team):
 def _trial_mail(site, subject, message):
 	recipients = _billing_emails(site.team)
 	if recipients:
-		frappe.sendmail(recipients=recipients, subject=f"[Nexaploy] {subject}", message=message, delayed=True)
+		from nexaploy.branding import mail_kwargs
+
+		frappe.sendmail(recipients=recipients, delayed=True, **mail_kwargs(site.team, f"[Nexaploy] {subject}", message))
 
 
 def expire_trials():

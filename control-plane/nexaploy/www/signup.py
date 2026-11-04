@@ -25,6 +25,9 @@ def get_context(context):
 	context.lang = lang
 	context.dir = text_direction(lang)
 	context.product = product
+	from nexaploy.branding import request_brand
+
+	context.nx_brand = request_brand()
 	context.csrf_token = ""
 	if user and user != "Guest":
 		try:

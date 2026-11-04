@@ -1,11 +1,14 @@
+{%- set nxb = nx_brand if (nx_brand is defined and nx_brand) else {} -%}
 <!doctype html>
 <html lang="{{ lang or 'en' }}" dir="{{ dir or 'ltr' }}">
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="robots" content="noindex">
-	<title>{{ title or _("Dashboard") }} · Nexaploy</title>
+	<title>{{ title or _("Dashboard") }} · {{ (nxb.get("title") or "Nexaploy") | e }}</title>
 	<link rel="stylesheet" href="/assets/nexaploy/css/dashboard.css">
+	{% if nxb.get("favicon") %}<link rel="icon" href="{{ nxb.get("favicon") }}">{% endif %}
+	{% if nxb.get("css") %}<style id="nx-brand-css">{{ nxb.get("css") }}</style>{% endif %}
 	<script>
 		window.frappe = window.frappe || {};
 		window.frappe.csrf_token = {{ (csrf_token or "") | tojson }};
@@ -21,7 +24,7 @@
 <body class="nx">
 <div class="nx-shell" x-data="{ navOpen: false }" :class="{ 'nav-open': navOpen }">
 	<aside class="nx-sidebar" aria-label="{{ _('Navigation') }}">
-		<a class="nx-brand" href="/dashboard"><span class="nx-logo">N</span><span>Nexaploy</span></a>
+		<a class="nx-brand" href="/dashboard">{% if nxb.get("logo") %}<img class="nx-brand-logo" src="{{ nxb.get("logo") }}" alt="">{% else %}<span class="nx-logo">{{ (nxb.get("title") or "Nexaploy")[:1] | e }}</span>{% endif %}<span>{{ (nxb.get("title") or "Nexaploy") | e }}</span></a>
 		<div class="nx-team-switcher" x-data="nxTeamSwitcher" x-show="teams.length">
 			<label class="small muted" for="nx-team-select">{{ _("Team") }}</label>
 			<select id="nx-team-select" class="input" :value="current" @change="switchTo($event.target.value)" :disabled="busy">
@@ -91,6 +94,7 @@
 				<span class="muted">·</span>
 				<a href="/api/method/web_logout">{{ _("Log out") }}</a>
 			</div>
+			{% if nxb.get("support_email") or nxb.get("footer_text") %}<div class="small muted nx-brand-foot">{% if nxb.get("support_email") %}<a class="ltr" href="mailto:{{ nxb.get("support_email") | e }}">{{ nxb.get("support_email") | e }}</a>{% endif %}{% if nxb.get("footer_text") %}<div>{{ nxb.get("footer_text") | e }}</div>{% endif %}</div>{% endif %}
 		</div>
 	</aside>
 	<div class="nx-backdrop" @click="navOpen = false"></div>
