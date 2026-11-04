@@ -6,7 +6,7 @@ All notable changes to Nexaploy are documented here. The format follows
 the agent (`agent/nexaploy_agent/__init__.py`) and the control plane
 (`control-plane/nexaploy/__init__.py`) are released together by `scripts/release.sh`.
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-11-04
 
 First release.
 
