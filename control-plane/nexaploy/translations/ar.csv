@@ -2232,3 +2232,4 @@ Some administrators will set up their authenticator app at their next login.,ب�
 Administrators must use two-factor authentication.,يجب على المسؤولين استخدام التحقق بخطوتين.
 Set up an outgoing e-mail account first: Frappe e-mails the authenticator QR code (or the login code) to administrators.,اضبط حساب بريد صادر أولًا: يرسل Frappe رمز QR لتطبيق المصادقة (أو رمز الدخول) إلى المسؤولين بالبريد.
 Set up SMS Settings first: Frappe texts the login code to administrators.,اضبط إعدادات SMS أولًا: يرسل Frappe رمز الدخول إلى المسؤولين برسالة نصية.
+Could not check GitHub for new releases (see the Error Log).,تعذّر التحقق من وجود إصدارات جديدة على GitHub (راجع سجل الأخطاء).

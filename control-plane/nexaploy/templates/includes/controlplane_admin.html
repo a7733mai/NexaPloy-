@@ -31,7 +31,7 @@
 				<dd>
 					<span class="ltr" x-text="st && st.latest ? st.latest.version : '—'"></span>
 					<span class="badge info" x-show="st && st.update_available">{{ _("Update available") }}</span>
-					<span class="small muted" x-show="st && st.latest_error" x-text="st && st.latest_error"></span>
+					<span class="small muted" x-show="st && st.latest_error" x-text="st && __(st.latest_error)"></span>
 				</dd>
 			</dl>
 			<template x-if="st && !st.can_update">

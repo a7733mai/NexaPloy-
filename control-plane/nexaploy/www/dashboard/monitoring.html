@@ -144,7 +144,7 @@
 				</div>
 				<div>
 					<div class="small muted">{{ _("Response time") }} <span class="ltr" x-show="chartMax()">(max <span x-text="chartMax()"></span> ms)</span></div>
-					<svg class="nx-mon-chart" :viewBox="'0 0 ' + chartW + ' ' + chartH" preserveAspectRatio="none" role="img" aria-label="{{ _('Response time') }}" style="direction: ltr">
+					<svg class="nx-mon-chart" viewBox="0 0 600 140" preserveAspectRatio="none" role="img" aria-label="{{ _('Response time') }}" style="direction: ltr">
 						<line class="grid-line" x1="0" :x2="chartW" :y1="chartH / 2" :y2="chartH / 2"></line>
 						<line class="grid-line" x1="0" :x2="chartW" :y1="chartH - 1" :y2="chartH - 1"></line>
 						<path class="fail" :d="chartFailPath()"></path>

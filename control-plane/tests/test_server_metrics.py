@@ -56,3 +56,19 @@ def test_server_page_wiring_and_js():
 	assert "nexaploy.api.server_metrics.get_server_metrics" in open(js).read()
 	assert "cdn" not in open(js).read().lower()
 	subprocess.run(["node", "--check", js], check=True)
+
+
+def test_svg_viewbox_is_a_literal_attribute():
+	"""The HTML parser lowercases attribute names, so an Alpine `:viewBox` binding sets
+	`viewbox`, which SVG ignores (charts drew in raw pixels, ~60% of the width). The JS draws
+	in a 600x120 box: the template must declare exactly that, literally."""
+	html = open(os.path.join(APP, "www", "dashboard", "server.html")).read()
+	assert ":viewBox" not in html and 'viewBox="0 0 600 120"' in html
+	assert "var W = 600, H = 120" in open(os.path.join(APP, "public", "js", "server_metrics.js")).read()
+	for root, _d, files in os.walk(os.path.join(APP, "www")):
+		for name in files:
+			if name.endswith(".html"):
+				assert ":viewBox" not in open(os.path.join(root, name)).read(), name
+	mon = open(os.path.join(APP, "www", "dashboard", "monitoring.html")).read()
+	js_mon = open(os.path.join(APP, "public", "js", "monitoring.js")).read()
+	assert 'viewBox="0 0 600 140"' in mon and "CHART_W = 600" in js_mon and "CHART_H = 140" in js_mon

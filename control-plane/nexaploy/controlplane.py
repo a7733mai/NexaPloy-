@@ -54,8 +54,11 @@ def latest_release(force=False):
 		value = {"release": cu.pick_release(resp.json(), rs["channel"]), "error": None,
 		         "checked_at": str(frappe.utils.now_datetime())}
 		ttl = cu.RELEASE_CACHE_SECONDS
-	except Exception as exc:
-		value = {"release": None, "error": str(exc)[:300], "checked_at": str(frappe.utils.now_datetime())}
+	except Exception:
+		# full detail in the Error Log; the card only says the lookup failed
+		frappe.log_error(title="Nexaploy: GitHub release lookup failed")
+		value = {"release": None, "error": "Could not check GitHub for new releases (see the Error Log).",
+		         "checked_at": str(frappe.utils.now_datetime())}
 		ttl = 300
 	cache.set_value(key, value, expires_in_sec=ttl)
 	return value
