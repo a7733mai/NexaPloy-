@@ -56,3 +56,10 @@ customer → a second customer is refused everywhere (portal API and `frappe.cli
 
 S3 upload/download (needs rclone + an S3 endpoint), Let's Encrypt (needs public DNS),
 payment gateways, GitHub App, cloud provisioning, image builds with `image-builder/`.
+
+## Portal in a real browser
+
+All 15 portal pages were opened in Chromium (Playwright) as a customer: no JS errors,
+Alpine components initialise, English and Arabic (RTL). Screenshots: `docs/screenshots/`.
+Alpine.js is vendored (`control-plane/nexaploy/public/js/vendor/`) so customer pages load
+nothing from third-party CDNs.

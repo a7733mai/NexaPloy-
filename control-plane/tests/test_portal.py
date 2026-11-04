@@ -282,7 +282,9 @@ def test_template_renders(page, lang):
 	assert f'dir="{pu.text_direction(lang)}"' in html
 	assert f'lang="{lang}"' in html
 	assert "/assets/nexaploy/js/dashboard.js" in html
-	assert "alpinejs@3.14.1" in html
+	# Alpine is vendored (no third-party CDN on customer pages)
+	assert "/assets/nexaploy/js/vendor/alpine-3.14.1.min.js" in html
+	assert "cdn.jsdelivr.net" not in html
 	assert "</script>\";" not in html  # tojson escapes "</script>" in the CSRF token
 	assert html.count("<template") == html.count("</template>")
 	assert "{{" not in html and "{%" not in html
