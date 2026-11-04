@@ -183,7 +183,8 @@ install_packages() {
     export DEBIAN_FRONTEND=noninteractive
     log "installing packages"
     apt-get update -qq
-    apt-get install -y -qq ca-certificates curl gnupg git jq acl rclone openssl iproute2 >/dev/null
+    apt-get install -y -qq ca-certificates curl gnupg git jq acl rclone openssl iproute2 fuse3 unzip >/dev/null
+    ensure_rclone
 
     if ! command -v docker >/dev/null || ! docker compose version >/dev/null 2>&1; then
         log "installing Docker CE (official repository)"
@@ -211,6 +212,18 @@ install_packages() {
     fi
     local ver; ver="$("$PYTHON" -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")')"
     apt-get install -y -qq "python${ver}-venv" >/dev/null 2>&1 || apt-get install -y -qq python3-venv >/dev/null
+}
+
+# rclone >= 1.62 (offsite attachments: IDrive e2 / Cloudflare R2 providers, VFS cache fixes);
+# Ubuntu 22.04 ships 1.53. The official installer verifies the download checksum.
+ensure_rclone() {
+    local ver
+    ver="$(rclone version 2>/dev/null | awk 'NR==1 {sub(/^v/, "", $2); print $2}')"
+    if [[ -n "$ver" ]] && printf '1.62\n%s\n' "$ver" | sort -V -C; then
+        return 0
+    fi
+    log "installing rclone >= 1.62 (found ${ver:-none})"
+    curl -fsSL https://rclone.org/install.sh | bash >/dev/null || warn "rclone upgrade failed; offsite attachments need rclone >= 1.62"
 }
 
 # --------------------------------------------------------------------------- 3. users + tree
@@ -251,6 +264,12 @@ create_tree() {
     mkdir_owned "$ROOT/images/builds" 0 0 0700
     mkdir_owned "$ROOT/benches" 0 0 0755
     mkdir_owned "$ROOT/backups" 3113 3113 0750
+    mkdir_owned "$ROOT/storage" 0 0 0755
+    # Per-site rclone mounts (offsite attachments) reach bench containers through mount
+    # propagation; systemd hosts have / shared already, others need it once per boot.
+    if [[ "$(findmnt -no PROPAGATION / 2>/dev/null)" == private ]]; then
+        mount --make-rshared / 2>/dev/null || warn "/ is not a shared mount; offsite attachments will not work"
+    fi
 }
 
 # --------------------------------------------------------------------------- 4. networks
