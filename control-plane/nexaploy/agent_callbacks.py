@@ -406,3 +406,7 @@ def on_site_rename(job):
 	if job.status not in TERMINAL_JOB_STATUSES:
 		return
 	_ref(job).rename_finished(job)
+
+
+# agent.upgrade / agent.rollback handlers live with the upgrade logic
+import nexaploy.agent_upgrades  # noqa: E402,F401

@@ -43,6 +43,9 @@ JOB_KINDS = (
 	"site.slow_queries",
 	"site.sql",
 	"site.console",
+	# agent self-upgrade (nexaploy/agent_upgrades.py)
+	"agent.upgrade",
+	"agent.rollback",
 )
 
 

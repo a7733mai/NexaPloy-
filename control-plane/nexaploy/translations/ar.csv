@@ -1015,3 +1015,38 @@ Revenue share must be a number,يجب أن تكون حصة الإيرادات ر
 Revenue share must be between 0 and 100 percent,يجب أن تكون حصة الإيرادات بين 0 و100 بالمئة
 Please enter a subject,يرجى إدخال موضوع
 Get help,احصل على مساعدة
+latest,الأحدث
+Upgrade agent,ترقية الوكيل
+Roll back agent,استرجاع إصدار الوكيل السابق
+In Progress,قيد التنفيذ
+Succeeded,نجحت
+Rolling Back,جارٍ الاسترجاع
+Rolled Back,تم الاسترجاع
+Upgrade the agent from {0} to {1}? Benches and sites keep running; the agent restarts.,ترقية الوكيل من {0} إلى {1}؟ تستمر البنشات والمواقع في العمل؛ ويُعاد تشغيل الوكيل.
+Agent upgrade started,بدأت ترقية الوكيل
+Put the previous agent version back on this server?,إعادة الإصدار السابق للوكيل على هذا الخادم؟
+Agent rollback started,بدأ استرجاع إصدار الوكيل
+No published agent release for this server's channel,لا يوجد إصدار منشور للوكيل لقناة هذا الخادم
+The server must be Active (online) to upgrade its agent,يجب أن يكون الخادم نشطًا (متصلًا) لترقية وكيله
+An agent upgrade or rollback is already in progress on this server,توجد ترقية أو استرجاع للوكيل قيد التنفيذ بالفعل على هذا الخادم
+The agent is already on this version or newer,الوكيل يعمل بالفعل بهذا الإصدار أو بإصدار أحدث
+You are not allowed to upgrade the agent on this server,غير مسموح لك بترقية الوكيل على هذا الخادم
+Agent release {0} is not published,إصدار الوكيل {0} غير منشور
+The agent is not online. Run `nexaploy-agent rollback` on the server (see the documentation).,الوكيل غير متصل. نفّذ `nexaploy-agent rollback` على الخادم (راجع التوثيق).
+Only platform administrators can upgrade agents in bulk,يمكن لمسؤولي المنصة فقط ترقية الوكلاء دفعة واحدة
+The agent did not report version {0} within {1} minutes (it reports {2}). The agent rolls back by itself when the new version does not start; otherwise use Roll back agent or run `nexaploy-agent rollback` on the server.,لم يُبلغ الوكيل عن الإصدار {0} خلال {1} دقيقة (يُبلغ عن {2}). يسترجع الوكيل الإصدار السابق تلقائيًا إذا لم يعمل الإصدار الجديد؛ وإلا فاستخدم «استرجاع إصدار الوكيل السابق» أو نفّذ `nexaploy-agent rollback` على الخادم.
+The agent job failed,فشلت مهمة الوكيل
+Agent {0} · latest {1} ({2}),الوكيل {0} · الأحدث {1} ({2})
+Upgrade agent to {0},ترقية الوكيل إلى {0}
+Upgrade the agent on {0} from {1} to {2}? Benches and sites keep running; the agent restarts.,ترقية الوكيل على {0} من {1} إلى {2}؟ تستمر البنشات والمواقع في العمل؛ ويُعاد تشغيل الوكيل.
+Agent,الوكيل
+Put the previous agent version back on {0}?,إعادة الإصدار السابق للوكيل على {0}؟
+Upgrade outdated servers,ترقية الخوادم ذات الوكيل القديم
+Every active server already runs the latest agent of its channel.,كل الخوادم النشطة تعمل بالفعل بأحدث وكيل في قناتها.
+Upgrade the agent on {0} servers?,ترقية الوكيل على {0} خوادم؟
+Agent upgrade queued on {0} servers,تمت جدولة ترقية الوكيل على {0} خوادم
+stable,مستقر
+beta,تجريبي
+Agent Release,إصدار الوكيل
+Agent Upgrades,ترقيات الوكيل
+Allow customers to upgrade the agent on their BYOS servers,السماح للعملاء بترقية الوكيل على خوادمهم الخاصة (BYOS)

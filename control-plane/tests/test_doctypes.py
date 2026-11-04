@@ -269,6 +269,7 @@ def test_team_doctypes_spec():
 
 # activity log (§10) and prepaid credits: register the new DocTypes with the checks above
 EXPECTED.update({"Team Activity", "Team Credit Transaction"})
+EXPECTED.add("Agent Release")  # agent upgrades (test_agent_releases.py)
 
 
 def test_activity_and_credit_doctypes_link_team():

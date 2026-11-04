@@ -23,7 +23,12 @@
   "backup_prefix",
   "backup_access_key",
   "backup_secret_key",
-  "backup_config_hash"
+  "backup_config_hash",
+  "section_break_agent_releases",
+  "allow_customer_agent_upgrade",
+  "agent_upgrade_timeout_minutes",
+  "column_break_agent_releases",
+  "agent_repo_url"
  ],
  "fields": [
   {
@@ -135,6 +140,35 @@
    "hidden": 1,
    "label": "Backup Config Hash",
    "read_only": 1
+  },
+  {
+   "fieldname": "section_break_agent_releases",
+   "fieldtype": "Section Break",
+   "label": "Agent Upgrades"
+  },
+  {
+   "fieldname": "allow_customer_agent_upgrade",
+   "fieldtype": "Check",
+   "label": "Allow customers to upgrade the agent on their BYOS servers",
+   "default": "0",
+   "description": "Team Owners/Admins can then upgrade or roll back the agent of their own BYOS servers from the dashboard."
+  },
+  {
+   "fieldname": "agent_upgrade_timeout_minutes",
+   "fieldtype": "Int",
+   "label": "Agent Upgrade Timeout (minutes)",
+   "default": "15",
+   "description": "An upgrade is marked Failed when the server does not report the new version within this time."
+  },
+  {
+   "fieldname": "column_break_agent_releases",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "agent_repo_url",
+   "fieldtype": "Data",
+   "label": "Agent Repository URL",
+   "description": "Default git repository for Agent Releases without their own URL (https://). Empty: https://github.com/a7733mai/NexaPloy-.git"
   }
  ],
  "index_web_pages_for_search": 0,

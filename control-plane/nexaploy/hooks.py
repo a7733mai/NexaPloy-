@@ -114,6 +114,7 @@ scheduler_events = {
 			"nexaploy.tasks.check_sites_uptime",
 			"nexaploy.provisioning.jobs.check_provisioning",
 			"nexaploy.agent_callbacks.retry_failed_callbacks",
+			"nexaploy.agent_upgrades.check_agent_upgrades",
 		],
 		"*/15 * * * *": ["nexaploy.tasks.apply_auto_updates", "nexaploy.tasks.enforce_plan_limits"],
 	},

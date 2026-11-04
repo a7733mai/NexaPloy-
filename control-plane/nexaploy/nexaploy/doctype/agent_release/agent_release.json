@@ -1,0 +1,123 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:version",
+ "creation": "2026-11-04 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "version",
+  "channel",
+  "published",
+  "released_on",
+  "column_break_1",
+  "git_ref",
+  "repo_url",
+  "wheel_url",
+  "wheel_sha256",
+  "section_break_notes",
+  "release_notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "version",
+   "fieldtype": "Data",
+   "label": "Version",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "description": "Semantic version of the agent, e.g. 0.2.0 (agent/nexaploy_agent/__init__.py __version__). Used as the document name."
+  },
+  {
+   "fieldname": "channel",
+   "fieldtype": "Select",
+   "label": "Channel",
+   "options": "stable\nbeta",
+   "default": "stable",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Servers on the beta channel also get stable releases."
+  },
+  {
+   "fieldname": "published",
+   "fieldtype": "Check",
+   "label": "Published",
+   "default": "0",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Only published releases are offered as upgrades."
+  },
+  {
+   "fieldname": "released_on",
+   "fieldtype": "Date",
+   "label": "Released On"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "git_ref",
+   "fieldtype": "Data",
+   "label": "Git Ref",
+   "description": "Tag, branch or commit the agent fetches. Default: v<version>."
+  },
+  {
+   "fieldname": "repo_url",
+   "fieldtype": "Data",
+   "label": "Repository URL",
+   "description": "https:// git URL. Empty: Nexaploy Settings > Agent Repository URL, else the official repository."
+  },
+  {
+   "fieldname": "wheel_url",
+   "fieldtype": "Data",
+   "label": "Wheel URL",
+   "description": "Optional: install this https:// .whl instead of building from git."
+  },
+  {
+   "fieldname": "wheel_sha256",
+   "fieldtype": "Data",
+   "label": "Wheel SHA-256"
+  },
+  {
+   "fieldname": "section_break_notes",
+   "fieldtype": "Section Break",
+   "label": "Release Notes"
+  },
+  {
+   "fieldname": "release_notes",
+   "fieldtype": "Text Editor",
+   "label": "Release Notes"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-04 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Agent Release",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "naming_rule": "By fieldname",
+ "title_field": "version",
+ "show_title_field_in_link": 0
+}

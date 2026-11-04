@@ -1,5 +1,10 @@
 {% extends "templates/dashboard_base.html" %}
 
+{% block head %}
+{# agent upgrades: plain script so it registers before Alpine starts #}
+<script src="/assets/nexaploy/js/agent_upgrade.js"></script>
+{% endblock %}
+
 {% block page_title %}<a href="/dashboard/servers" class="muted">{{ _("Servers") }}</a> <span class="muted">/</span> <span class="ltr" id="nx-server-title"></span>{% endblock %}
 
 {% block content %}
@@ -21,7 +26,15 @@
 							<dt>{{ _("Type") }}</dt><dd x-text="__(server.ownership)"></dd>
 							<dt>{{ _("Last heartbeat") }}</dt>
 							<dd><span x-text="nx.ago(server.heartbeat_age)"></span> <span class="small muted" x-text="server.last_heartbeat ? '(' + nx.fmtDate(server.last_heartbeat) + ')' : ''"></span></dd>
-							<dt>{{ _("Agent version") }}</dt><dd class="mono" x-text="server.agent_version || '—'"></dd>
+							<dt>{{ _("Agent version") }}</dt>
+							<dd x-data="nxAgentUpgrade(server.name)">
+								<span class="mono" x-text="server.agent_version || '—'"></span>
+								<template x-if="st && st.latest"><span class="small muted"> · {{ _("latest") }} <span class="mono" x-text="st.latest.version"></span></span></template>
+								<template x-if="st && st.upgrade_status"><span :class="nx.statusClass(st.upgrade_status)" x-text="__(st.upgrade_status)"></span></template>
+								<template x-if="canUpgrade()"><button class="btn sm" type="button" @click="upgrade()" :disabled="busy" x-text="__('Upgrade agent')"></button></template>
+								<template x-if="canRollback()"><button class="btn sm" type="button" @click="rollback()" :disabled="busy" x-text="__('Roll back agent')"></button></template>
+								<template x-if="st && st.upgrade_error"><div class="small muted" x-text="st.upgrade_error"></div></template>
+							</dd>
 							<dt>{{ _("Plan") }}</dt>
 							<dd>
 								<template x-if="server.plan_info"><span x-text="server.plan_info.title + ' · ' + nx.money(server.plan_info.price_monthly, server.plan_info.currency) + ' ' + __('/ month')"></span></template>

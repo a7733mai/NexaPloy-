@@ -207,6 +207,23 @@ Result `{changed, removed}`. Values of sensitive keys are masked in output and s
 an alias of the bucket root) and `null` when the backup was not uploaded. The control plane uses it for
 presigned downloads.
 
+## Agent upgrades (`jobs/agent_jobs.py`, `runtime/upgrade.py`)
+
+The control plane sends `agent.upgrade {version, ref, repo_url}` ("Upgrade agent" on a Server).
+The new version is built next to the running one (`/opt/nexaploy/agent/.venv.new`), self-checked
+with `nexaploy-agent version`, swapped in (the old venv stays at `.venv.prev`), and both units
+restart 10 s after the job reported success. A watchdog (systemd-run, from `.venv.prev`) rolls
+back automatically when the new agent does not answer `/v1/ping` with the new version.
+
+```bash
+nexaploy-agent upgrade --version 0.2.0          # standalone servers: queue the job locally
+nexaploy-agent rollback                         # put .venv.prev back and restart the units
+# if even the CLI of the new venv is broken:
+/opt/nexaploy/agent/.venv.prev/bin/python -m nexaploy_agent.agent_cli rollback
+```
+
+Benches and sites are never touched; proxy/DB stack changes still need `install.sh`.
+
 ## Templates
 
 `nexaploy_agent/templates/` holds copies of the canonical `bench-template/` files

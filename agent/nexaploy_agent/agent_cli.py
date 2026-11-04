@@ -1,4 +1,5 @@
-"""``nexaploy-agent`` entry point: ``api``, ``worker``, ``register``, ``version``."""
+"""``nexaploy-agent`` entry point: ``api``, ``worker``, ``register``, ``version``,
+``upgrade``, ``rollback`` (see upgrade_cli.py)."""
 
 from __future__ import annotations
 
@@ -113,6 +114,12 @@ def register(
 def version() -> None:
     """Print the agent version."""
     typer.echo(__version__)
+
+
+# agent self-upgrade: `upgrade` (local), `rollback`, `upgrade-watchdog` (run by systemd-run)
+from .upgrade_cli import register_commands as _register_upgrade_commands  # noqa: E402
+
+_register_upgrade_commands(app)
 
 
 def main() -> None:

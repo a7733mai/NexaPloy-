@@ -277,6 +277,10 @@ def heartbeat(server_id=None, facts=None, benches=None, agent_version=None, **kw
 	except Exception:
 		frappe.log_error(title=f"Nexaploy: heartbeat metrics failed for {server}")
 	ops.ingest_usage(server, kwargs.get("usage"))  # never raises
+	if agent_version:
+		from nexaploy.agent_upgrades import on_heartbeat
+
+		on_heartbeat(server, agent_version)  # agent upgrade tracking; never raises
 	pending = frappe.db.count("Agent Job", {"server": server, "status": "Pending"})
 	return {"ok": True, "pending_jobs": pending}
 
