@@ -11,7 +11,9 @@ from .jobs.store import JobStore
 from .runtime.backup import BackupManager
 from .runtime.bench import BenchManager
 from .runtime.docker import Docker, LoggingRunner, Runner, SubprocessRunner
+from .runtime.health import HealthCollector
 from .runtime.image import ImageBuilder
+from .runtime.os_updates import OsUpdates
 from .runtime.proxy import ProxyManager
 from .runtime.site import SiteManager
 from .runtime.tls import TlsChecker
@@ -35,6 +37,9 @@ class AgentContext:
         self.usage = UsageCollector(settings, self.runner, self.benches, self.sites)
         self.tls = TlsChecker(settings, self.sites)
         self.store = store or JobStore(settings.jobs_db)
+        # server maintenance (§17): OS update status (cached 6 h) and light health facts
+        self.os_updates = OsUpdates(settings.data_dir, self.runner)
+        self.health = HealthCollector(settings, self.runner)
         # Set when a job is enqueued in this process so the worker wakes early.
         self.wake = threading.Event()
 

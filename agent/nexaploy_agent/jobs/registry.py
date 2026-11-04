@@ -21,6 +21,7 @@ from .smoke_jobs import SiteSmokeCheck
 from .pitr_jobs import ServerArchiveBinlogs, SiteRestorePitr
 from .agent_jobs import AgentRollback, AgentUpgrade
 from .storage_jobs import STORAGE_JOB_CLASSES
+from .maintenance_jobs import MAINTENANCE_JOB_CLASSES
 
 JOB_CLASSES: tuple[type[Job], ...] = (
     ImageBuild,
@@ -37,6 +38,7 @@ JOB_CLASSES: tuple[type[Job], ...] = (
     SiteRestorePitr, ServerArchiveBinlogs,
     AgentUpgrade, AgentRollback,
     *STORAGE_JOB_CLASSES,
+    *MAINTENANCE_JOB_CLASSES,
 )
 REGISTRY: dict[str, type[Job]] = {cls.kind: cls for cls in JOB_CLASSES}
 

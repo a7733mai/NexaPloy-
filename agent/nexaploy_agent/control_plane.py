@@ -209,6 +209,9 @@ class ControlPlaneService:
         from .runtime.server import host_facts
 
         facts = host_facts(self.ctx.docker, self.ctx.settings.root)
+        # server maintenance (§17): never raise, the heartbeat must go out
+        facts["os_updates"] = self.ctx.os_updates.status()
+        facts["health"] = self.ctx.health.light()
         benches = self.ctx.benches.list(with_status=True)
         for b in benches:
             b["sites"] = [self.ctx.sites.info(b["name"], s) for s in b.get("sites", [])]

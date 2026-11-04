@@ -329,6 +329,8 @@ class ServerHealth(Job):
 
     def step_collect(self) -> None:
         facts = server_info(self.ctx.docker, self.ctx.benches, self.settings.agent.server_id)
+        facts["os_updates"] = self.ctx.os_updates.status()
+        facts["health"] = self.ctx.health.light(force=True)
         self.result.update(facts)
         self.log(
             f"load {facts.get('load_avg')}, unhealthy containers: {facts.get('unhealthy_containers', 0)}"
