@@ -17,6 +17,7 @@
   "hosts_control_plane",
   "control_plane_bench",
   "control_plane_site",
+  "backup_destination",
   "section_break_agent",
   "agent_version",
   "last_heartbeat",
@@ -129,6 +130,13 @@
    "fieldtype": "Data",
    "label": "Control Plane Site",
    "read_only": 1
+  },
+  {
+   "fieldname": "backup_destination",
+   "fieldtype": "Link",
+   "label": "Backup Destination",
+   "options": "Backup Destination",
+   "description": "Where this server uploads backups. Empty: the team's default destination, else the platform storage (Nexaploy Settings)."
   },
   {
    "fieldname": "section_break_agent",
@@ -318,7 +326,7 @@
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-12-01 12:00:00.000000",
+ "modified": "2026-12-02 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Server",

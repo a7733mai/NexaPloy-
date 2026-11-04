@@ -7,3 +7,4 @@ nexaploy.patches.v0_2.user_team_to_team
 nexaploy.patches.v0_3.marketplace_listing_status
 nexaploy.patches.v0_4.marketplace_release_status
 nexaploy.patches.v0_4.seed_official_marketplace_apps
+nexaploy.patches.v0_3.backup_retention_custom

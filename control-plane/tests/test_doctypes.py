@@ -30,6 +30,8 @@ EXPECTED = {
 	"Site Usage", "Site Backup File",
 	# site lifecycle (§10)
 	"Site Transfer",
+	# backup destinations (S3 / Google Drive / OneDrive / Dropbox)
+	"Backup Destination",
 }
 CHILD_TABLES = {
 	"Marketplace App Release", "Release Group App", "Site Domain", "Site App", "Agent Job Step",

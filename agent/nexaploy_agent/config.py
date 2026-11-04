@@ -139,6 +139,12 @@ class Settings(_Section):
         return self.config_dir / "rclone.conf"
 
     @property
+    def rclone_state(self) -> Path:
+        """sha256 of the OAuth tokens we last wrote into rclone.conf (see
+        runtime.backup.plan_backup_remote). Kept outside rclone.conf: rclone rewrites it."""
+        return self.config_dir / "rclone.state.json"
+
+    @property
     def data_dir(self) -> Path:
         return self.root / "agent" / "data"
 

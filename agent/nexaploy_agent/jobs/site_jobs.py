@@ -6,7 +6,7 @@ import json
 import secrets
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
@@ -134,6 +134,7 @@ class _SiteJob(Job):
             self.result["uploaded"] = False
             return
         self.check(self.ctx.backups.upload(bench, self.site, ts), "rclone copy")
+        self.ctx.backups.mark_uploaded(bench, self.site, ts)
         remote = self.ctx.backups.remote_dir(bench, self.site, ts)
         self.result.update({"uploaded": True, "remote_path": remote})
         if isinstance(self.result.get("manifest"), dict):
@@ -374,6 +375,9 @@ class SiteRemoveDomain(_SiteJob):
 class SiteBackupParams(SiteParams):
     with_files: bool = True
     upload: bool = True
+    # Local copies after upload (per site, set by the control plane): None = agent default
+    # ([backup] retention_days), 0 = delete right after a successful upload, N = N days.
+    local_retention_days: int | None = Field(default=None, ge=0, le=3650)
 
 
 class SiteBackup(_SiteJob):
@@ -391,8 +395,10 @@ class SiteBackup(_SiteJob):
         self.upload_backup(self.bench_for_site(), self.p.upload)
 
     def step_prune(self) -> None:
-        pruned = self.ctx.backups.prune(self.bench_for_site(), self.site)
+        pruned = self.ctx.backups.prune(self.bench_for_site(), self.site,
+                                        local_retention_days=self.p.local_retention_days)
         self.result["pruned"] = pruned
+        self.result["kept_locally"] = self.result.get("backup_id") not in pruned
         self.log(f"pruned {len(pruned)} local backups" if pruned else "nothing to prune")
 
 
@@ -402,6 +408,15 @@ class SiteRestoreParams(SiteParams):
     remote_path: str | None = None
     bench: str | None = None
     with_files: bool = True
+    # What to restore: everything, only the database (no public/private files) or only the
+    # files (into the existing site; database untouched). with_files=false == "database".
+    restore: Literal["all", "database", "files"] = "all"
+
+    @property
+    def mode(self) -> str:
+        if self.restore == "all" and not self.with_files:
+            return "database"
+        return self.restore
 
     @field_validator("backup_id")
     @classmethod
@@ -428,6 +443,9 @@ class SiteRestoreParams(SiteParams):
         return self
 
 
+FILE_KINDS = ("public", "private")
+
+
 class SiteRestore(_SiteJob):
     """Fetch, verify sha256, bench restore, restore encryption key, migrate, route."""
 
@@ -447,10 +465,14 @@ class SiteRestore(_SiteJob):
             raise Conflict(f"site {params['site']} lives on bench {owner}, not {bench}")
         if params.get("backup_id") and not ctx.backups.find_local(params["site"], params["backup_id"]):
             raise NotFound(f"backup {params['backup_id']} not found locally")
+        if params.get("restore") == "files" and not owner:
+            raise NotFound(f"site {params['site']!r} not found; a files-only restore needs the existing site")
 
     def step_locate(self) -> None:
         owner = self.ctx.sites.find_bench(self.site)
         bench = self.p.bench or owner
+        if self.p.mode == "files" and not owner:
+            self.fail(f"site {self.site} not found; a files-only restore needs the existing site")
         if not bench:
             self.fail(f"site {self.site} not found; pass bench to restore as a new site")
         if owner and owner != bench:
@@ -489,10 +511,14 @@ class SiteRestore(_SiteJob):
             kind = f.get("type") or classify(f["name"])
             if kind:
                 files[kind] = f["name"]
-        if "database" not in files:
+        mode = self.p.mode
+        if mode != "files" and "database" not in files:
             self.fail("backup has no database dump")
+        if mode == "files" and not any(k in files for k in FILE_KINDS):
+            self.fail("backup has no public/private files (taken without files?)")
         self.result["files"] = files
-        self.log(f"sha256 verified for {len(manifest.get('files', []))} files")
+        self.result["restore"] = mode
+        self.log(f"sha256 verified for {len(manifest.get('files', []))} files; restoring: {mode}")
 
     def step_ensure_site(self) -> None:
         """`bench restore` only restores INTO an existing site (verified on a real bench), so a
@@ -519,19 +545,32 @@ class SiteRestore(_SiteJob):
             shutil.copy2(src / name, staging / name)
             chown(staging / name, FRAPPE_UID, FRAPPE_UID)
         cpath = lambda key: self.ctx.sites.container_path(bench, staging / files[key])  # noqa: E731
-        args = ["--site", self.site, "restore", cpath("database")]
-        if self.p.with_files and "public" in files:
-            args += ["--with-public-files", cpath("public")]
-        if self.p.with_files and "private" in files:
-            args += ["--with-private-files", cpath("private")]
-        args += ["--db-root-username", "root", "--db-root-password", self.db_root_password(), "--force"]
+        mode = self.p.mode
         try:
+            if mode == "files":
+                # Frappe's own extractor (what `bench restore --with-*-files` runs): files in
+                # the archive overwrite the site's, others are kept; the database is untouched.
+                for kind in FILE_KINDS:
+                    if kind in files:
+                        call = json.dumps([self.site, str(cpath(kind))])
+                        args = ["--site", self.site, "execute", "frappe.installer.extract_files", "--args", call]
+                        self.check(self.ctx.sites.bench(bench, args, timeout=6 * 3600), f"restore {kind} files")
+                return
+            args = ["--site", self.site, "restore", cpath("database")]
+            if mode == "all" and "public" in files:
+                args += ["--with-public-files", cpath("public")]
+            if mode == "all" and "private" in files:
+                args += ["--with-private-files", cpath("private")]
+            args += ["--db-root-username", "root", "--db-root-password", self.db_root_password(), "--force"]
             self.check(self.ctx.sites.bench(bench, args, timeout=6 * 3600), "bench restore")
         finally:
             shutil.rmtree(staging, ignore_errors=True)
 
     def step_restore_config(self) -> None:
         """Carry the encryption_key over so encrypted fields stay readable."""
+        if self.p.mode == "files":
+            self.skip("files-only restore keeps the site's database and config")
+            return
         bench = self.result["bench"]
         name = self.result["files"].get("config")
         if not name:
@@ -556,6 +595,9 @@ class SiteRestore(_SiteJob):
         self.check(res, "set encryption_key")
 
     def step_migrate(self) -> None:
+        if self.p.mode == "files":
+            self.skip("files-only restore: database unchanged")
+            return
         self.check(self.ctx.sites.migrate(self.result["bench"], self.site), "bench migrate")
 
     def step_write_route(self) -> None:

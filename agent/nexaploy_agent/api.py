@@ -106,6 +106,10 @@ def create_app(ctx: AgentContext | None = None, settings: Settings | None = None
     def configure_backups(body: dict[str, Any] = Body(...)):
         return accepted("server.configure_backups", body)
 
+    @app.post("/v1/server/backup-test", dependencies=auth, status_code=202)
+    def test_backup_remote(body: dict[str, Any] | None = Body(None)):
+        return accepted("backup.test_remote", body or {})
+
     @app.get("/v1/jobs", dependencies=auth)
     def list_jobs(status: str | None = Query(None), kind: str | None = Query(None),
                   limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0)):

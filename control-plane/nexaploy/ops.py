@@ -75,17 +75,195 @@ def backup_settings_values(settings=None):
 
 
 def configure_backups(server):
-	"""Enqueue server.configure_backups for one server (no-op if storage not configured)."""
-	settings = get_settings()
-	if not ou.backup_configured(settings.as_dict()):
-		return None
-	row = frappe.db.get_value("Server", server, ["server_id", "status"], as_dict=True)
+	"""Enqueue server.configure_backups for one server: its Backup Destination (explicit, else
+	the team default) when usable, else the platform storage of Nexaploy Settings (no-op when
+	neither is configured)."""
+	row = frappe.db.get_value(
+		"Server", server, ["server_id", "status", "team", "backup_destination"], as_dict=True
+	)
 	if not row or row.status == "Archived":
 		return None
-	params = ou.backup_job_params(
-		settings.as_dict(), row.server_id, secret_ref(SETTINGS, SETTINGS, "backup_secret_key")
-	)
+	dest = server_destination(row)
+	if dest is not None:
+		params = destination_params(dest, row.server_id)
+	else:
+		settings = get_settings()
+		if not ou.backup_configured(settings.as_dict()):
+			return None
+		params = ou.backup_job_params(
+			settings.as_dict(), row.server_id, secret_ref(SETTINGS, SETTINGS, "backup_secret_key")
+		)
 	return create_agent_job(server, "server.configure_backups", params, "Server", server).name
+
+
+# --------------------------------------------------------------------------- backup destinations
+# Team-owned Backup Destination (S3 / Google Drive / OneDrive / Dropbox); pure rules in
+# nexaploy.backup_destination_utils. Secrets travel as __secret__ placeholders.
+
+DESTINATION = "Backup Destination"
+
+
+def oauth_client(provider, with_secret=False):
+	"""{client_id, client_secret, tenant} of the platform OAuth app for `provider`.
+	client_secret is the decrypted value (with_secret) or a __secret__ placeholder."""
+	from nexaploy import backup_destination_utils as bdu
+
+	id_field, secret_field = bdu.SETTINGS_CLIENT_FIELDS[provider]
+	settings = get_settings()
+	client_id = (settings.get(id_field) or "").strip()
+	if with_secret:
+		secret = settings.get_password(secret_field, raise_exception=False) if client_id else None
+	else:
+		secret = secret_ref(SETTINGS, SETTINGS, secret_field) if client_id else None
+	return {"client_id": client_id, "client_secret": secret, "tenant": settings.get("microsoft_tenant") or "common"}
+
+
+def oauth_configured(provider):
+	client = oauth_client(provider, with_secret=True)
+	return bool(client["client_id"] and client["client_secret"])
+
+
+def team_default_destination(team):
+	if not team:
+		return None
+	return frappe.db.get_value(DESTINATION, {"team": team, "is_default": 1}, "name")
+
+
+def server_destination(row):
+	"""The usable Backup Destination doc of a Server row {team, backup_destination}, or None."""
+	from nexaploy import backup_destination_utils as bdu
+
+	name = bdu.effective_destination(row.get("backup_destination"), team_default_destination(row.get("team")))
+	if not name or not frappe.db.exists(DESTINATION, name):
+		return None
+	dest = frappe.get_doc(DESTINATION, name)
+	if dest.team != row.get("team") or not bdu.destination_usable(dest.as_dict()):
+		return None
+	return dest
+
+
+def _destination_secret_field(dest):
+	from nexaploy import backup_destination_utils as bdu
+
+	return "s3_secret_key" if dest.destination_type == bdu.S3 else "oauth_token"
+
+
+def destination_params(dest, server_id, resolve=False):
+	"""server.configure_backups params for `server_id` using `dest` (placeholders, or real
+	secrets with resolve=True for fingerprints)."""
+	from nexaploy import backup_destination_utils as bdu
+
+	field = _destination_secret_field(dest)
+	if resolve:
+		secret = dest.get_password(field, raise_exception=False) or ""
+	else:
+		secret = secret_ref(DESTINATION, dest.name, field)
+	client = None
+	if dest.destination_type in bdu.OAUTH_DESTINATION_TYPES:
+		client = oauth_client(bdu.provider_for_type(dest.destination_type), with_secret=resolve)
+	try:
+		return bdu.destination_job_params(dest.as_dict(), server_id, secret, client)
+	except bdu.DestinationError as e:
+		frappe.throw(str(e))
+
+
+def servers_using_destination(dest):
+	"""Non-archived servers whose effective destination is `dest`."""
+	explicit = frappe.get_all(
+		"Server", filters={"backup_destination": dest.name, "status": ["!=", "Archived"]}, pluck="name"
+	)
+	implicit = []
+	if dest.is_default:
+		implicit = frappe.get_all(
+			"Server",
+			filters={"team": dest.team, "status": ["!=", "Archived"], "backup_destination": ["in", ["", None]]},
+			pluck="name",
+		)
+	return sorted(set(explicit) | set(implicit))
+
+
+def push_destination_if_changed(dest):
+	"""Re-push server.configure_backups to the servers using `dest` when what they receive
+	changed (incl. secrets and the OAuth client, compared by hash), or when it became the team
+	default / stopped being it."""
+	from nexaploy import backup_destination_utils as bdu
+
+	field = _destination_secret_field(dest)
+	client = None
+	if dest.destination_type in bdu.OAUTH_DESTINATION_TYPES:
+		client = oauth_client(bdu.provider_for_type(dest.destination_type), with_secret=True)
+	values = dest.as_dict()
+	fingerprint = bdu.destination_fingerprint(values, dest.get_password(field, raise_exception=False), client)
+	if not bdu.destination_usable(values):
+		fingerprint = ""
+	default_changed = dest.has_value_changed("is_default") if hasattr(dest, "has_value_changed") else False
+	if fingerprint == (dest.config_hash or "") and not default_changed:
+		return []
+	dest.db_set("config_hash", fingerprint, update_modified=False)
+	targets = servers_using_destination(dest)
+	if default_changed and not dest.is_default:
+		# servers that followed this default now fall back to the platform storage
+		targets = sorted(set(targets) | set(frappe.get_all(
+			"Server",
+			filters={"team": dest.team, "status": ["!=", "Archived"], "backup_destination": ["in", ["", None]]},
+			pluck="name",
+		)))
+	jobs = []
+	for server in targets:
+		if frappe.db.get_value("Server", server, "status") not in ("Active", "Offline"):
+			continue
+		try:
+			jobs.append(configure_backups(server))
+		except Exception:
+			frappe.log_error(title=f"Nexaploy: configure_backups failed for {server}")
+	return [j for j in jobs if j]
+
+
+def test_destination_job(dest, server):
+	"""Enqueue backup.test_remote on `server` for `dest` (temporary rclone config on the agent,
+	the server's active backup remote is not touched)."""
+	from nexaploy import backup_destination_utils as bdu
+
+	server_id = frappe.db.get_value("Server", server, "server_id")
+	params = bdu.remote_test_params(destination_params(dest, server_id))
+	return create_agent_job(server, "backup.test_remote", params, DESTINATION, dest.name).name
+
+
+# --------------------------------------------------------------------------- backup retention
+
+def retention_addon_active(team):
+	"""Hook point for the paid "extended backup retention" add-on: an app may register
+	`nexaploy_backup_retention_addon = "dotted.path"` in hooks.py (called with the team, returns
+	bool); otherwise Team.extended_backup_retention (set by billing / the operator) decides."""
+	for path in frappe.get_hooks("nexaploy_backup_retention_addon") or []:
+		try:
+			return bool(frappe.get_attr(path)(team))
+		except Exception:
+			frappe.log_error(title="Nexaploy: backup retention add-on hook failed")
+	return bool(team and frappe.db.get_value("Team", team, "extended_backup_retention"))
+
+
+def retention_limits():
+	from nexaploy import backup_policy_utils as bpu
+
+	return bpu.limits_from(get_settings().as_dict())
+
+
+def _policy_row(doctype, name):
+	from nexaploy import backup_policy_utils as bpu
+
+	fields = list(bpu.DOC_FIELDS.values())
+	if doctype == "Site":
+		fields.append("backup_retention_custom")
+	return frappe.db.get_value(doctype, name, fields, as_dict=True) if name else None
+
+
+def site_backup_policy(site):
+	"""Effective retention policy of a site (its own when custom, else the team default)."""
+	from nexaploy import backup_policy_utils as bpu
+
+	team = frappe.db.get_value("Site", site, "team")
+	return bpu.effective_policy(_policy_row("Site", site), _policy_row("Team", team))
 
 
 def configure_backups_everywhere():
@@ -453,6 +631,25 @@ def backup_download_url(backup, file_type, expires=DOWNLOAD_EXPIRES):
 		frappe.throw(f"Backup {backup} has no {file_type} file")
 	if not row.remote_key:
 		frappe.throw(f"The {file_type} file of backup {backup} was not uploaded to backup storage")
+	server = frappe.db.get_value("Site", doc.site, "server")
+	srow = frappe.db.get_value("Server", server, ["team", "backup_destination"], as_dict=True) if server else None
+	dest = server_destination(srow) if srow else None
+	if dest is not None:
+		# the backup went to the team's own destination
+		from nexaploy import backup_destination_utils as bdu
+
+		if dest.destination_type != bdu.S3:
+			frappe.throw(
+				f"This backup is stored in {dest.destination_type} ({dest.account_email or dest.title}); "
+				"download it from there, or restore it from the dashboard"
+			)
+		secret = dest.get_password("s3_secret_key", raise_exception=False)
+		if not secret:
+			frappe.throw("Backup storage secret key is not set")
+		return ou.presign_s3_get(
+			dest.s3_endpoint, dest.s3_region, dest.s3_bucket, row.remote_key, dest.s3_access_key, secret,
+			expires=expires,
+		)
 	settings = get_settings()
 	if not ou.backup_configured(settings.as_dict()):
 		frappe.throw("Backup storage is not configured")

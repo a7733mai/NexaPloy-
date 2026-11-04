@@ -15,10 +15,19 @@ class SiteBackup(Document):
 	def after_insert(self):
 		"""Enqueue site.backup {site, with_files, upload} on the site's server."""
 		server = frappe.db.get_value("Site", self.site, "server")
+		params = {"site": self.site, "with_files": bool(self.with_files), "upload": True}
+		if self.purpose != "Move":
+			# a same-server move restores the local copy: keep it whatever the site's policy
+			try:
+				from nexaploy.ops import site_backup_policy
+
+				params["local_retention_days"] = site_backup_policy(self.site)["local_retention_days"]
+			except Exception:
+				frappe.log_error(title=f"Nexaploy: backup policy of {self.site} unreadable; agent default used")
 		create_agent_job(
 			server,
 			"site.backup",
-			{"site": self.site, "with_files": bool(self.with_files), "upload": True},
+			params,
 			reference_doctype=self.doctype,
 			reference_name=self.name,
 		)
