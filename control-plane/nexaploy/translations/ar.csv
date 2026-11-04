@@ -2211,3 +2211,24 @@ Issues,المشكلات
 Checked,تم الفحص
 Unknown cleanup target: {0},هدف تنظيف غير معروف: {0}
 Not permitted,غير مسموح
+Two-factor authentication for administrators,التحقق بخطوتين للمسؤولين
+Required,إلزامي
+Not required,غير إلزامي
+Authenticator app (OTP),تطبيق المصادقة (OTP)
+E-mail code,رمز عبر البريد
+SMS code,رمز عبر SMS
+Require 2FA for administrators,إلزام المسؤولين بالتحقق بخطوتين
+Save method,حفظ الطريقة
+Stop requiring 2FA,إيقاف إلزام التحقق بخطوتين
+Administrator,المسؤول
+Authenticator app,تطبيق المصادقة
+Set up,مُعدّ
+Asked at next login,سيُطلب عند الدخول القادم
+Keep this session open until you have logged in once with 2FA in another browser window.,أبقِ هذه الجلسة مفتوحة حتى تسجّل الدخول مرة بالتحقق بخطوتين في نافذة متصفح أخرى.
+Stop requiring two-factor authentication for administrators?,إيقاف إلزام المسؤولين بالتحقق بخطوتين؟
+Could not save,تعذّر الحفظ
+Two-factor authentication is not required for administrators.,التحقق بخطوتين غير مطلوب من المسؤولين.
+Some administrators will set up their authenticator app at their next login.,بعض المسؤولين سيُعدّون تطبيق المصادقة عند دخولهم القادم.
+Administrators must use two-factor authentication.,يجب على المسؤولين استخدام التحقق بخطوتين.
+Set up an outgoing e-mail account first: Frappe e-mails the authenticator QR code (or the login code) to administrators.,اضبط حساب بريد صادر أولًا: يرسل Frappe رمز QR لتطبيق المصادقة (أو رمز الدخول) إلى المسؤولين بالبريد.
+Set up SMS Settings first: Frappe texts the login code to administrators.,اضبط إعدادات SMS أولًا: يرسل Frappe رمز الدخول إلى المسؤولين برسالة نصية.

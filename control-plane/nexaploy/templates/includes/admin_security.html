@@ -1,0 +1,37 @@
+<!-- /dashboard/admin Overview: two-factor authentication for administrators
+     (public/js/admin_security.js, API nexaploy.api.admin_security.*) -->
+<section class="card" x-data="nxAdminSecurity" x-show="tf">
+	<div class="card-head">
+		<h2>{{ _("Two-factor authentication for administrators") }}</h2>
+		<span class="spacer"></span>
+		<span :class="tf ? 'badge ' + tf.level : 'badge'" x-text="tf && (tf.enforced ? __('Required') : __('Not required'))"></span>
+	</div>
+	<div class="card-body stack">
+		<div :class="tf ? 'alert ' + (tf.level === 'success' ? 'info' : tf.level) : 'alert'" x-text="tf && __(tf.message)"></div>
+		<div class="row">
+			<label class="field"><span>{{ _("Method") }}</span>
+				<select class="input" x-model="method">
+					<option value="OTP App">{{ _("Authenticator app (OTP)") }}</option>
+					<option value="Email">{{ _("E-mail code") }}</option>
+					<option value="SMS">{{ _("SMS code") }}</option>
+				</select>
+			</label>
+			<span class="spacer"></span>
+			<button class="btn primary" type="button" x-show="tf && !tf.enforced" :disabled="busy" @click="save(1)">{{ _("Require 2FA for administrators") }}</button>
+			<button class="btn" type="button" x-show="tf && tf.enforced" :disabled="busy" @click="save(1)">{{ _("Save method") }}</button>
+			<button class="btn danger" type="button" x-show="tf && tf.enforced" :disabled="busy" @click="save(0)">{{ _("Stop requiring 2FA") }}</button>
+		</div>
+		<table class="table small" x-show="tf && tf.admins.length">
+			<thead><tr><th>{{ _("Administrator") }}</th><th>{{ _("Authenticator app") }}</th></tr></thead>
+			<tbody>
+				<template x-for="a in (tf ? tf.admins : [])" :key="a.user">
+					<tr>
+						<td><span x-text="a.full_name"></span> <span class="muted ltr" x-text="a.user"></span></td>
+						<td><span :class="a.otp_configured ? 'badge success' : 'badge'" x-text="a.otp_configured ? __('Set up') : __('Asked at next login')"></span></td>
+					</tr>
+				</template>
+			</tbody>
+		</table>
+		<span class="small muted">{{ _("Keep this session open until you have logged in once with 2FA in another browser window.") }}</span>
+	</div>
+</section>
