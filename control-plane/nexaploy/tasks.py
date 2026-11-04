@@ -45,8 +45,6 @@ def prune_registration_tokens():
 
 
 ACTIVE_JOB_STATUSES = ["Pending", "Queued", "Running"]
-UPTIME_TIMEOUT = 10
-UPTIME_WORKERS = 16
 
 
 def schedule_backups():
@@ -185,51 +183,16 @@ def prune_server_metrics():
 	frappe.db.commit()
 
 
-def _ping(site):
-	import requests
-
-	try:
-		resp = requests.get(ou.ping_url(site), timeout=UPTIME_TIMEOUT, allow_redirects=False)
-		return resp.status_code == 200
-	except Exception:
-		return False
-
-
 def check_sites_uptime():
-	"""Every 5 min: GET https://<site>/api/method/ping (10 s timeout) for Active sites; store
-	is_up / last_uptime_check and notify the team (site_down / site_recovered) on transitions.
+	"""Every 5 min: make sure every Active site has its default uptime monitor (and pause the
+	monitors of sites that are no longer Active). The checks themselves run from the probes of
+	nexaploy.monitoring (built-in probe every minute + external `nexaploy-probe` workers); the
+	default monitor still emits site_down / site_recovered and updates Site.is_up /
+	last_uptime_check, so there is exactly one alert per outage (ARCHITECTURE.md §16).
 	"""
-	from concurrent.futures import ThreadPoolExecutor
+	from nexaploy.monitoring import ensure_default_monitors
 
-	from frappe.utils import get_url
-
-	from nexaploy import notify_utils as nu
-	from nexaploy.notify import notify
-
-	sites = frappe.get_all(
-		"Site", filters={"status": "Active"}, fields=["name", "team", "is_up", "last_uptime_check"]
-	)
-	if not sites:
-		return
-	with ThreadPoolExecutor(max_workers=min(UPTIME_WORKERS, len(sites))) as pool:
-		results = dict(zip([s.name for s in sites], pool.map(_ping, [s.name for s in sites])))
-	now = now_datetime()
-	for site in sites:
-		up = results[site.name]
-		transition = ou.uptime_transition(site.is_up, bool(site.last_uptime_check), up)
-		frappe.db.set_value(
-			"Site", site.name, {"is_up": int(up), "last_uptime_check": now}, update_modified=False
-		)
-		if transition:
-			notify(
-				site.team,
-				nu.SITE_DOWN if transition == "down" else nu.SITE_RECOVERED,
-				f"{site.name} is {'DOWN' if transition == 'down' else 'back UP'}",
-				f"{ou.ping_url(site.name)} {'stopped responding' if transition == 'down' else 'responds again'} at {now}.",
-				{"site": site.name, "status": transition},
-				get_url(f"/dashboard/site?name={site.name}"),
-			)
-	frappe.db.commit()
+	ensure_default_monitors()
 
 
 def apply_auto_updates():

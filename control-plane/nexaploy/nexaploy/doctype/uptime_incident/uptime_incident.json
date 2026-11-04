@@ -1,0 +1,155 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-04 18:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "monitor",
+  "team",
+  "site",
+  "status",
+  "column_break_1",
+  "started_at",
+  "resolved_at",
+  "duration_seconds",
+  "cause",
+  "section_break_public",
+  "public_title",
+  "hide_from_status_page",
+  "updates"
+ ],
+ "fields": [
+  {
+   "fieldname": "monitor",
+   "fieldtype": "Link",
+   "label": "Monitor",
+   "options": "Uptime Monitor",
+   "reqd": 1,
+   "search_index": 1,
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "label": "Team",
+   "options": "Team",
+   "reqd": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "options": "Site",
+   "read_only": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Open\nResolved",
+   "default": "Open",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "started_at",
+   "fieldtype": "Datetime",
+   "label": "Started at",
+   "in_list_view": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "resolved_at",
+   "fieldtype": "Datetime",
+   "label": "Resolved at",
+   "read_only": 1
+  },
+  {
+   "fieldname": "duration_seconds",
+   "fieldtype": "Int",
+   "label": "Duration (seconds)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cause",
+   "fieldtype": "Small Text",
+   "label": "Cause",
+   "read_only": 1,
+   "description": "Internal: never shown on status pages."
+  },
+  {
+   "fieldname": "section_break_public",
+   "fieldtype": "Section Break",
+   "label": "Status page"
+  },
+  {
+   "fieldname": "public_title",
+   "fieldtype": "Data",
+   "label": "Public title"
+  },
+  {
+   "fieldname": "hide_from_status_page",
+   "fieldtype": "Check",
+   "label": "Hide from status page"
+  },
+  {
+   "fieldname": "updates",
+   "fieldtype": "Table",
+   "label": "Updates",
+   "options": "Status Incident Update"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-12-07 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Uptime Incident",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 0,
+   "print": 0,
+   "read": 1,
+   "report": 0,
+   "role": "Nexaploy Customer",
+   "share": 0,
+   "write": 1
+  }
+ ],
+ "sort_field": "started_at",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "title_field": "monitor",
+ "search_fields": "site,status"
+}

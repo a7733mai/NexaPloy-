@@ -261,9 +261,10 @@ sites and retention 0 are never pruned.
 **Monitoring.** Each heartbeat updates the Server monitoring fields and inserts a Server Metric at
 most every 5 minutes (pruned after 30 days by `prune_server_metrics`). `check_alerts` (every 5 min)
 emails the server's team and `alert_email` for disk > 85 %, Offline and unhealthy containers, at
-most once per 6 h per server and kind. `check_sites_uptime` (every 5 min) requests
-`https://<site>/api/method/ping` (10 s timeout, 16 in parallel) for Active sites, stores `is_up` /
-`last_uptime_check` and emails on down/up transitions.
+most once per 6 h per server and kind. `check_sites_uptime` (every 5 min) makes sure every
+Active site has a default uptime monitor (`https://<site>/api/method/ping`); the checks run from the built-in
+probe (`nexaploy.monitoring.run_builtin_probe`, every minute) and optional external `nexaploy-probe` workers,
+store `is_up` / `last_uptime_check` and alert once per outage (ARCHITECTURE.md §16).
 
 **Auto updates.** `Release Group.deploy_latest()` builds a new image. When it succeeds and the
 group has `auto_update`, Active benches not on that image get `bench.update` if their server's local

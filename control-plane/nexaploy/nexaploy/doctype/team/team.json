@@ -26,7 +26,8 @@
   "backup_keep_weekly",
   "backup_keep_monthly",
   "backup_local_retention_days",
-  "extended_backup_retention"
+  "extended_backup_retention",
+  "advanced_monitoring"
  ],
  "fields": [
   {
@@ -172,12 +173,19 @@
    "default": "0",
    "read_only": 1,
    "description": "Set by billing: allows retention beyond Nexaploy Settings > Included Retention."
+  },
+  {
+   "fieldname": "advanced_monitoring",
+   "fieldtype": "Check",
+   "label": "Advanced uptime monitoring",
+   "default": "0",
+   "description": "Paid feature: 1-minute checks and more than 3 monitors per site (ARCHITECTURE.md §16)."
   }
  ],
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-12-01 12:00:00.000000",
+ "modified": "2026-12-07 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Team",

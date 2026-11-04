@@ -1,0 +1,140 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-04 18:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "probe_name",
+  "title",
+  "region",
+  "column_break_1",
+  "enabled",
+  "is_builtin",
+  "section_break_status",
+  "last_seen_at",
+  "last_ip",
+  "last_version",
+  "column_break_2",
+  "token_hash",
+  "token_hint",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "probe_name",
+   "fieldtype": "Data",
+   "label": "Probe name",
+   "reqd": 1,
+   "unique": 1,
+   "description": "1-40 lowercase letters, digits or hyphens"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "region",
+   "fieldtype": "Data",
+   "label": "Region / location",
+   "in_list_view": 1,
+   "description": "Shown to customers, e.g. Frankfurt (Hetzner)."
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "is_builtin",
+   "fieldtype": "Check",
+   "label": "Built-in (control plane)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_status",
+   "fieldtype": "Section Break",
+   "label": "Status"
+  },
+  {
+   "fieldname": "last_seen_at",
+   "fieldtype": "Datetime",
+   "label": "Last seen at",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "last_ip",
+   "fieldtype": "Data",
+   "label": "Last IP address",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_version",
+   "fieldtype": "Data",
+   "label": "Last version",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "token_hash",
+   "fieldtype": "Data",
+   "label": "Token hash",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "token_hint",
+   "fieldtype": "Data",
+   "label": "Token",
+   "read_only": 1,
+   "description": "Last characters of the token; rotate with nexaploy.api.monitoring_probe.rotate_token."
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-12-07 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Uptime Probe",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "autoname": "field:probe_name",
+ "naming_rule": "By fieldname",
+ "title_field": "title",
+ "search_fields": "region"
+}
