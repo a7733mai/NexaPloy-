@@ -192,3 +192,26 @@ def test_staged_backup_files_are_not_world_readable(ctx):
     d = ctx.backups.backup_dir("erp-v15", "a.example.com", stamp)
     for p in d.iterdir():
         assert stat.S_IMODE(p.stat().st_mode) & 0o007 == 0, p.name
+
+
+def test_restore_as_new_site_creates_it_first(ctx, worker, runner):
+    """`bench restore` needs an existing site (seen on a real bench): a restore onto a bench
+    where the site does not exist (site moves) runs `bench new-site` first."""
+    make_bench(ctx, "erp-v15")
+    stamp, d = _staged_backup(ctx, bench="erp-v14")
+    # the backup lives under another bench's dir; restore it by remote path from local copy
+    def fetch(call):
+        import shutil
+        shutil.copytree(d, call.args[-1], dirs_exist_ok=True)
+
+    runner.on(["rclone", "--config"], result=side_effect(fetch))
+    remote = f"nexaploy-backups:srv/erp-v14/a.example.com/{stamp}"
+    job = run_job(ctx, worker, "site.restore",
+                  {"site": "a.example.com", "remote_path": remote, "bench": "erp-v15"})
+    assert job["status"] == "success", job
+    calls = [" ".join(c.args) for c in runner.calls]
+    new_site = next(i for i, c in enumerate(calls) if " new-site a.example.com" in c)
+    restore = next(i for i, c in enumerate(calls) if "--site a.example.com restore" in c)
+    assert new_site < restore
+    assert job["result"]["created_site"] is True
+    assert DB_PW not in json.dumps(job)

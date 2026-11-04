@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import secrets
 import shutil
 from pathlib import Path
 from typing import Any
@@ -430,7 +431,7 @@ class SiteRestore(_SiteJob):
     """Fetch, verify sha256, bench restore, restore encryption key, migrate, route."""
 
     kind = "site.restore"
-    steps = ("locate", "fetch", "verify", "restore", "restore_config", "migrate", "write_route")
+    steps = ("locate", "fetch", "verify", "ensure_site", "restore", "restore_config", "migrate", "write_route")
     Params = SiteRestoreParams
 
     @classmethod
@@ -491,6 +492,20 @@ class SiteRestore(_SiteJob):
             self.fail("backup has no database dump")
         self.result["files"] = files
         self.log(f"sha256 verified for {len(manifest.get('files', []))} files")
+
+    def step_ensure_site(self) -> None:
+        """`bench restore` only restores INTO an existing site (verified on a real bench), so a
+        restore as a new site (moves between benches/servers) first creates an empty one; its
+        database and admin password are then replaced by the backup."""
+        bench = self.result["bench"]
+        if self.ctx.sites.exists(bench, self.site):
+            self.skip(f"{self.site} exists on {bench}")
+            return
+        password = self.secret(secrets.token_urlsafe(18))
+        db_host = self.ctx.benches.read_env(bench).get("DB_HOST") or self.settings.bench.db_host
+        args = SiteManager.new_site_args(self.site, password, self.db_root_password(), db_host)
+        self.check(self.ctx.sites.bench(bench, args, timeout=3600), "bench new-site")
+        self.result["created_site"] = True
 
     def step_restore(self) -> None:
         bench = self.result["bench"]

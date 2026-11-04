@@ -328,6 +328,10 @@ class Site(Document):
 
 	def _finish_move(self, success, abort=False, job=None):
 		values = {"move_steps": None, "move_step_idx": 0, "move_target_bench": None, "move_options": None}
+		if not success and not abort:
+			# Keep the move state: retrying the failed Agent Job (desk "Retry") resumes the move
+			# at this step (see agent_callbacks._in_move) instead of leaving the site half-moved.
+			values = {}
 		if success:
 			target = frappe.db.get_value("Bench", self.move_target_bench, ["name", "server"], as_dict=True)
 			values.update({"bench": target.name, "server": target.server, "status": "Active"})
@@ -338,7 +342,7 @@ class Site(Document):
 				self._note(_("Move aborted; the site keeps running on bench {0}. {1}").format(self.bench, error))
 			else:
 				self._note(
-					_("Move failed after the source site was removed. Restore backup {0} to recover. {1}").format(
+					_("Move failed after the source site was removed. Retry the failed job, or restore backup {0} to recover. {1}").format(
 						self.move_backup, error
 					)
 				)
@@ -404,7 +408,11 @@ class Site(Document):
 			return
 		old_name = self.name
 		if old_name != new_name and not frappe.db.exists("Site", new_name):
-			frappe.rename_doc("Site", old_name, new_name, force=True, ignore_permissions=True, show_alert=False)
+			# frappe.rename_doc() (the public wrapper) has no ignore_permissions in v15; the
+			# model function does, and the callback runs without a customer session.
+			from frappe.model.rename_doc import rename_doc
+
+			rename_doc("Site", old_name, new_name, force=True, ignore_permissions=True, show_alert=False)
 		doc = frappe.get_doc("Site", new_name)
 		doc.site_name = new_name
 		keep_old = params.get("keep_old_domain", True)

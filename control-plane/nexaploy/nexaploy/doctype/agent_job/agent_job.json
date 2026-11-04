@@ -13,6 +13,7 @@
   "reference_doctype",
   "reference_name",
   "callback_done",
+  "callback_attempts",
   "section_break_times",
   "queued_at",
   "started_at",
@@ -78,6 +79,14 @@
    "hidden": 1,
    "label": "Callback Done",
    "read_only": 1
+  },
+  {
+   "fieldname": "callback_attempts",
+   "fieldtype": "Int",
+   "label": "Callback Attempts",
+   "read_only": 1,
+   "hidden": 1,
+   "default": "0"
   },
   {
    "fieldname": "section_break_times",

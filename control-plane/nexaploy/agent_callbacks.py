@@ -54,6 +54,36 @@ def dispatch_callback(job):
 		handler(job)
 	except Exception:
 		frappe.log_error(title=f"Nexaploy callback failed: {job.kind} {job.name}")
+		if job.status in TERMINAL_JOB_STATUSES:
+			# allow retry_failed_callbacks() to run it again (e.g. after a deploy fixing a bug)
+			attempts = (job.get("callback_attempts") or 0) + 1
+			frappe.db.set_value(
+				"Agent Job", job.name, {"callback_done": 0, "callback_attempts": attempts}, update_modified=False
+			)
+
+
+MAX_CALLBACK_ATTEMPTS = 5
+
+
+def retry_failed_callbacks():
+	"""Scheduler (every 5 min): re-run callbacks of finished jobs whose callback raised,
+	at most MAX_CALLBACK_ATTEMPTS times, so a failed callback never leaves a document stuck
+	(e.g. a Site in "Renaming" after the server-side rename succeeded)."""
+	names = frappe.get_all(
+		"Agent Job",
+		# ("between" is date-only in Frappe filters)
+		filters=[
+			["status", "in", list(TERMINAL_JOB_STATUSES)],
+			["callback_done", "=", 0],
+			["callback_attempts", ">=", 1],
+			["callback_attempts", "<", MAX_CALLBACK_ATTEMPTS],
+		],
+		pluck="name",
+		limit=50,
+	)
+	for name in names:
+		dispatch_callback(frappe.get_doc("Agent Job", name))
+		frappe.db.commit()
 
 
 def _ref(job):
@@ -144,12 +174,19 @@ def on_bench_remove(job):
 
 
 def _in_move(site, job):
-	"""True when `job` is the current step of an in-progress site move."""
-	if site.status != "Moving":
+	"""True when `job` is the current step of an in-progress site move, or the retry of the
+	step a move failed at (the site is Broken and still carries its move state)."""
+	if site.status not in ("Moving", "Broken") or not site.move_steps:
 		return False
 	steps = _json(site.move_steps, []) or []
 	idx = site.move_step_idx or 0
-	return idx < len(steps) and steps[idx] == job.kind
+	if not (idx < len(steps) and steps[idx] == job.kind):
+		return False
+	if site.status == "Broken":
+		if job.status != "Success":
+			return False  # a failed retry: leave it Broken with the move state for another retry
+		site.db_set("status", "Moving")
+	return True
 
 
 @handles("site.create")
