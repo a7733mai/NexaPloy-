@@ -128,8 +128,12 @@ def _save_single(doctype, values, secrets, clear, action):
 
 
 def _group_count(doctype, filters=None, field="team"):
-	rows = frappe.get_all(doctype, filters=filters or {}, fields=[field, "count(name) as n"], group_by=field)
-	return {r.get(field): cint(r.get("n")) for r in rows}
+	# counted in Python: Frappe v16 rejects SQL functions as strings in `fields` and v15 has no
+	# dict syntax for them; these per-team counts are small
+	counts = {}
+	for value in frappe.get_all(doctype, filters=filters or {}, pluck=field):
+		counts[value] = counts.get(value, 0) + 1
+	return counts
 
 
 def _team_exists(team):

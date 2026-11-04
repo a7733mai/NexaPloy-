@@ -415,3 +415,19 @@ def test_safe_update_and_console_audit_doctypes():
 		assert hooks.count(f'"{dt}":') == 2, dt  # permission_query_conditions + has_permission
 # offsite attachments, DR replica, trash (section 11)
 EXPECTED.update({"Storage Profile", "Site Storage Policy", "Storage Settings"})
+
+
+def test_no_sql_function_strings_in_get_all_fields():
+	"""Frappe v16 refuses SQL functions as strings in get_all/get_list `fields`
+	("count(name) as n"); use pluck + Python, frappe.qb, or raw SQL instead."""
+	import re
+
+	pattern = re.compile(r"""fields\s*=\s*\[[^\]]*["'](count|sum|max|min|avg)\(""", re.I | re.S)
+	offenders = []
+	for root, _dirs, files in os.walk(APP):
+		for name in files:
+			if name.endswith(".py"):
+				path = os.path.join(root, name)
+				if pattern.search(open(path, encoding="utf-8").read()):
+					offenders.append(os.path.relpath(path, APP))
+	assert not offenders, offenders
