@@ -7,6 +7,7 @@
 <script src="/assets/nexaploy/js/site_tools.js"></script>
 {# custom domains: DNS verification and TLS health #}
 <script src="/assets/nexaploy/js/domains.js"></script>
+<script src="/assets/nexaploy/js/site_email.js"></script>
 <style>
 	.nx-meter { height: 8px; border-radius: 99px; background: var(--nx-border); overflow: hidden; }
 	.nx-meter > span { display: block; height: 100%; background: var(--nx-primary); border-radius: inherit; }
@@ -68,6 +69,7 @@
 				<button type="button" :class="{ active: tab === 'backups' }" @click="tab = 'backups'">{{ _("Backups") }}</button>
 				<button type="button" :class="{ active: tab === 'usage' }" @click="tab = 'usage'">{{ _("Usage") }}</button>
 				<button type="button" x-show="site.can_write !== false" :class="{ active: tab === 'config' }" @click="tab = 'config'; if (!cfg.loaded && !cfg.loading) loadConfig(false)">{{ _("Config") }}</button>
+				<button type="button" :class="{ active: tab === 'email' }" @click="tab = 'email'; $dispatch('nx-email-open')">{{ _("E-mail") }}</button>
 				<button type="button" :class="{ active: tab === 'lifecycle' }" @click="tab = 'lifecycle'; $dispatch('nx-lifecycle-open')">{{ _("Lifecycle") }}</button>
 				<button type="button" :class="{ active: tab === 'jobs' }" @click="tab = 'jobs'">{{ _("Jobs") }} <span class="spinner" x-show="active" style="width: 12px; height: 12px"></span></button>
 				<button type="button" :class="{ active: tab === 'settings' }" @click="tab = 'settings'">{{ _("Settings") }}</button>
@@ -517,6 +519,74 @@
 								</form>
 								<template x-if="renameTo.trim()"><div class="small muted"><span>{{ _("New name") }}:</span> <span class="ltr" x-text="renamePreview()"></span></div></template>
 								<template x-if="renameResult && renameResult.dns_hint"><div class="alert info" x-text="renameResult.dns_hint.message"></div></template>
+							</div>
+						</section>
+					</div>
+				</template>
+			</div>
+
+			<!-- Managed e-mail: platform SMTP relay + custom sending domain (public/js/site_email.js nxSiteEmail) -->
+			<div class="stack" x-show="tab === 'email'" x-data="nxSiteEmail" @nx-email-open.window="if (!em && !emLoading) load()">
+				<template x-if="emLoading && !em"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+				<template x-if="emError"><div class="alert danger" x-text="emError"></div></template>
+				<template x-if="em">
+					<div class="stack">
+						<section class="card">
+							<div class="card-head">
+								<h2>{{ _("Managed e-mail") }}</h2>
+								<span class="spacer"></span>
+								<span :class="nx.statusClass(em.status)" x-text="__(em.status)"></span>
+							</div>
+							<div class="card-body stack">
+								<span class="muted">{{ _("Send this site's e-mail through the platform's authenticated relay so it does not land in spam. The site gets a default outgoing Email Account named Nexaploy Relay.") }}</span>
+								<template x-if="!em.available"><div class="alert warning">{{ _("Managed e-mail is not available on this platform yet.") }}</div></template>
+								<div class="row" x-show="em.available || em.enabled">
+									<span>{{ _("Sender") }}: <span class="mono ltr" x-text="em.email_id || em.default_sender"></span></span>
+									<span class="spacer"></span>
+									<button class="btn primary" type="button" x-show="!em.enabled" :disabled="!em.can_write || busy || site.status !== 'Active'" @click="toggle(true)"><span class="spinner" x-show="busy"></span> {{ _("Enable managed e-mail") }}</button>
+									<button class="btn" type="button" x-show="em.enabled" :disabled="!em.can_write || busy || site.status !== 'Active'" @click="toggle(false)">{{ _("Disable") }}</button>
+								</div>
+								<template x-if="em.daily_limit"><span class="small muted" x-text="__('Daily sending limit: {0} e-mails', [em.daily_limit])"></span></template>
+								<template x-if="em.last_error"><pre class="log" x-text="em.last_error"></pre></template>
+							</div>
+						</section>
+						<section class="card">
+							<div class="card-head">
+								<h2>{{ _("Custom sending domain") }}</h2>
+								<span class="spacer"></span>
+								<template x-if="em.sender_domain"><span :class="em.domain_verified ? 'badge success' : 'badge warning'" x-text="em.domain_verified ? __('Verified') : __('Not verified')"></span></template>
+							</div>
+							<div class="card-body stack">
+								<span class="small muted">{{ _("Send as noreply@ your own domain. Add the DNS records below at your DNS provider, then check them. Until the domain is verified the default sender is used.") }}</span>
+								<form class="row" @submit.prevent="saveDomain()">
+									<input class="input ltr" style="max-width: 320px" type="text" x-model="domainInput" placeholder="example.com" spellcheck="false" :readonly="!em.can_write">
+									<button class="btn" type="submit" :disabled="!em.can_write || busy">{{ _("Save") }}</button>
+									<button class="btn" type="button" x-show="em.sender_domain" :disabled="!em.can_write || busy" @click="check()">{{ _("Check DNS") }}</button>
+								</form>
+								<template x-if="em.last_dns_check"><span class="small muted" x-text="__('Last checked {0}', [nx.fmtDate(em.last_dns_check)])"></span></template>
+							</div>
+							<div class="card-body flush table-wrap" x-show="em.records.length">
+								<table class="nx-table">
+									<thead><tr><th>{{ _("Purpose") }}</th><th>{{ _("Type") }}</th><th>{{ _("Host") }}</th><th>{{ _("Value") }}</th><th>{{ _("Status") }}</th></tr></thead>
+									<tbody>
+										<template x-for="r in rows()" :key="r.purpose + r.host">
+											<tr>
+												<td class="nowrap" x-text="r.purpose"></td>
+												<td class="mono" x-text="r.type"></td>
+												<td class="mono ltr small" style="word-break: break-all" x-text="r.host"></td>
+												<td class="mono ltr small" style="word-break: break-all">
+													<span x-text="r.value"></span>
+													<button class="btn sm ghost" type="button" @click="nx.copy(r.value)">{{ _("Copy") }}</button>
+													<template x-if="r.note"><div class="small muted" x-text="__(r.note)"></div></template>
+												</td>
+												<td class="nowrap">
+													<template x-if="r.checked"><span :class="r.ok ? 'badge success' : 'badge danger'" x-text="r.ok ? __('OK') : __(r.message)"></span></template>
+													<template x-if="!r.checked"><span class="small muted">—</span></template>
+												</td>
+											</tr>
+										</template>
+									</tbody>
+								</table>
 							</div>
 						</section>
 					</div>

@@ -886,3 +886,27 @@ portal API `nexaploy/api/domains.py`, portal component `public/js/domains.js` (`
   rate-limit hint) once the domain has been active for 15 min. Certificates with < 14 days left call
   `nexaploy.notify.notify(team, "ssl_expiring", ...)` when that module exists, once per threshold
   (14/7/3/1/0 days; `tls_alert_marker`).
+## Managed e-mail and white-label brands
+
+See ARCHITECTURE.md §11. Operator setup:
+
+1. **Email Relay Settings** (desk): enable, pick the provider (host/port/SPF prefilled), enter the SMTP
+   username/password and a `default_from_domain` that is already authenticated with the provider. Optional DNS
+   guidance for customer domains: SPF include, DKIM selector/type/value (`{domain}` / `{domain_dashed}` are
+   replaced), DMARC policy/report address, Return-Path CNAME. Per-domain DKIM tokens (Amazon SES) go on the
+   site's **Site Email** record. Install `dnspython` in the bench env for direct DNS checks; otherwise
+   DNS-over-HTTPS (cloudflare-dns.com) is used.
+2. Customers open *Site → E-mail*: enable managed e-mail (queues `site.configure_email`), optionally set a
+   sending domain, publish the SPF/DKIM/DMARC records shown and press *Check DNS*. Verified domains switch the
+   sender to `noreply@<domain>` automatically (also re-checked daily).
+3. **Brand** (desk): title, logo, favicon, primary color, footer, support e-mail, sender name/address and
+   `portal_domains`. For each portal domain add the host to the control-plane site (`bench setup add-domain` /
+   site config `domains`) **and** to the control plane's reverse proxy with a certificate — Nexaploy does not
+   automate this. Teams created on that host get `Team.reseller_brand` and the brand's e-mails. A brand's
+   `email_sender_address` must be sendable by the control plane's own outgoing Email Account.
+
+Hooks: `permission_query_conditions` / `has_permission` for `Site Email`, `Brand`; `update_website_context =
+["nexaploy.branding.update_website_context"]`; daily `nexaploy.email_relay.recheck_domains`.
+
+Not yet verified on a bench: real SMTP delivery through each provider, the Email Account script on Frappe
+v14/v15/v16, the DNS check against live records, the login page branding via `update_website_context`.

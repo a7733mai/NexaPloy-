@@ -45,6 +45,8 @@ JOB_KINDS = (
 	"site.console",
 	# custom domains: certificate served per host (TLS health)
 	"site.tls_status",
+	# managed e-mail relay (default outgoing Email Account)
+	"site.configure_email",
 )
 
 

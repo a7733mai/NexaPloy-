@@ -171,7 +171,9 @@ def send_alert(team, subject, message):
 	recipients = alert_recipients(team)
 	if not recipients:
 		return False
-	frappe.sendmail(recipients=recipients, subject=f"[Nexaploy] {subject}", message=message, delayed=True)
+	from nexaploy.branding import mail_kwargs
+
+	frappe.sendmail(recipients=recipients, delayed=True, **mail_kwargs(team, f"[Nexaploy] {subject}", message))
 	return True
 
 
@@ -393,11 +395,16 @@ def enforce_site_limits(site_name, now=None):
 			recipients = team_emails(site.team)
 			if recipients:
 				try:
+					from nexaploy.branding import mail_kwargs
+
 					frappe.sendmail(
 						recipients=recipients,
-						subject=f"[Nexaploy] {site.name} {'is over' if level == 'over' else 'is near'} its plan limits",
-						message=_usage_message(site, plan, status, level),
 						delayed=True,
+						**mail_kwargs(
+							site.team,
+							f"[Nexaploy] {site.name} {'is over' if level == 'over' else 'is near'} its plan limits",
+							_usage_message(site, plan, status, level),
+						),
 					)
 				except Exception:
 					frappe.log_error(title=f"Nexaploy: usage email failed for {site.name}")

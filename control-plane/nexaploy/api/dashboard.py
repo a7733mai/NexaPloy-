@@ -854,6 +854,9 @@ def prepare_page(context, page, title, require_role=True):
 	context.user = user
 	context.is_admin = is_portal_admin(roles, user)
 	context.root_domain = _root_domain()
+	from nexaploy.branding import request_brand
+
+	context.nx_brand = request_brand()
 	team, role, teams = None, None, []
 	if portal_access:
 		team = get_current_team(user)

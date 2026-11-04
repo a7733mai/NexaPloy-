@@ -178,7 +178,7 @@ def _expire_invitations(team):
 		frappe.db.set_value(INVITATION, row, "status", "Expired", update_modified=False)
 
 
-def _send_invitation(email, team_title, inviter, role, url):
+def _send_invitation(email, team_title, inviter, role, url, team=None):
 	subject = _("You are invited to join {0} on Nexaploy").format(team_title)
 	message = "<p>{}</p><p>{}</p><p><a href=\"{}\">{}</a></p><p>{}</p>".format(
 		frappe.utils.escape_html(
@@ -190,7 +190,9 @@ def _send_invitation(email, team_title, inviter, role, url):
 		frappe.utils.escape_html(_("If you did not expect this email, you can ignore it.")),
 	)
 	try:
-		frappe.sendmail(recipients=[email], subject=subject, message=message, delayed=False)
+		from nexaploy.branding import mail_kwargs
+
+		frappe.sendmail(recipients=[email], delayed=False, **mail_kwargs(team, subject, message))
 		return True
 	except Exception:
 		frappe.log_error(title=f"Nexaploy: invitation email to {email} failed")
@@ -231,9 +233,11 @@ def invite_member(email, role="Developer"):
 		}
 	)
 	doc.insert(ignore_permissions=True)
-	url = invitation_url(get_url(), token)
+	from nexaploy.branding import team_url
+
+	url = invitation_url(team_url(team, "/").rstrip("/") or get_url(), token)
 	title = frappe.db.get_value("Team", team, "title") or team
-	sent = _send_invitation(email, title, frappe.utils.get_fullname(user) or user, role, url)
+	sent = _send_invitation(email, title, frappe.utils.get_fullname(user) or user, role, url, team=team)
 	log_activity(team, "team.invite", INVITATION, doc.name, {"email": email, "role": role, "email_sent": sent})
 	return {
 		"name": doc.name,

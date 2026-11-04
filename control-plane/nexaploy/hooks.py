@@ -38,6 +38,9 @@ fixtures = [
 # the method (which re-verifies the token itself).
 auth_hooks = ["nexaploy.api.agent.validate_agent_auth"]
 
+# White-label: brand every web page (login, signup, portal) by request host
+update_website_context = ["nexaploy.branding.update_website_context"]
+
 # Permissions
 # -----------
 # Customers ("Nexaploy Customer") only see documents whose `team` is their user.
@@ -64,6 +67,9 @@ permission_query_conditions = {
 	"Deploy Candidate": "nexaploy.permissions.deploy_candidate_query",
 	"Agent Job": "nexaploy.permissions.agent_job_query",
 	"Notification Channel": "nexaploy.permissions.notification_channel_query",
+	# managed e-mail / white-label brands
+	"Site Email": "nexaploy.permissions.team_query",
+	"Brand": "nexaploy.permissions.team_query",
 }
 
 has_permission = {
@@ -87,6 +93,8 @@ has_permission = {
 	"Team": "nexaploy.permissions.has_team_doc_permission",
 	"Team Invitation": "nexaploy.permissions.has_team_permission",
 	"Notification Channel": "nexaploy.permissions.has_notification_channel_permission",
+	"Site Email": "nexaploy.permissions.has_team_permission",
+	"Brand": "nexaploy.permissions.has_team_permission",
 }
 
 # Document Events
@@ -135,5 +143,6 @@ scheduler_events = {
 		"nexaploy.billing.payouts.generate_publisher_payouts",
 		"nexaploy.saas.expire_trials",
 		"nexaploy.all_in_one.backup_control_plane",
+		"nexaploy.email_relay.recheck_domains",
 	],
 }
