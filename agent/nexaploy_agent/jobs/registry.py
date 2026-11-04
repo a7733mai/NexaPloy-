@@ -17,6 +17,7 @@ from .lifecycle_jobs import SiteClone, SiteRename
 from .observability_jobs import SiteAnalytics, SiteConsole, SiteLogs, SiteSlowQueries, SiteSql
 from .tls_jobs import SiteTlsStatus
 from .email_jobs import SiteConfigureEmail
+from .smoke_jobs import SiteSmokeCheck
 
 JOB_CLASSES: tuple[type[Job], ...] = (
     ImageBuild,
@@ -29,6 +30,7 @@ JOB_CLASSES: tuple[type[Job], ...] = (
     SiteLogs, SiteAnalytics, SiteSlowQueries, SiteSql, SiteConsole,
     SiteTlsStatus,
     SiteConfigureEmail,
+    SiteSmokeCheck,
 )
 REGISTRY: dict[str, type[Job]] = {cls.kind: cls for cls in JOB_CLASSES}
 

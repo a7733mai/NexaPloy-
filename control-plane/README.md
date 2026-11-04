@@ -604,15 +604,15 @@ read-only toggle shown to admins only, results table, client-side CSV download) 
 Whitelisted API `nexaploy.api.observability` — every call queues one agent job referencing the Site and
 returns `{job, status}`; the page polls `get_result(job)` (`{kind, status, done, error, data}`) every 1.5 s:
 
-| Method | Team action | Agent job / params |
+| Method | Capability (see "Console access") | Agent job / params |
 |---|---|---|
-| `get_logs(site, log=web, lines=200, since=None, refresh=0)` | read | `site.logs {site, log, lines, since?}` |
-| `get_analytics(site, days=7, refresh=0)` | read | `site.analytics {site, date_from, date_to}` (1–31 UTC days) |
-| `get_slow_queries(site, limit=50, min_seconds=0, refresh=0)` | read | `site.slow_queries {site, limit, min_seconds}` |
-| `run_sql(site, query, read_only=1, max_rows=500, timeout=30)` | write (read-only) / admin (write mode) | `site.sql {site, query, read_only, max_rows, timeout}` |
-| `run_console(site, code, commit=0, timeout=60)` | admin | `site.console {site, code, commit, timeout, allow_shared_bench}` |
-| `get_result(job)` | same action as the job needed | — |
-| `get_permissions(site)` | read | `{read, sql, sql_write, console}` for the page |
+| `get_logs(site, log=web, lines=200, since=None, refresh=0)` | `can_view_logs` | `site.logs {site, log, lines, since?}` |
+| `get_analytics(site, days=7, refresh=0)` | any member (read) | `site.analytics {site, date_from, date_to}` (1–31 UTC days) |
+| `get_slow_queries(site, limit=50, min_seconds=0, refresh=0)` | `can_view_logs` | `site.slow_queries {site, limit, min_seconds}` |
+| `run_sql(site, query, read_only=1, max_rows=500, timeout=30)` | `can_run_sql` / `can_run_sql_write` | `site.sql {site, query, read_only, max_rows, timeout}` |
+| `run_console(site, code, commit=0, timeout=60)` | `can_use_console` | `site.console {site, code, commit, timeout, allow_shared_bench}` |
+| `get_result(job)` | same capability as the job needed | — |
+| `get_permissions(site)` | read | `{read, logs, sql, sql_write, console, capabilities, two_factor_required, two_factor_ok}` |
 
 - Read-only kinds (logs / analytics / slow queries) reuse an identical job younger than 60 s unless
   `refresh=1`; at most 5 unfinished observability jobs per site.
@@ -632,10 +632,72 @@ returns `{job, status}`; the page polls `get_result(job)` (`{kind, status, done,
 Pure helpers: `nexaploy/observability_utils.py` (tests: `tests/test_observability.py`). Translations:
 `translations/ar.observability.part`.
 
-**Note for `nexaploy.api.dashboard.get_job`/`list_jobs`:** they show `result`/`params` of any job of the
-team to every member with `read`, including `site.sql` / `site.console` results (and the query / code).
-Restrict them for those kinds (e.g. `observability_utils.required_action(kind, params.read_only)`) if
-Billing members must not see query results.
+`nexaploy.api.dashboard.get_job` and the Agent Job `has_permission` hook
+(`nexaploy.console_access.has_agent_job_permission`) only show SQL / console / log jobs to members with
+the capability that was needed to run them.
+
+## Console access (scoped permissions + audit)
+
+Per-member capabilities on **Team Member**: `custom_capabilities` (off = role defaults), `can_view_logs`,
+`can_run_sql`, `can_run_sql_write` (implies `can_run_sql`), `can_use_console`. Defaults: Owner/Admin
+everything, Developer logs + read-only SQL, Billing nothing; Owners always have everything (no
+lock-out). Owners edit Admin/Developer/Billing members, Admins edit Developer/Billing members.
+**Team** `console_two_factor_required`: SQL and the console are refused unless the member's login is
+protected by Frappe 2FA (`teams.two_factor_status(user).enforced`).
+
+Enforced in `nexaploy.api.observability` through `nexaploy.console_access.check_capability` (membership
+first, then capability, then the 2FA flag). **Console Audit Log** (`team`, `user`, `site`, `kind`
+sql/console/logs, `action`, `command` (credentials masked by `console_access_utils.redact_command`,
+truncated to 10 000 chars), `status` Queued/Running/Success/Error/Failed/Denied, `duration`, `ip_address`,
+`executed_at`, `agent_job`): one row per execution (inserted with the Agent Job, fail closed; reused
+read-only jobs get their own row) and per refused attempt (committed before the error); the
+`site.sql/console/logs/slow_queries` callback fills status / duration / error. Customers (Owners/Admins)
+can read it, nobody can edit or delete it (controller + no write/delete permissions).
+
+Portal `/dashboard/console_access` (linked from Activity): member capability matrix, the 2FA toggle and
+the audit log with filters. API `nexaploy.api.console_access`: `get_console_access`,
+`set_member_capabilities(user, capabilities, reset)`, `set_console_two_factor(required)`,
+`get_console_audit(site, user, kind, status, date_from, date_to, page)`, `my_capabilities(team)`.
+Pure logic: `nexaploy/console_access_utils.py` (tests: `tests/test_console_access.py`).
+
+**Web terminal (not built):** feasible as a `docker exec -it <bench>-backend bash` PTY bridged by the
+agent over a WebSocket (`/v1/sites/{s}/terminal`, short-lived signed ticket minted by the CP after
+`check_capability(team, "site.console")` + 2FA), with the CP proxying the socket (customers never reach
+the agent directly), an idle timeout, a per-session asciicast recording stored as the audit `command`
+(redacted, capped) and the same shared-bench refusal as the console. A raw shell in the backend container
+can read every `site_config.json` of the bench, so only dedicated benches qualify.
+
+## Safe update (test the update before applying it)
+
+**Site Update Test** (`site`, `team`, `status` Pending → [Preparing Bench] → Cloning → Testing →
+Passed/Failed → Applying → Applied/Apply Failed, or Cancelled; `mode` Manual/Auto, `auto_apply`,
+`source_bench`/`source_image`, `target_bench`/`target_image`/`deploy_candidate`, `upgrade`,
+`created_bench`, `test_site`, `clone_job`, `smoke_job`, `apply_backup`, `failed_stage`, `result_summary`,
+`error`, `checks` (JSON), `log`). Driven by `nexaploy.update_test`:
+
+1. target: the chosen bench (same server, same or higher Frappe major), else an Active bench of the
+   site's release group on the site's server running the newest successful Deploy Candidate, else a new
+   Bench (`bench.create`; team-owned release groups only — shared groups need a platform-prepared bench);
+2. `site.clone {bench: <production bench>, site, target_site: uptest-<site>, target_bench, scrub}` —
+   the copy (`is_staging`, `staging_of`, not billed) is restored and **migrated on the new image**;
+   a failing migrate reports the migrate step output;
+3. `site.smoke_check` on the copy (HTTP 200 on `/api/method/ping` (+ `pong`) and `/login` inside the
+   backend container, `frappe.get_all("User", limit=1)`, every app installed) → Passed / Failed;
+4. "Apply update" = `Site.move_to_bench(target_bench, allow_upgrade=True)` (fresh Site Backup purpose
+   Move first; production untouched before that); the copy can be deleted (`site.drop` without backup),
+   and a bench created for the test is removed once empty unless production moved there.
+
+Callbacks (`agent_callbacks._update_tests`) on `bench.create`/`bench.update`, `site.clone`, `site.drop`,
+`site.smoke_check`; `nexaploy.update_test.sync_update_tests` (every 5 min, and on every `get_test`) settles
+the apply (from the Site move state) and missed callbacks. Release Group `test_before_auto_update`:
+`ops.apply_auto_updates` rolls a bench only after every Active site on it passed an Auto test against the
+new build (tests start immediately, the update still waits for the update window; a failed test blocks
+the update and is logged as `site.auto_update_blocked`); the passing copies are dropped.
+
+Portal `/dashboard/safe_update?site=` (button on the site page). API `nexaploy.api.update_test`:
+`get_overview`, `start_test(site, target_bench)`, `get_test`, `apply_update(name, delete_test_site)`,
+`delete_test_site`, `cancel_test`, `set_test_before_auto_update(release_group, enabled)`. Pure logic:
+`nexaploy/update_test_utils.py` (tests: `tests/test_update_test.py`).
 
 ## Hosted servers on a cloud provider (auto-provisioning)
 

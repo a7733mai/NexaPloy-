@@ -15,6 +15,7 @@
   "enabled",
   "billing_exempt",
   "two_factor_required",
+  "console_two_factor_required",
   "credit_balance",
   "reseller_brand",
   "members_section",
@@ -88,6 +89,13 @@
    "fieldname": "two_factor_required",
    "fieldtype": "Check",
    "label": "Two Factor Required"
+  },
+  {
+   "default": "0",
+   "description": "SQL and the Python console are refused unless the member signs in with two-factor authentication.",
+   "fieldname": "console_two_factor_required",
+   "fieldtype": "Check",
+   "label": "Require 2FA For Console"
   },
   {
    "default": "0",
@@ -169,7 +177,7 @@
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-03 18:00:00.000000",
+ "modified": "2026-12-01 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Team",

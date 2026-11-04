@@ -89,7 +89,7 @@
 				call("get_permissions", { site: this.site }).then(
 					function (p) {
 						self.perms = p;
-						var allowed = ["analytics", "logs", "slow"].concat(p.sql ? ["sql"] : [], p.console ? ["console"] : []);
+						var allowed = ["analytics"].concat(p.logs ? ["logs", "slow"] : [], p.sql ? ["sql"] : [], p.console ? ["console"] : []);
 						self.show(allowed.indexOf(initial) !== -1 ? initial : "analytics");
 					},
 					function (e) { self.permError = e.message; }

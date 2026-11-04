@@ -1,0 +1,194 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-11-04 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "team",
+  "user",
+  "site",
+  "kind",
+  "action",
+  "column_break_1",
+  "status",
+  "executed_at",
+  "duration",
+  "ip_address",
+  "agent_job",
+  "read_only_mode",
+  "commit_changes",
+  "section_break_command",
+  "command",
+  "command_truncated",
+  "error"
+ ],
+ "fields": [
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "label": "Team",
+   "options": "Team",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "User",
+   "options": "User",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "options": "Site",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "label": "Kind",
+   "options": "sql\nconsole\nlogs",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "action",
+   "fieldtype": "Data",
+   "label": "Action",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Queued\nRunning\nSuccess\nError\nFailed\nDenied",
+   "default": "Queued",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "executed_at",
+   "fieldtype": "Datetime",
+   "label": "Executed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "duration",
+   "fieldtype": "Float",
+   "label": "Duration (s)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ip_address",
+   "fieldtype": "Data",
+   "label": "IP Address",
+   "read_only": 1
+  },
+  {
+   "fieldname": "agent_job",
+   "fieldtype": "Link",
+   "label": "Agent Job",
+   "options": "Agent Job",
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "read_only_mode",
+   "fieldtype": "Check",
+   "label": "Read Only",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "commit_changes",
+   "fieldtype": "Check",
+   "label": "Commit",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_command",
+   "fieldtype": "Section Break",
+   "label": "Command"
+  },
+  {
+   "fieldname": "command",
+   "fieldtype": "Long Text",
+   "label": "Command",
+   "read_only": 1,
+   "description": "Truncated to 10,000 characters; credentials are masked before saving."
+  },
+  {
+   "fieldname": "command_truncated",
+   "fieldtype": "Check",
+   "label": "Command Truncated",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "error",
+   "fieldtype": "Small Text",
+   "label": "Error",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-12-01 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Console Audit Log",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 0,
+   "print": 0,
+   "read": 1,
+   "report": 0,
+   "role": "Nexaploy Customer",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0,
+ "title_field": "kind",
+ "in_create": 1
+}

@@ -144,7 +144,7 @@ URL/token come from `agent.toml` (or `--url/--token`, `NEXAPLOY_URL/NEXAPLOY_TOK
 
 | Kind | Params | Steps |
 |---|---|---|
-| `site.clone` (`POST /v1/sites/{s}/clone`) | `bench, site, target_site, scrub=true` | check, backup, stage (local backup of `site`, never uploaded), new_site (skipped when `target_site` exists; marks it `nexaploy_staging_of: <site>` in its site_config), restore (`bench --site <target> restore … --force`), restore_config (source `encryption_key`), scrub (`mute_emails=1`, `pause_scheduler=1`, `maintenance_mode=0`, no `host_name`/`domains`; ``UPDATE `tabEmail Account` SET enable_outgoing=0, enable_incoming=0`` via `docker exec -e MYSQL_PWD nexaploy-db mariadb`), migrate, write_route |
+| `site.clone` (`POST /v1/sites/{s}/clone`) | `bench, site, target_site, scrub=true, target_bench?` (copy on another bench of this server: backup on `bench`, everything else on `target_bench`) | check, backup, stage (local backup of `site`, never uploaded), new_site (skipped when `target_site` exists; marks it `nexaploy_staging_of: <site>` in its site_config), restore (`bench --site <target> restore … --force`), restore_config (source `encryption_key`), scrub (`mute_emails=1`, `pause_scheduler=1`, `maintenance_mode=0`, no `host_name`/`domains`; ``UPDATE `tabEmail Account` SET enable_outgoing=0, enable_incoming=0`` via `docker exec -e MYSQL_PWD nexaploy-db mariadb`), migrate, write_route |
 | `site.rename` (`POST /v1/sites/{s}/rename`) | `bench, site, new_name, keep_old_domain=true` | check, maintenance_on, move (`sites/<old>` → `sites/<new>` on the host bind mount; skipped when already moved), update_config (`host_name` rewritten, new name removed from / old name added to `domains`), write_route (old route removed), clear_cache, maintenance_off (back to the previous value) |
 
 `site.clone` refuses to overwrite an existing site unless it carries the staging marker of the same
@@ -252,6 +252,7 @@ command output is not duplicated into step output.
 | `site.slow_queries` — `GET /v1/sites/{s}/slow-queries?limit=&min_seconds=` | `site, limit=50, min_seconds=0` | `{enabled, log_size, entries, queries: [{query, count, avg_time, max_time, total_time, rows_examined_avg/max, rows_sent_avg, example, last_seen}]}` |
 | `site.sql` — `POST /v1/sites/{s}/sql` | `site, query, read_only=true, max_rows=500 (≤5000), timeout=30 (≤300)` | `{columns, rows, truncated, row_count, result_sets: [...], statements, read_only, error}` |
 | `site.console` — `POST /v1/sites/{s}/console` | `site, code, commit=false, timeout=60 (≤600), allow_shared_bench=false` | `{ok, output, truncated, committed, error, duration}` |
+| `site.smoke_check` — `POST /v1/sites/{s}/smoke-check` | `site, paths=["/api/method/ping", "/login"] (≤10), timeout=20 (≤120), apps=[]` | `{checks: [{name, ok, detail}], http: [...], ok, summary}`; steps http (GET `http://127.0.0.1:8000<path>` with `Host: <site>` inside the backend container, 200 required, ping must say `pong`), database (`frappe.get_all("User", limit=1)`, every app in `apps` installed), verdict (fails the job listing the failed checks) |
 
 The GET routes enqueue a job like every other route (`202 {job_id}`); jobs still run serially on the worker.
 

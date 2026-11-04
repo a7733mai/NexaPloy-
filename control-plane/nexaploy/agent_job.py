@@ -48,6 +48,8 @@ JOB_KINDS = (
 	"site.tls_status",
 	# managed e-mail relay (default outgoing Email Account)
 	"site.configure_email",
+	# safe update (Site Update Test)
+	"site.smoke_check",
 )
 
 

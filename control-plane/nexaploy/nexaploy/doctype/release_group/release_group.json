@@ -14,6 +14,7 @@
   "build_server",
   "auto_update",
   "update_window",
+  "test_before_auto_update",
   "update_available",
   "section_break_apps",
   "apps"
@@ -77,6 +78,14 @@
   },
   {
    "default": "0",
+   "depends_on": "eval:doc.auto_update",
+   "description": "Before an automatic update, every site of the bench is cloned onto the new image, migrated and smoke-checked; the bench is updated only when all tests pass.",
+   "fieldname": "test_before_auto_update",
+   "fieldtype": "Check",
+   "label": "Test Sites Before Auto Update"
+  },
+  {
+   "default": "0",
    "description": "Set when a tracked branch of a custom app received new commits since the last successful build.",
    "fieldname": "update_available",
    "fieldtype": "Check",
@@ -99,7 +108,7 @@
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-20 12:00:00.000000",
+ "modified": "2026-12-01 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Release Group",

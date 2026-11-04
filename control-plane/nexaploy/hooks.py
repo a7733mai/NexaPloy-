@@ -71,6 +71,8 @@ permission_query_conditions = {
 	# managed e-mail / white-label brands
 	"Site Email": "nexaploy.permissions.team_query",
 	"Brand": "nexaploy.permissions.team_query",
+	"Site Update Test": "nexaploy.permissions.team_query",
+	"Console Audit Log": "nexaploy.console_access.console_audit_query",
 }
 
 has_permission = {
@@ -97,6 +99,10 @@ has_permission = {
 	"Notification Channel": "nexaploy.permissions.has_notification_channel_permission",
 	"Site Email": "nexaploy.permissions.has_team_permission",
 	"Brand": "nexaploy.permissions.has_team_permission",
+	"Site Update Test": "nexaploy.permissions.has_team_permission",
+	"Console Audit Log": "nexaploy.permissions.has_read_only_team_permission",
+	# SQL / console / log jobs: only with the console capability that ran them
+	"Agent Job": "nexaploy.console_access.has_agent_job_permission",
 }
 
 # Document Events
@@ -127,6 +133,7 @@ scheduler_events = {
 			"nexaploy.provisioning.jobs.check_provisioning",
 			"nexaploy.agent_callbacks.retry_failed_callbacks",
 			"nexaploy.domains.verify_pending_domains",
+			"nexaploy.update_test.sync_update_tests",
 		],
 		"*/15 * * * *": ["nexaploy.tasks.apply_auto_updates", "nexaploy.tasks.enforce_plan_limits"],
 	},

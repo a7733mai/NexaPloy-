@@ -1,0 +1,159 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block page_title %}<a href="/dashboard/sites" class="muted">{{ _("Sites") }}</a> <span class="muted">/</span> <a class="ltr" id="nx-safe-update-site" href="/dashboard/sites"></a> <span class="muted">/</span> {{ _("Safe update") }}{% endblock %}
+
+{% block head %}
+<!-- synchronous on purpose: registers its alpine:init listener before Alpine (deferred) starts -->
+<script src="/assets/nexaploy/js/safe_update.js"></script>
+<style>
+	.nx-stages { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+	.nx-stages li { display: flex; gap: 10px; align-items: center; }
+	.nx-stages .ic { inline-size: 22px; block-size: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--nx-border); font-size: 12px; }
+	.nx-stages .done .ic { background: var(--nx-success-soft, #e6f6ec); }
+	.nx-stages .running .ic { background: var(--nx-primary-soft); }
+	.nx-stages .failed .ic { background: var(--nx-danger-soft, #fde8e8); }
+	.nx-stages .skipped { opacity: .6; }
+	.nx-log { max-block-size: 420px; overflow: auto; white-space: pre-wrap; font-size: 12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stack" x-data="nxSafeUpdate" x-cloak>
+	<template x-if="!site"><div class="alert warning">{{ _("Open this page from a site.") }}</div></template>
+	<template x-if="loading && site"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+	<template x-if="error"><div class="alert danger" x-text="error"></div></template>
+
+	<template x-if="ov">
+		<div class="stack">
+			<section class="card">
+				<div class="card-head">
+					<h2>{{ _("Test the update before applying it") }}</h2>
+					<span class="badge success" x-show="ov.update_available">{{ _("Update available") }}</span>
+				</div>
+				<div class="card-body stack">
+					<p class="small muted">{{ _("A copy of the site is created on a bench running the new version, migrated and checked (ping, login page, database). Your site is not changed until you apply the update.") }}</p>
+					<dl class="kv">
+						<dt>{{ _("Current bench") }}</dt><dd class="ltr" x-text="ov.source.bench_name || ov.source.name || '—'"></dd>
+						<dt>{{ _("Current version") }}</dt><dd class="ltr mono small" x-text="ov.source.image_tag || '—'"></dd>
+						<dt>{{ _("Newest build") }}</dt><dd class="ltr mono small" x-text="ov.latest_build.image_tag || '—'"></dd>
+						<dt>{{ _("Frappe version") }}</dt><dd x-text="ov.source.frappe_major ? 'v' + ov.source.frappe_major : '—'"></dd>
+					</dl>
+					<template x-if="ov.is_staging"><div class="alert warning">{{ _("This is a staging copy; test updates on the production site.") }}</div></template>
+					<template x-if="!ov.can_write"><div class="alert info">{{ _("Your role can view tests but not start them.") }}</div></template>
+					<template x-if="ov.can_write && !ov.is_staging">
+						<form class="row" @submit.prevent="start()">
+							<select class="input" style="width: auto" x-model="target" aria-label="{{ _('Target bench') }}">
+								<option value="">{{ _("Newest build of this bench group") }}</option>
+								<template x-for="b in ov.targets" :key="b.name">
+									<option :value="b.name" x-text="(b.bench_name || b.name) + (b.frappe_major ? ' (v' + b.frappe_major + ')' : '') + (b.upgrade ? ' ↑' : '')"></option>
+								</template>
+							</select>
+							<button class="btn primary" type="submit" :disabled="busy || !!ov.active_test || (!target && !ov.update_available)">{{ _("Test update") }}</button>
+							<span class="small muted" x-show="!target && !ov.update_available">{{ _("The site already runs the newest build.") }}</span>
+							<span class="small muted" x-show="ov.active_test">{{ _("A test is already running.") }}</span>
+						</form>
+					</template>
+				</div>
+			</section>
+
+			<section class="card" x-show="ov.release_group">
+				<div class="card-head"><h2>{{ _("Automatic updates") }}</h2></div>
+				<div class="card-body stack">
+					<div class="small">
+						<span>{{ _("Automatic updates") }}:</span>
+						<strong x-text="ov.release_group && ov.release_group.auto_update ? __('On') : __('Off')"></strong>
+						<span class="muted ltr" x-show="ov.release_group && ov.release_group.update_window" x-text="ov.release_group ? '(' + (ov.release_group.update_window || '') + ')' : ''"></span>
+					</div>
+					<label class="check small">
+						<input type="checkbox" :checked="ov.release_group && !!ov.release_group.test_before_auto_update" :disabled="busy || !ov.group_writable" @change="toggleAutoTest($event)">
+						{{ _("Only update automatically after every site passed an update test") }}
+					</label>
+					<p class="small muted" x-show="!ov.group_writable">{{ _("This setting belongs to the bench group owner.") }}</p>
+				</div>
+			</section>
+
+			<template x-if="test">
+				<section class="card">
+					<div class="card-head">
+						<h2><span>{{ _("Update test") }}</span> <span class="mono small" x-text="test.name"></span></h2>
+						<span :class="badge(test.status)" x-text="__(test.status)"></span>
+						<span class="badge plain" x-show="test.mode === 'Auto'">{{ _("Automatic") }}</span>
+					</div>
+					<div class="card-body stack">
+						<dl class="kv">
+							<dt>{{ _("Target bench") }}</dt><dd class="ltr" x-text="test.target_bench || '—'"></dd>
+							<dt>{{ _("New version") }}</dt><dd class="ltr mono small" x-text="test.target_image || '—'"></dd>
+							<dt>{{ _("Test site") }}</dt>
+							<dd>
+								<template x-if="test.test_site_url"><a class="ltr" :href="test.test_site_url" target="_blank" rel="noopener" x-text="test.test_site"></a></template>
+								<template x-if="!test.test_site_url"><span class="ltr muted" x-text="test.test_site || '—'"></span></template>
+								<span class="muted small" x-show="test.test_site_dropped">({{ _("deleted") }})</span>
+							</dd>
+							<dt>{{ _("Started") }}</dt><dd x-text="fmt(test.started_at)"></dd>
+							<dt>{{ _("Finished") }}</dt><dd x-text="fmt(test.finished_at)"></dd>
+						</dl>
+						<ol class="nx-stages">
+							<template x-for="s in stages()" :key="s.key">
+								<li :class="stageState(s.key)"><span class="ic" x-text="stageIcon(s.key)"></span><span x-text="__(s.label)"></span></li>
+							</template>
+						</ol>
+						<template x-if="test.result_summary"><div :class="test.status === 'Failed' || test.status === 'Apply Failed' ? 'alert danger' : 'alert info'" x-text="test.result_summary"></div></template>
+						<template x-if="test.status === 'Failed'">
+							<div class="stack">
+								<p class="small">{{ _("Your site was not changed.") }}</p>
+								<pre class="nx-log mono ltr" x-show="test.error" x-text="test.error"></pre>
+							</div>
+						</template>
+						<template x-if="test.checks && test.checks.length">
+							<table class="nx-table">
+								<thead><tr><th>{{ _("Check") }}</th><th>{{ _("Result") }}</th><th>{{ _("Details") }}</th></tr></thead>
+								<tbody>
+									<template x-for="c in test.checks" :key="c.name">
+										<tr><td class="mono small ltr" x-text="c.name"></td><td><span :class="c.ok ? 'badge success' : 'badge danger'" x-text="c.ok ? __('Passed') : __('Failed')"></span></td><td class="small ltr" x-text="c.detail"></td></tr>
+									</template>
+								</tbody>
+							</table>
+						</template>
+						<template x-if="test.status === 'Passed' && ov.can_write">
+							<div class="stack">
+								<template x-if="test.apply_block_reason"><div class="alert warning" x-text="__(test.apply_block_reason)"></div></template>
+								<label class="check small"><input type="checkbox" x-model="deleteAfterApply"> {{ _("Delete the test site afterwards") }}</label>
+								<div class="row">
+									<button class="btn primary" type="button" :disabled="busy || !!test.apply_block_reason" @click="apply()">{{ _("Apply update") }}</button>
+									<span class="small muted">{{ _("A fresh backup is taken first.") }}</span>
+								</div>
+							</div>
+						</template>
+						<div class="row" x-show="ov.can_write">
+							<button class="btn sm" type="button" x-show="test.test_site && !test.test_site_dropped && !test.in_progress" :disabled="busy" @click="deleteCopy()">{{ _("Delete test site") }}</button>
+							<button class="btn sm" type="button" x-show="['Pending', 'Preparing Bench', 'Cloning', 'Testing', 'Passed', 'Failed'].indexOf(test.status) !== -1" :disabled="busy" @click="cancel()">{{ _("Cancel test") }}</button>
+							<button class="btn sm ghost" type="button" @click="showLog = !showLog" x-text="showLog ? __('Hide log') : __('Show log')"></button>
+						</div>
+						<pre class="nx-log mono ltr" x-show="showLog" x-text="test.log || ''"></pre>
+					</div>
+				</section>
+			</template>
+
+			<section class="card" x-show="ov.tests.length">
+				<div class="card-head"><h2>{{ _("Previous tests") }}</h2></div>
+				<div class="card-body flush table-wrap">
+					<table class="nx-table">
+						<thead><tr><th>{{ _("When") }}</th><th>{{ _("Status") }}</th><th>{{ _("Target bench") }}</th><th>{{ _("New version") }}</th><th></th></tr></thead>
+						<tbody>
+							<template x-for="r in ov.tests" :key="r.name">
+								<tr>
+									<td class="small nowrap" x-text="fmt(r.creation)"></td>
+									<td><span :class="badge(r.status)" x-text="__(r.status)"></span></td>
+									<td class="ltr small" x-text="r.target_bench || '—'"></td>
+									<td class="ltr mono small" x-text="r.target_image || '—'"></td>
+									<td><button class="btn sm ghost" type="button" @click="openTest(r.name)">{{ _("View") }}</button></td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</div>
+	</template>
+</div>
+{% endblock %}

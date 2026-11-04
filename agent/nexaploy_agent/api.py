@@ -320,6 +320,10 @@ def create_app(ctx: AgentContext | None = None, settings: Settings | None = None
     @app.post("/v1/sites/{site}/email", dependencies=auth, status_code=202)
     def site_configure_email(site: str, body: dict[str, Any] = Body(...)):
         return accepted("site.configure_email", body_with(body, site=site))
+    # ---- safe update: smoke check of a (test) site -------------------------------------
+    @app.post("/v1/sites/{site}/smoke-check", dependencies=auth, status_code=202)
+    def site_smoke_check(site: str, body: dict[str, Any] | None = Body(None)):
+        return accepted("site.smoke_check", body_with(body or {}, site=site))
 
     return app
 

@@ -504,15 +504,18 @@ class Site(Document):
 	# ------------------------------------------------------------------ lifecycle: staging & rename
 
 	def enqueue_clone(self, source):
-		"""site.clone {bench, site: source, target_site: self} on this (staging) site's server."""
-		bench_name = frappe.db.get_value("Bench", self.bench, "bench_name")
-		source_name = frappe.db.get_value("Site", source, "site_name") or source
+		"""site.clone {bench: source's bench, site: source, target_site: self} on this (staging)
+		site's server; `target_bench` when the copy lives on another bench of the server (the
+		"Safe update" test copy on a bench with a newer image, nexaploy.update_test)."""
+		src = frappe.db.get_value("Site", source, ["site_name", "bench"], as_dict=True) or frappe._dict()
+		source_bench = src.bench or self.bench
+		params = lu.clone_params(
+			frappe.db.get_value("Bench", source_bench, "bench_name"), src.site_name or source, self.site_name, scrub=True
+		)
+		if source_bench != self.bench:
+			params["target_bench"] = frappe.db.get_value("Bench", self.bench, "bench_name")
 		return create_agent_job(
-			self.server,
-			"site.clone",
-			lu.clone_params(bench_name, source_name, self.site_name, scrub=True),
-			reference_doctype=self.doctype,
-			reference_name=self.name,
+			self.server, "site.clone", params, reference_doctype=self.doctype, reference_name=self.name
 		).name
 
 	def clone_finished(self, job):

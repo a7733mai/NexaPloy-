@@ -214,6 +214,7 @@ def on_bench_job(job):
 	else:
 		bench.status = "Broken"
 	_save(bench)
+	_update_tests(job)
 
 
 @handles("bench.remove")
@@ -295,6 +296,7 @@ def on_site_drop(job):
 			row.status = "Removing"
 		_save(site)
 		_sync_billing(site)
+	_update_tests(job)
 
 
 @handles("site.install_app", "site.uninstall_app")
@@ -520,6 +522,7 @@ def on_site_clone(job):
 	if job.status not in TERMINAL_JOB_STATUSES:
 		return
 	_ref(job).clone_finished(job)
+	_update_tests(job)
 
 
 @handles("site.rename")
@@ -528,3 +531,31 @@ def on_site_rename(job):
 	if job.status not in TERMINAL_JOB_STATUSES:
 		return
 	_ref(job).rename_finished(job)
+
+
+# --------------------------------------------------------------------------- safe update & console audit
+
+
+def _update_tests(job):
+	"""Advance Site Update Tests waiting for this job (nexaploy.update_test)."""
+	if job.status not in TERMINAL_JOB_STATUSES:
+		return
+	from nexaploy.update_test import on_agent_job
+
+	on_agent_job(job)
+
+
+@handles("site.smoke_check")
+def on_site_smoke_check(job):
+	"""site.smoke_check references its Site Update Test: Passed / Failed."""
+	_update_tests(job)
+
+
+@handles("site.sql", "site.console", "site.logs", "site.slow_queries")
+def on_console_audit(job):
+	"""Status, duration and error of the Console Audit Log rows of an observability job."""
+	if job.status not in TERMINAL_JOB_STATUSES:
+		return
+	from nexaploy.console_access import finish_audit
+
+	finish_audit(job)
