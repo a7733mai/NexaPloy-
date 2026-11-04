@@ -1,0 +1,723 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block head %}
+<!-- synchronous on purpose: registers its alpine:init listener before Alpine (deferred) starts -->
+<script src="/assets/nexaploy/js/admin.js"></script>
+<style>
+	.nx-admin-stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+	.nx-admin-form { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); align-items: end; }
+	.nx-admin-form .wide { grid-column: 1 / -1; }
+	.nx-secret .hint { display: block; }
+	.nx-admin-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stack" x-data="nxAdmin" x-cloak>
+	<div class="tabs" role="tablist">
+		<button type="button" :class="{ active: tab === 'overview' }" @click="show('overview')">{{ _("Overview") }}</button>
+		<button type="button" :class="{ active: tab === 'features' }" @click="show('features')">{{ _("Features & pricing") }}</button>
+		<button type="button" :class="{ active: tab === 'storage' }" @click="show('storage')">{{ _("Storage & backups") }}</button>
+		<button type="button" :class="{ active: tab === 'email' }" @click="show('email')">{{ _("E-mail & brands") }}</button>
+		<button type="button" :class="{ active: tab === 'agents' }" @click="show('agents')">{{ _("Agent releases") }}</button>
+		<button type="button" :class="{ active: tab === 'marketplace' }" @click="show('marketplace')">{{ _("Marketplace review") }}</button>
+		<button type="button" :class="{ active: tab === 'teams' }" @click="show('teams')">{{ _("Teams & servers") }}</button>
+	</div>
+
+	<template x-if="error"><div class="alert danger" x-text="error"></div></template>
+	<div class="loading" x-show="loading"><span class="spinner"></span> {{ _("Loading…") }}</div>
+
+	<!-- ============================================================ overview -->
+	<template x-if="tab === 'overview' && ov">
+		<div class="stack">
+			<div class="nx-admin-stats">
+				<div class="card stat">
+					<div class="label">{{ _("Servers") }}</div>
+					<div class="value" x-text="ov.servers.total"></div>
+					<div class="sub"><span x-text="ov.servers.online"></span> {{ _("online") }} · <span x-text="ov.servers.offline"></span> {{ _("offline") }}</div>
+				</div>
+				<div class="card stat">
+					<div class="label">{{ _("Sites") }}</div>
+					<div class="value" x-text="ov.sites.total"></div>
+					<div class="sub"><span x-text="ov.teams"></span> {{ _("teams") }}</div>
+				</div>
+				<div class="card stat">
+					<div class="label">{{ _("Failed jobs (24 h)") }}</div>
+					<div class="value" x-text="ov.failed_jobs.count"></div>
+				</div>
+				<div class="card stat">
+					<div class="label">{{ _("Open tickets") }}</div>
+					<div class="value" x-text="ov.tickets.open"></div>
+					<div class="sub"><span x-text="ov.tickets.first_response_overdue"></span> {{ _("first response overdue") }}</div>
+				</div>
+				<div class="card stat">
+					<div class="label">{{ _("MRR") }}</div>
+					<div class="value small" x-text="money(ov.mrr.by_currency)"></div>
+					<div class="sub"><span x-text="ov.mrr.subscriptions"></span> {{ _("active subscriptions") }}</div>
+				</div>
+				<div class="card stat">
+					<div class="label">{{ _("Overdue invoices") }}</div>
+					<div class="value" x-text="ov.overdue.count"></div>
+					<div class="sub" x-text="money(ov.overdue.by_currency)"></div>
+				</div>
+				<div class="card stat">
+					<div class="label">{{ _("Outdated agents") }}</div>
+					<div class="value" x-text="ov.servers.outdated_agents"></div>
+					<div class="sub">{{ _("Latest") }}: <span class="ltr" x-text="ov.servers.latest.stable || '—'"></span></div>
+				</div>
+				<div class="card stat">
+					<div class="label">{{ _("Listings in review") }}</div>
+					<div class="value" x-text="ov.marketplace_pending"></div>
+				</div>
+			</div>
+
+			<div class="grid cols-2">
+				<section class="card">
+					<div class="card-head"><h2>{{ _("Sites by status") }}</h2></div>
+					<div class="card-body">
+						<dl class="kv">
+							<template x-for="e in entries(ov.sites.by_status)" :key="e.key"><div style="display: contents"><dt x-text="__(e.key)"></dt><dd x-text="e.value"></dd></div></template>
+						</dl>
+						<h3 class="small muted">{{ _("By Frappe version") }}</h3>
+						<dl class="kv">
+							<template x-for="e in entries(ov.sites.by_major)" :key="e.key"><div style="display: contents"><dt class="ltr" x-text="e.key"></dt><dd x-text="e.value"></dd></div></template>
+						</dl>
+					</div>
+				</section>
+				<section class="card">
+					<div class="card-head"><h2>{{ _("Server health") }}</h2></div>
+					<div class="card-body">
+						<dl class="kv">
+							<template x-for="e in entries(ov.servers.by_status)" :key="e.key"><div style="display: contents"><dt x-text="__(e.key)"></dt><dd x-text="e.value"></dd></div></template>
+						</dl>
+						<h3 class="small muted">{{ _("Agent versions") }}</h3>
+						<dl class="kv">
+							<template x-for="e in entries(ov.servers.agent_versions)" :key="e.key"><div style="display: contents"><dt class="ltr" x-text="e.key"></dt><dd x-text="e.value"></dd></div></template>
+						</dl>
+						<h3 class="small muted">{{ _("Disk alerts") }}</h3>
+						<p class="small muted" x-show="!ov.servers.disk_alerts.length">{{ _("No server is above 85 % disk usage.") }}</p>
+						<template x-for="d in ov.servers.disk_alerts" :key="d.name">
+							<div class="row small"><a class="ltr" :href="'/dashboard/server?name=' + encodeURIComponent(d.name)" x-text="d.hostname || d.name"></a><span class="badge danger" x-text="d.disk_used_percent + ' %'"></span></div>
+						</template>
+					</div>
+				</section>
+			</div>
+
+			<section class="card">
+				<div class="card-head"><h2>{{ _("Failed agent jobs in the last 24 hours") }}</h2></div>
+				<div class="card-body flush table-wrap">
+					<p class="empty" x-show="!ov.failed_jobs.items.length">{{ _("No failed jobs.") }}</p>
+					<table class="nx-table" x-show="ov.failed_jobs.items.length">
+						<thead><tr><th>{{ _("Job") }}</th><th>{{ _("Kind") }}</th><th>{{ _("Server") }}</th><th>{{ _("Reference") }}</th><th>{{ _("Error") }}</th><th>{{ _("When") }}</th></tr></thead>
+						<tbody>
+							<template x-for="j in ov.failed_jobs.items" :key="j.name">
+								<tr>
+									<td><a class="ltr" :href="j.url" target="_blank" rel="noopener" x-text="j.name"></a></td>
+									<td class="ltr" x-text="j.kind"></td>
+									<td class="ltr" x-text="j.server"></td>
+									<td class="small"><span x-text="j.reference_doctype ? __(j.reference_doctype) : ''"></span> <span class="ltr" x-text="j.reference_name || ''"></span></td>
+									<td class="small" x-text="j.error"></td>
+									<td class="small muted nowrap" x-text="nx.since(j.creation)"></td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section class="card">
+				<div class="card-head"><h2>{{ _("Recent platform changes") }}</h2></div>
+				<div class="card-body flush table-wrap">
+					<p class="empty" x-show="!ov.activity.length">{{ _("No platform changes yet.") }}</p>
+					<table class="nx-table" x-show="ov.activity.length">
+						<tbody>
+							<template x-for="a in ov.activity" :key="a.name">
+								<tr><td class="ltr" x-text="a.action"></td><td class="ltr small" x-text="a.reference_name || ''"></td><td class="small" x-text="a.user"></td><td class="small muted nowrap" x-text="nx.since(a.creation)"></td></tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</div>
+	</template>
+
+	<!-- ============================================================ features & pricing -->
+	<template x-if="tab === 'features' && feat">
+		<div class="stack">
+			<section class="card">
+				<div class="card-head">
+					<h2>{{ _("Plans and add-ons") }}</h2>
+					<button class="btn sm primary" type="button" @click="newPlan()">{{ _("New plan") }}</button>
+				</div>
+				<template x-if="planForm">
+					<form class="card-body nx-admin-form" @submit.prevent="savePlan()">
+						<label class="field" x-show="!planName"><span>{{ _("Title") }}</span><input class="input" type="text" x-model="planForm.title" maxlength="80"></label>
+						<label class="field"><span>{{ _("Type") }}</span>
+							<select class="input" x-model="planForm.plan_type"><template x-for="o in feat.plan_types" :key="o"><option :value="o" x-text="__(o)" :selected="o === planForm.plan_type"></option></template></select>
+						</label>
+						<label class="field"><span>{{ _("Price per month") }}</span><input class="input" type="number" min="0" step="0.01" x-model="planForm.price_monthly"></label>
+						<label class="field"><span>{{ _("Currency") }}</span><input class="input ltr" type="text" maxlength="3" x-model="planForm.currency"></label>
+						<label class="field"><span>{{ _("Max sites") }}</span><input class="input" type="number" min="0" x-model="planForm.max_sites"></label>
+						<label class="field"><span>{{ _("CPU seconds per day") }}</span><input class="input" type="number" min="0" x-model="planForm.cpu_seconds_per_day"></label>
+						<label class="field"><span>{{ _("Max storage (MB)") }}</span><input class="input" type="number" min="0" x-model="planForm.max_storage_mb"></label>
+						<label class="field"><span>{{ _("Max database (MB)") }}</span><input class="input" type="number" min="0" x-model="planForm.max_database_mb"></label>
+						<label class="field"><span>{{ _("Over the limit") }}</span>
+							<select class="input" x-model="planForm.overage_action"><template x-for="o in feat.overage_actions" :key="o"><option :value="o" x-text="__(o)" :selected="o === planForm.overage_action"></option></template></select>
+						</label>
+						<label class="field"><span>{{ _("Order") }}</span><input class="input" type="number" min="0" x-model="planForm.plan_order"></label>
+						<label class="field wide"><span>{{ _("Description") }}</span><input class="input" type="text" x-model="planForm.description"></label>
+						<label class="check"><input type="checkbox" x-model="planForm.enabled" :true-value="1" :false-value="0"> {{ _("Enabled") }}</label>
+						<div class="row wide">
+							<button class="btn primary" type="submit" :disabled="busy">{{ _("Save") }}</button>
+							<button class="btn ghost" type="button" @click="planForm = null">{{ _("Cancel") }}</button>
+						</div>
+					</form>
+				</template>
+				<div class="card-body flush table-wrap">
+					<table class="nx-table">
+						<thead><tr><th>{{ _("Plan") }}</th><th>{{ _("Type") }}</th><th>{{ _("Price per month") }}</th><th>{{ _("Limits") }}</th><th>{{ _("Status") }}</th><th></th></tr></thead>
+						<tbody>
+							<template x-for="p in feat.plans" :key="p.name">
+								<tr>
+									<td x-text="p.title || p.name"></td>
+									<td x-text="__(p.plan_type)"></td>
+									<td x-text="nx.money(p.price_monthly, p.currency)"></td>
+									<td class="small muted"><span x-show="p.max_sites"><span x-text="p.max_sites"></span> {{ _("sites") }}</span> <span x-show="p.cpu_seconds_per_day"><span x-text="p.cpu_seconds_per_day"></span> {{ _("CPU s/day") }}</span></td>
+									<td><span :class="p.enabled ? 'badge success' : 'badge'" x-text="p.enabled ? __('Enabled') : __('Disabled')"></span></td>
+									<td class="nx-admin-actions">
+										<button class="btn sm" type="button" @click="editPlan(p)">{{ _("Edit") }}</button>
+										<button class="btn sm ghost" type="button" @click="togglePlan(p)" :disabled="busy" x-text="p.enabled ? __('Disable') : __('Enable')"></button>
+									</td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section class="card">
+				<div class="card-head"><h2>{{ _("Offsite attachments, DR replica and trash bin") }}</h2></div>
+				<form class="card-body stack" @submit.prevent="saveStorageSettings()">
+					<div class="row">
+						<label class="check"><input type="checkbox" x-model="storageForm.enabled" :true-value="1" :false-value="0"> {{ _("Offsite attachments") }}</label>
+						<label class="check"><input type="checkbox" x-model="storageForm.replica_enabled" :true-value="1" :false-value="0"> {{ _("DR replica") }}</label>
+						<label class="check"><input type="checkbox" x-model="storageForm.trash_enabled" :true-value="1" :false-value="0"> {{ _("Trash bin") }}</label>
+						<label class="check"><input type="checkbox" x-model="storageForm.allow_byo_profiles" :true-value="1" :false-value="0"> {{ _("Customers may use their own buckets") }}</label>
+						<label class="check"><input type="checkbox" x-model="storageForm.keep_local_copy" :true-value="1" :false-value="0"> {{ _("Keep a local copy after offloading") }}</label>
+					</div>
+					<div class="nx-admin-form">
+						<label class="field"><span>{{ _("Default primary bucket") }}</span>
+							<select class="input" x-model="storageForm.default_primary_profile"><option value="">{{ _("None") }}</option><template x-for="p in platformProfiles(feat.storage)" :key="p.name"><option :value="p.name" x-text="p.title" :selected="p.name === storageForm.default_primary_profile"></option></template></select>
+						</label>
+						<label class="field"><span>{{ _("Default replica bucket") }}</span>
+							<select class="input" x-model="storageForm.default_replica_profile"><option value="">{{ _("None") }}</option><template x-for="p in platformProfiles(feat.storage)" :key="p.name"><option :value="p.name" x-text="p.title" :selected="p.name === storageForm.default_replica_profile"></option></template></select>
+						</label>
+						<label class="field"><span>{{ _("Default trash bucket") }}</span>
+							<select class="input" x-model="storageForm.default_trash_profile"><option value="">{{ _("None") }}</option><template x-for="p in platformProfiles(feat.storage)" :key="p.name"><option :value="p.name" x-text="p.title" :selected="p.name === storageForm.default_trash_profile"></option></template></select>
+						</label>
+						<label class="field"><span>{{ _("Replication interval (minutes)") }}</span><input class="input" type="number" min="5" x-model="storageForm.replication_interval_minutes"></label>
+						<label class="field"><span>{{ _("Max deletions per sync") }}</span><input class="input" type="number" min="0" x-model="storageForm.replication_max_delete"></label>
+						<label class="field"><span>{{ _("Compare files by") }}</span>
+							<select class="input" x-model="storageForm.replication_compare"><option value="size">size</option><option value="modtime">modtime</option><option value="checksum">checksum</option></select>
+						</label>
+						<label class="field"><span>{{ _("Default trash retention (days)") }}</span><input class="input" type="number" min="1" x-model="storageForm.default_trash_retention_days"></label>
+						<label class="field"><span>{{ _("Max trash retention (days)") }}</span><input class="input" type="number" min="1" x-model="storageForm.max_trash_retention_days"></label>
+						<label class="field"><span>{{ _("Cache size per mount") }}</span><input class="input ltr" type="text" placeholder="2G" x-model="storageForm.cache_max_size"></label>
+					</div>
+					<h3 class="small muted">{{ _("Add-on prices (per site and month)") }}</h3>
+					<div class="nx-admin-form">
+						<template x-for="k in ['offload', 'replica', 'trash']" :key="k">
+							<div class="field">
+								<span x-text="k === 'offload' ? __('Offsite attachments') : (k === 'replica' ? __('DR replica') : __('Trash bin'))"></span>
+								<template x-if="addonForm[k]">
+									<div class="row"><input class="input" type="number" min="0" step="0.01" x-model="addonForm[k].price_monthly" style="max-width: 120px"><span class="ltr" x-text="addonForm[k].currency"></span><label class="check small"><input type="checkbox" x-model="addonForm[k].enabled" :true-value="1" :false-value="0"> {{ _("Enabled") }}</label></div>
+								</template>
+								<span class="hint" x-show="!addonForm[k]">{{ _("No plan is linked") }}</span>
+							</div>
+						</template>
+					</div>
+					<div class="row"><button class="btn primary" type="submit" :disabled="busy">{{ _("Save") }}</button></div>
+				</form>
+			</section>
+
+			<div class="grid cols-2">
+				<section class="card">
+					<div class="card-head"><h2>{{ _("Backups and agents") }}</h2></div>
+					<form class="card-body form-grid" @submit.prevent="savePlatform()">
+						<div class="nx-admin-form">
+							<label class="field"><span>{{ _("Minimum retention (days)") }}</span><input class="input" type="number" min="0" x-model="platformForm.backup_retention_min_days"></label>
+							<label class="field"><span>{{ _("Maximum retention (days)") }}</span><input class="input" type="number" min="0" x-model="platformForm.backup_retention_max_days"></label>
+							<label class="field"><span>{{ _("Included retention (days)") }}</span><input class="input" type="number" min="0" x-model="platformForm.backup_retention_included_days"></label>
+							<label class="field"><span>{{ _("Max local retention (days)") }}</span><input class="input" type="number" min="0" x-model="platformForm.backup_local_retention_max_days"></label>
+							<label class="field"><span>{{ _("Max monthly backups kept") }}</span><input class="input" type="number" min="0" x-model="platformForm.backup_keep_monthly_max"></label>
+							<label class="field"><span>{{ _("Agent upgrade timeout (minutes)") }}</span><input class="input" type="number" min="0" x-model="platformForm.agent_upgrade_timeout_minutes"></label>
+							<label class="field wide"><span>{{ _("Agent repository URL") }}</span><input class="input ltr" type="url" x-model="platformForm.agent_repo_url"></label>
+							<label class="field wide"><span>{{ _("Alert e-mail") }}</span><input class="input ltr" type="email" x-model="platformForm.alert_email"></label>
+							<label class="field"><span>{{ _("Registry") }}</span><input class="input ltr" type="text" x-model="platformForm.registry_url"></label>
+							<label class="field"><span>{{ _("Registry user") }}</span><input class="input ltr" type="text" x-model="platformForm.registry_username"></label>
+							<label class="field nx-secret"><span>{{ _("Registry password") }}</span><input class="input" type="password" autocomplete="new-password" x-model="sec.platform.registry_password"><span class="hint" x-text="secretLabel(feat.platform_secrets.registry_password)"></span></label>
+						</div>
+						<p class="hint">{{ _("Teams with the extended retention add-on") }}: <span x-text="feat.extended_retention_teams"></span></p>
+						<label class="check"><input type="checkbox" x-model="platformForm.allow_customer_agent_upgrade" :true-value="1" :false-value="0"> {{ _("Customers may upgrade the agent on their own servers") }}</label>
+						<div class="row"><button class="btn primary" type="submit" :disabled="busy">{{ _("Save") }}</button></div>
+					</form>
+				</section>
+
+				<section class="card">
+					<div class="card-head"><h2>{{ _("Billing") }}</h2></div>
+					<form class="card-body form-grid" @submit.prevent="saveBilling()">
+						<label class="check"><input type="checkbox" x-model="billingForm.enabled" :true-value="1" :false-value="0"> {{ _("Billing enabled") }}</label>
+						<div class="nx-admin-form">
+							<label class="field"><span>{{ _("Currency") }}</span><input class="input ltr" type="text" maxlength="3" x-model="billingForm.currency"></label>
+							<label class="field"><span>{{ _("Tax (%)") }}</span><input class="input" type="number" min="0" max="100" step="0.01" x-model="billingForm.tax_percent"></label>
+							<label class="field"><span>{{ _("Invoice day") }}</span><input class="input" type="number" min="1" max="31" x-model="billingForm.invoice_day"></label>
+							<label class="field"><span>{{ _("Grace days") }}</span><input class="input" type="number" min="0" x-model="billingForm.grace_days"></label>
+							<label class="field"><span>{{ _("Suspend after (days)") }}</span><input class="input" type="number" min="0" x-model="billingForm.suspend_after_days"></label>
+							<label class="field"><span>{{ _("BYOS server plan") }}</span>
+								<select class="input" x-model="billingForm.default_byos_plan"><option value="">{{ _("None") }}</option><template x-for="p in feat.plans.filter(function (x) { return x.plan_type === 'Server BYOS'; })" :key="p.name"><option :value="p.name" x-text="p.title + ' · ' + nx.money(p.price_monthly, p.currency)" :selected="p.name === billingForm.default_byos_plan"></option></template></select>
+							</label>
+							<label class="field"><span>{{ _("Default site plan") }}</span>
+								<select class="input" x-model="billingForm.default_site_plan"><option value="">{{ _("None") }}</option><template x-for="p in feat.plans.filter(function (x) { return x.plan_type === 'Site'; })" :key="p.name"><option :value="p.name" x-text="p.title + ' · ' + nx.money(p.price_monthly, p.currency)" :selected="p.name === billingForm.default_site_plan"></option></template></select>
+							</label>
+							<label class="field"><span>{{ _("Sign-up credits") }}</span><input class="input" type="number" min="0" step="0.01" x-model="billingForm.signup_credits"></label>
+							<label class="field"><span>{{ _("Minimum top-up") }}</span><input class="input" type="number" min="0" step="0.01" x-model="billingForm.min_topup"></label>
+							<label class="field"><span>{{ _("Maximum top-up") }}</span><input class="input" type="number" min="0" step="0.01" x-model="billingForm.max_topup"></label>
+							<label class="field wide"><span>{{ _("Return URL after payment") }}</span><input class="input ltr" type="url" x-model="billingForm.return_url"></label>
+						</div>
+						<h3 class="small muted">Stripe</h3>
+						<label class="check"><input type="checkbox" x-model="billingForm.enable_stripe" :true-value="1" :false-value="0"> {{ _("Enabled") }}</label>
+						<div class="nx-admin-form">
+							<label class="field"><span>{{ _("Publishable key") }}</span><input class="input ltr" type="text" x-model="billingForm.stripe_publishable_key"></label>
+							<template x-for="f in ['stripe_secret_key', 'stripe_webhook_secret']" :key="f">
+								<label class="field nx-secret"><span class="ltr" x-text="f"></span><input class="input" type="password" autocomplete="new-password" x-model="sec.billing[f]"><span class="hint" x-text="secretLabel(feat.billing_secrets[f])"></span></label>
+							</template>
+						</div>
+						<h3 class="small muted">Paymob</h3>
+						<label class="check"><input type="checkbox" x-model="billingForm.enable_paymob" :true-value="1" :false-value="0"> {{ _("Enabled") }}</label>
+						<div class="nx-admin-form">
+							<label class="field"><span>{{ _("Integration ID") }}</span><input class="input ltr" type="text" x-model="billingForm.paymob_integration_id"></label>
+							<label class="field"><span>{{ _("iframe ID") }}</span><input class="input ltr" type="text" x-model="billingForm.paymob_iframe_id"></label>
+							<label class="field"><span>{{ _("Currency") }}</span><input class="input ltr" type="text" maxlength="3" x-model="billingForm.paymob_currency"></label>
+							<label class="field"><span>{{ _("Exchange rate") }}</span><input class="input" type="number" min="0" step="0.0001" x-model="billingForm.paymob_exchange_rate"></label>
+							<label class="field wide"><span>{{ _("API base URL") }}</span><input class="input ltr" type="url" x-model="billingForm.paymob_base_url"></label>
+							<template x-for="f in ['paymob_api_key', 'paymob_hmac_secret']" :key="f">
+								<label class="field nx-secret"><span class="ltr" x-text="f"></span><input class="input" type="password" autocomplete="new-password" x-model="sec.billing[f]"><span class="hint" x-text="secretLabel(feat.billing_secrets[f])"></span></label>
+							</template>
+						</div>
+						<p class="hint">{{ _("Secrets are never shown. Leave a secret empty to keep it.") }}</p>
+						<div class="row"><button class="btn primary" type="submit" :disabled="busy">{{ _("Save") }}</button></div>
+					</form>
+				</section>
+			</div>
+		</div>
+	</template>
+
+	<!-- ============================================================ storage & backups -->
+	<template x-if="tab === 'storage' && stor">
+		<div class="stack">
+			<section class="card">
+				<div class="card-head">
+					<h2>{{ _("Storage profiles (S3-compatible buckets)") }}</h2>
+					<button class="btn sm primary" type="button" @click="newProfile()">{{ _("New profile") }}</button>
+				</div>
+				<template x-if="profileForm">
+					<form class="card-body nx-admin-form" @submit.prevent="saveProfile()">
+						<label class="field"><span>{{ _("Profile ID") }}</span><input class="input ltr" type="text" x-model="profileForm.profile_name" :disabled="!!profileEditing" pattern="[a-z0-9][a-z0-9-]{1,40}"></label>
+						<label class="field"><span>{{ _("Title") }}</span><input class="input" type="text" x-model="profileForm.title"></label>
+						<label class="field"><span>{{ _("Provider") }}</span>
+							<select class="input" x-model="profileForm.provider"><template x-for="e in entries(stor.presets)" :key="e.key"><option :value="e.key" x-text="e.value" :selected="e.key === profileForm.provider"></option></template></select>
+						</label>
+						<label class="field"><span>{{ _("Region label") }}</span><input class="input" type="text" x-model="profileForm.region_label"></label>
+						<label class="field"><span>{{ _("Endpoint") }}</span><input class="input ltr" type="text" x-model="profileForm.endpoint"></label>
+						<label class="field"><span>{{ _("Region") }}</span><input class="input ltr" type="text" x-model="profileForm.region"></label>
+						<label class="field"><span>{{ _("Addressing") }}</span>
+							<select class="input" x-model="profileForm.addressing"><option value="Preset default">{{ _("Preset default") }}</option><option value="Path style">{{ _("Path style") }}</option><option value="Virtual-hosted style">{{ _("Virtual-hosted style") }}</option></select>
+						</label>
+						<label class="field"><span>{{ _("Bucket") }}</span><input class="input ltr" type="text" x-model="profileForm.bucket"></label>
+						<label class="field"><span>{{ _("Path prefix") }}</span><input class="input ltr" type="text" x-model="profileForm.path_prefix"></label>
+						<label class="field"><span>{{ _("Access key") }}</span><input class="input ltr" type="text" x-model="profileForm.access_key"></label>
+						<label class="field"><span>{{ _("Secret key") }}</span><input class="input" type="password" autocomplete="new-password" x-model="profileForm.secret_key" :placeholder="profileEditing ? __('Leave empty to keep') : ''"></label>
+						<label class="field"><span>{{ _("Owner") }}</span>
+							<select class="input" x-model="profileForm.team" :disabled="!!profileEditing"><option value="">{{ _("Platform") }}</option><template x-for="tm in stor.teams" :key="tm.name"><option :value="tm.name" x-text="tm.title" :selected="tm.name === profileForm.team"></option></template></select>
+						</label>
+						<label class="check"><input type="checkbox" x-model="profileForm.enabled" :true-value="1" :false-value="0"> {{ _("Enabled") }}</label>
+						<div class="row wide">
+							<button class="btn primary" type="submit" :disabled="busy">{{ _("Save") }}</button>
+							<button class="btn ghost" type="button" @click="profileForm = null">{{ _("Cancel") }}</button>
+						</div>
+					</form>
+				</template>
+				<div class="card-body flush table-wrap">
+					<p class="empty" x-show="!stor.profiles.length">{{ _("No storage profiles yet.") }}</p>
+					<table class="nx-table" x-show="stor.profiles.length">
+						<thead><tr><th>{{ _("Profile") }}</th><th>{{ _("Provider") }}</th><th>{{ _("Bucket") }}</th><th>{{ _("Owner") }}</th><th>{{ _("Test") }}</th><th></th></tr></thead>
+						<tbody>
+							<template x-for="p in stor.profiles" :key="p.name">
+								<tr>
+									<td><div x-text="p.title"></div><div class="small muted ltr" x-text="p.name"></div></td>
+									<td><span x-text="p.provider_label"></span> <span class="small muted" x-text="p.region_label || p.region || ''"></span></td>
+									<td class="ltr" x-text="p.bucket"></td>
+									<td><span class="badge" x-text="p.team || __('Platform')"></span> <span class="badge" x-show="!p.enabled">{{ _("Disabled") }}</span></td>
+									<td class="small">
+										<template x-if="tests[p.name]"><span><span :class="nx.statusClass(tests[p.name].status)" x-text="__(tests[p.name].status)"></span> <span class="muted" x-text="tests[p.name].error || ''"></span></span></template>
+									</td>
+									<td class="nx-admin-actions">
+										<button class="btn sm" type="button" @click="testProfile(p)">{{ _("Test") }}</button>
+										<button class="btn sm" type="button" @click="editProfile(p)">{{ _("Edit") }}</button>
+										<button class="btn sm ghost" type="button" @click="deleteProfile(p)">{{ _("Delete") }}</button>
+									</td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<div class="grid cols-2">
+				<section class="card">
+					<div class="card-head"><h2>{{ _("Platform backup storage") }}</h2></div>
+					<div class="card-body stack">
+						<dl class="kv">
+							<dt>{{ _("Provider") }}</dt><dd class="ltr" x-text="stor.backup.backup_provider || '—'"></dd>
+							<dt>{{ _("Bucket") }}</dt><dd class="ltr" x-text="stor.backup.backup_bucket || '—'"></dd>
+							<dt>{{ _("Endpoint") }}</dt><dd class="ltr" x-text="stor.backup.backup_endpoint || stor.backup.backup_region || '—'"></dd>
+							<dt>{{ _("Secret key") }}</dt><dd x-text="secretLabel(stor.backup_secret)"></dd>
+						</dl>
+						<label class="field"><span>{{ _("Use this storage profile for database backups") }}</span>
+							<select class="input" x-model="backupProfile"><option value="">{{ _("None (manual settings)") }}</option><template x-for="p in platformProfiles(stor)" :key="p.name"><option :value="p.name" x-text="p.title" :selected="p.name === backupProfile"></option></template></select>
+						</label>
+						<div class="row"><button class="btn primary" type="button" @click="useForBackups()" :disabled="busy">{{ _("Apply") }}</button></div>
+					</div>
+				</section>
+
+				<section class="card">
+					<div class="card-head"><h2>{{ _("Google Drive, OneDrive and Dropbox apps") }}</h2></div>
+					<form class="card-body form-grid" @submit.prevent="saveOauth()">
+						<label class="field"><span>{{ _("Redirect URI to register with each provider") }}</span>
+							<div class="codebox"><span x-text="stor.redirect_uri"></span><button class="btn sm" type="button" style="position: absolute; inset-inline-end: 8px; inset-block-start: 8px" @click="nx.copy(stor.redirect_uri)">{{ _("Copy") }}</button></div>
+						</label>
+						<div class="nx-admin-form">
+							<label class="field"><span>{{ _("Google client ID") }}</span><input class="input ltr" type="text" x-model="oauthForm.google_client_id"></label>
+							<label class="field nx-secret"><span>{{ _("Google client secret") }}</span><input class="input" type="password" autocomplete="new-password" x-model="sec.oauth.google_client_secret"><span class="hint" x-text="secretLabel(stor.oauth_secrets.google_client_secret)"></span></label>
+							<label class="field"><span>{{ _("Microsoft client ID") }}</span><input class="input ltr" type="text" x-model="oauthForm.microsoft_client_id"></label>
+							<label class="field nx-secret"><span>{{ _("Microsoft client secret") }}</span><input class="input" type="password" autocomplete="new-password" x-model="sec.oauth.microsoft_client_secret"><span class="hint" x-text="secretLabel(stor.oauth_secrets.microsoft_client_secret)"></span></label>
+							<label class="field"><span>{{ _("Microsoft tenant") }}</span><input class="input ltr" type="text" placeholder="common" x-model="oauthForm.microsoft_tenant"></label>
+							<label class="field"><span>{{ _("Dropbox app key") }}</span><input class="input ltr" type="text" x-model="oauthForm.dropbox_app_key"></label>
+							<label class="field nx-secret"><span>{{ _("Dropbox app secret") }}</span><input class="input" type="password" autocomplete="new-password" x-model="sec.oauth.dropbox_app_secret"><span class="hint" x-text="secretLabel(stor.oauth_secrets.dropbox_app_secret)"></span></label>
+						</div>
+						<div class="row"><button class="btn primary" type="submit" :disabled="busy">{{ _("Save") }}</button></div>
+					</form>
+				</section>
+			</div>
+		</div>
+	</template>
+
+	<!-- ============================================================ e-mail & brands -->
+	<template x-if="tab === 'email' && mail">
+		<div class="stack">
+			<section class="card">
+				<div class="card-head"><h2>{{ _("Managed e-mail relay") }}</h2></div>
+				<form class="card-body form-grid" @submit.prevent="saveRelay()">
+					<label class="check"><input type="checkbox" x-model="relayForm.enabled" :true-value="1" :false-value="0"> {{ _("Enabled") }}</label>
+					<div class="nx-admin-form">
+						<label class="field"><span>{{ _("Provider") }}</span>
+							<select class="input" x-model="relayForm.provider"><template x-for="o in mail.providers" :key="o"><option :value="o" x-text="o" :selected="o === relayForm.provider"></option></template></select>
+						</label>
+						<label class="field"><span>{{ _("Region") }}</span><input class="input ltr" type="text" x-model="relayForm.region"></label>
+						<label class="field"><span>{{ _("SMTP host") }}</span><input class="input ltr" type="text" x-model="relayForm.smtp_host"></label>
+						<label class="field"><span>{{ _("SMTP port") }}</span><input class="input" type="number" min="0" x-model="relayForm.smtp_port"></label>
+						<label class="field"><span>{{ _("Encryption") }}</span>
+							<select class="input" x-model="relayForm.tls_mode"><template x-for="o in mail.tls_modes" :key="o"><option :value="o" x-text="o" :selected="o === relayForm.tls_mode"></option></template></select>
+						</label>
+						<label class="field"><span>{{ _("Username") }}</span><input class="input ltr" type="text" autocomplete="off" x-model="relayForm.username"></label>
+						<label class="field nx-secret"><span>{{ _("Password") }}</span><input class="input" type="password" autocomplete="new-password" x-model="sec.relay.password"><span class="hint" x-text="secretLabel(mail.relay_secrets.password)"></span></label>
+						<label class="field"><span>{{ _("Default sender domain") }}</span><input class="input ltr" type="text" x-model="relayForm.default_from_domain"></label>
+						<label class="field"><span>{{ _("Daily send limit per site") }}</span><input class="input" type="number" min="0" x-model="relayForm.daily_send_limit"></label>
+						<label class="field"><span>{{ _("SPF include") }}</span><input class="input ltr" type="text" x-model="relayForm.spf_include"></label>
+						<label class="field"><span>{{ _("DKIM selector") }}</span><input class="input ltr" type="text" x-model="relayForm.dkim_selector"></label>
+						<label class="field"><span>{{ _("DKIM record type") }}</span><select class="input" x-model="relayForm.dkim_record_type"><option value="TXT">TXT</option><option value="CNAME">CNAME</option></select></label>
+						<label class="field wide"><span>{{ _("DKIM value") }}</span><input class="input ltr" type="text" x-model="relayForm.dkim_value"></label>
+						<label class="field"><span>{{ _("DMARC policy") }}</span><select class="input" x-model="relayForm.dmarc_policy"><option value="none">none</option><option value="quarantine">quarantine</option><option value="reject">reject</option></select></label>
+						<label class="field"><span>{{ _("DMARC reports to") }}</span><input class="input ltr" type="email" x-model="relayForm.dmarc_rua"></label>
+						<label class="field"><span>{{ _("Return-Path host") }}</span><input class="input ltr" type="text" x-model="relayForm.return_path_host"></label>
+						<label class="field"><span>{{ _("Return-Path value") }}</span><input class="input ltr" type="text" x-model="relayForm.return_path_value"></label>
+					</div>
+					<label class="check"><input type="checkbox" x-model="relayForm.verify_smtp" :true-value="1" :false-value="0"> {{ _("Verify the SMTP login when sites are configured") }}</label>
+					<p class="hint">{{ _("Saving a change re-configures the relay on every site that uses it.") }}</p>
+					<div class="row"><button class="btn primary" type="submit" :disabled="busy">{{ _("Save") }}</button></div>
+				</form>
+			</section>
+
+			<section class="card">
+				<div class="card-head">
+					<h2>{{ _("Brands (white label)") }}</h2>
+					<button class="btn sm primary" type="button" @click="newBrand()">{{ _("New brand") }}</button>
+				</div>
+				<template x-if="brandForm">
+					<form class="card-body nx-admin-form" @submit.prevent="saveBrand()">
+						<label class="field"><span>{{ _("Brand ID") }}</span><input class="input ltr" type="text" x-model="brandForm.brand_name" :disabled="!!brandName"></label>
+						<label class="field"><span>{{ _("Title") }}</span><input class="input" type="text" maxlength="80" x-model="brandForm.title"></label>
+						<label class="field"><span>{{ _("Primary colour") }}</span><input class="input" type="color" x-model="brandForm.primary_color"></label>
+						<label class="field"><span>{{ _("Owner") }}</span>
+							<select class="input" x-model="brandForm.team"><option value="">{{ _("Platform") }}</option><template x-for="tm in mail.teams" :key="tm.name"><option :value="tm.name" x-text="tm.title" :selected="tm.name === brandForm.team"></option></template></select>
+						</label>
+						<label class="field"><span>{{ _("Logo URL") }}</span><input class="input ltr" type="text" x-model="brandForm.logo"></label>
+						<label class="field"><span>{{ _("Favicon URL") }}</span><input class="input ltr" type="text" x-model="brandForm.favicon"></label>
+						<label class="field"><span>{{ _("Support e-mail") }}</span><input class="input ltr" type="email" x-model="brandForm.support_email"></label>
+						<label class="field"><span>{{ _("Sender name") }}</span><input class="input" type="text" x-model="brandForm.email_sender_name"></label>
+						<label class="field"><span>{{ _("Sender address") }}</span><input class="input ltr" type="email" x-model="brandForm.email_sender_address"></label>
+						<label class="field wide"><span>{{ _("Portal domains (one per line)") }}</span><textarea class="input ltr" rows="3" x-model="brandForm.portal_domains"></textarea></label>
+						<label class="field wide"><span>{{ _("Footer text") }}</span><input class="input" type="text" x-model="brandForm.footer_text"></label>
+						<label class="check"><input type="checkbox" x-model="brandForm.enabled" :true-value="1" :false-value="0"> {{ _("Enabled") }}</label>
+						<label class="check"><input type="checkbox" x-model="brandForm.is_default" :true-value="1" :false-value="0" :disabled="!!brandForm.team"> {{ _("Platform default brand") }}</label>
+						<div class="row wide">
+							<button class="btn primary" type="submit" :disabled="busy">{{ _("Save") }}</button>
+							<button class="btn ghost" type="button" @click="brandForm = null">{{ _("Cancel") }}</button>
+						</div>
+					</form>
+				</template>
+				<div class="card-body flush table-wrap">
+					<p class="empty" x-show="!mail.brands.length">{{ _("No brands yet: the portal uses the built-in Nexaploy look.") }}</p>
+					<table class="nx-table" x-show="mail.brands.length">
+						<thead><tr><th>{{ _("Brand") }}</th><th>{{ _("Owner") }}</th><th>{{ _("Portal domains") }}</th><th>{{ _("Status") }}</th><th></th></tr></thead>
+						<tbody>
+							<template x-for="b in mail.brands" :key="b.name">
+								<tr>
+									<td><span :style="'display:inline-block;width:12px;height:12px;border-radius:3px;background:' + (b.primary_color || '#2f5bea')"></span> <span x-text="b.title"></span> <span class="badge info" x-show="b.is_default">{{ _("Default") }}</span></td>
+									<td x-text="b.team || __('Platform')"></td>
+									<td class="ltr small" x-text="(b.portal_domains || '').split('\n').join(', ')"></td>
+									<td><span :class="b.enabled ? 'badge success' : 'badge'" x-text="b.enabled ? __('Enabled') : __('Disabled')"></span></td>
+									<td class="nx-admin-actions">
+										<button class="btn sm" type="button" @click="editBrand(b)">{{ _("Edit") }}</button>
+										<button class="btn sm ghost" type="button" @click="deleteBrand(b)">{{ _("Delete") }}</button>
+									</td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</div>
+	</template>
+
+	<!-- ============================================================ agent releases -->
+	<template x-if="tab === 'agents' && agents">
+		<div class="stack">
+			<section class="card">
+				<div class="card-head">
+					<h2>{{ _("Agent releases") }}</h2>
+					<div class="row">
+						<span class="small muted">{{ _("Latest") }}: stable <span class="ltr" x-text="agents.latest.stable || '—'"></span> · beta <span class="ltr" x-text="agents.latest.beta || '—'"></span></span>
+						<button class="btn sm primary" type="button" @click="newRelease()">{{ _("New release") }}</button>
+					</div>
+				</div>
+				<template x-if="releaseForm">
+					<form class="card-body nx-admin-form" @submit.prevent="saveRelease()">
+						<label class="field"><span>{{ _("Version") }}</span><input class="input ltr" type="text" placeholder="0.3.0" x-model="releaseForm.version" :disabled="!!releaseName"></label>
+						<label class="field"><span>{{ _("Channel") }}</span><select class="input" x-model="releaseForm.channel"><template x-for="c in agents.channels" :key="c"><option :value="c" x-text="c" :selected="c === releaseForm.channel"></option></template></select></label>
+						<label class="field"><span>{{ _("Git ref") }}</span><input class="input ltr" type="text" placeholder="v0.3.0" x-model="releaseForm.git_ref"></label>
+						<label class="field"><span>{{ _("Repository URL") }}</span><input class="input ltr" type="url" x-model="releaseForm.repo_url"></label>
+						<label class="field"><span>{{ _("Wheel URL") }}</span><input class="input ltr" type="url" x-model="releaseForm.wheel_url"></label>
+						<label class="field"><span>{{ _("Wheel SHA-256") }}</span><input class="input ltr" type="text" x-model="releaseForm.wheel_sha256"></label>
+						<label class="field wide"><span>{{ _("Release notes") }}</span><textarea class="input" rows="3" x-model="releaseForm.release_notes"></textarea></label>
+						<label class="check"><input type="checkbox" x-model="releaseForm.published" :true-value="1" :false-value="0"> {{ _("Published") }}</label>
+						<div class="row wide">
+							<button class="btn primary" type="submit" :disabled="busy">{{ _("Save") }}</button>
+							<button class="btn ghost" type="button" @click="releaseForm = null">{{ _("Cancel") }}</button>
+						</div>
+					</form>
+				</template>
+				<div class="card-body flush table-wrap">
+					<table class="nx-table">
+						<thead><tr><th>{{ _("Version") }}</th><th>{{ _("Channel") }}</th><th>{{ _("Source") }}</th><th>{{ _("Released") }}</th><th>{{ _("Status") }}</th><th></th></tr></thead>
+						<tbody>
+							<template x-for="r in agents.releases" :key="r.name">
+								<tr>
+									<td class="ltr" x-text="r.version"></td>
+									<td x-text="r.channel"></td>
+									<td class="ltr small" x-text="r.wheel_url || r.git_ref || ''"></td>
+									<td class="small muted" x-text="r.released_on || ''"></td>
+									<td><span :class="r.published ? 'badge success' : 'badge'" x-text="r.published ? __('Published') : __('Draft')"></span></td>
+									<td class="nx-admin-actions">
+										<button class="btn sm" type="button" @click="editRelease(r)">{{ _("Edit") }}</button>
+										<button class="btn sm" type="button" x-show="!r.published" @click="publish(r, true)" :disabled="busy">{{ _("Publish") }}</button>
+										<button class="btn sm ghost" type="button" x-show="r.published" @click="publish(r, false)" :disabled="busy">{{ _("Unpublish") }}</button>
+									</td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section class="card">
+				<div class="card-head">
+					<h2>{{ _("Agents on servers") }}</h2>
+					<div class="row">
+						<button class="btn sm" type="button" @click="bulkUpgrade(true)" :disabled="busy">{{ _("Preview outdated") }}</button>
+						<button class="btn sm primary" type="button" @click="bulkUpgrade(false)" :disabled="busy">{{ _("Upgrade all outdated servers") }}</button>
+					</div>
+				</div>
+				<template x-if="bulk">
+					<div class="card-body">
+						<p class="small" x-show="!bulk.servers.length">{{ _("Every active server runs the latest agent of its channel.") }}</p>
+						<template x-for="b in bulk.servers" :key="b.server">
+							<div class="small"><span class="ltr" x-text="b.hostname || b.server"></span>: <span class="ltr" x-text="(b.from || '?') + ' → ' + b.to"></span> <span class="badge danger" x-show="b.error" x-text="b.error"></span><span class="badge info" x-show="b.job" x-text="b.job"></span></div>
+						</template>
+					</div>
+				</template>
+				<div class="card-body flush table-wrap">
+					<table class="nx-table">
+						<thead><tr><th>{{ _("Server") }}</th><th>{{ _("Team") }}</th><th>{{ _("Status") }}</th><th>{{ _("Agent") }}</th><th>{{ _("Upgrade") }}</th><th></th></tr></thead>
+						<tbody>
+							<template x-for="s in agents.servers" :key="s.name">
+								<tr>
+									<td><a class="ltr" :href="'/dashboard/server?name=' + encodeURIComponent(s.name)" x-text="s.hostname || s.name"></a></td>
+									<td class="small" x-text="s.team || ''"></td>
+									<td><span :class="nx.statusClass(s.status)" x-text="__(s.status)"></span></td>
+									<td><span class="ltr" x-text="s.agent_version || '?'"></span> <span class="small muted" x-text="s.channel"></span> <span class="badge warning" x-show="s.outdated">{{ _("Outdated") }}</span></td>
+									<td class="small"><span x-text="s.upgrade_status ? __(s.upgrade_status) : ''"></span> <span class="muted" x-text="s.upgrade_error || ''"></span></td>
+									<td class="nx-admin-actions"><button class="btn sm" type="button" x-show="s.outdated && s.status === 'Active'" @click="upgradeServer(s)" :disabled="busy">{{ _("Upgrade") }}</button></td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</div>
+	</template>
+
+	<!-- ============================================================ marketplace review -->
+	<template x-if="tab === 'marketplace' && market">
+		<div class="stack">
+			<section class="card">
+				<div class="card-head"><h2>{{ _("Listings waiting for review") }}</h2><span class="small muted"><span x-text="market.published"></span> {{ _("published") }}</span></div>
+				<div class="card-body flush table-wrap">
+					<p class="empty" x-show="!market.listings.length">{{ _("Nothing to review.") }}</p>
+					<table class="nx-table" x-show="market.listings.length">
+						<thead><tr><th>{{ _("App") }}</th><th>{{ _("Pricing") }}</th><th>{{ _("Submitted") }}</th><th>{{ _("Notes to the publisher") }}</th><th></th></tr></thead>
+						<tbody>
+							<template x-for="a in market.listings" :key="a.name">
+								<tr>
+									<td><div x-text="a.title"></div><a class="small ltr" :href="a.repo_url" target="_blank" rel="noopener" x-text="a.name"></a></td>
+									<td x-text="a.pricing === 'Paid' ? nx.money(a.price_monthly) : __('Free')"></td>
+									<td class="small muted" x-text="nx.since(a.submitted_on)"></td>
+									<td><input class="input" type="text" x-model="notes[a.name]"></td>
+									<td class="nx-admin-actions">
+										<button class="btn sm primary" type="button" @click="review(a, 'approve')" :disabled="busy">{{ _("Approve") }}</button>
+										<button class="btn sm ghost" type="button" @click="review(a, 'reject')" :disabled="busy">{{ _("Reject") }}</button>
+									</td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section class="card">
+				<div class="card-head"><h2>{{ _("Releases waiting for or failing verification") }}</h2></div>
+				<div class="card-body flush table-wrap">
+					<p class="empty" x-show="!market.releases.length">{{ _("Every release is verified.") }}</p>
+					<table class="nx-table" x-show="market.releases.length">
+						<thead><tr><th>{{ _("App") }}</th><th>{{ _("Frappe") }}</th><th>{{ _("Branch") }}</th><th>{{ _("Status") }}</th><th>{{ _("Override") }}</th><th></th></tr></thead>
+						<tbody>
+							<template x-for="r in market.releases" :key="r.app + ':' + r.frappe_major">
+								<tr>
+									<td class="ltr" x-text="r.app"></td>
+									<td class="ltr" x-text="'v' + r.frappe_major"></td>
+									<td class="ltr small" x-text="r.branch + (r.commit ? ' @ ' + r.commit.slice(0, 8) : '')"></td>
+									<td><span :class="nx.statusClass(r.status === 'Failed' ? 'Failed' : 'Pending')" x-text="__(r.status)"></span> <div class="small muted" x-text="r.verification_note || ''"></div></td>
+									<td>
+										<select class="input" x-model="overrides[r.app + ':' + r.frappe_major]"><option value="">—</option><template x-for="st in market.release_statuses" :key="st"><option :value="st" x-text="__(st)"></option></template></select>
+									</td>
+									<td class="nx-admin-actions">
+										<button class="btn sm" type="button" @click="overrideRelease(r)" :disabled="busy || !overrides[r.app + ':' + r.frappe_major]">{{ _("Set status") }}</button>
+										<button class="btn sm ghost" type="button" @click="reverify(r)" :disabled="busy">{{ _("Test again") }}</button>
+									</td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section class="card">
+				<div class="card-head"><h2>{{ _("Reviews") }}</h2></div>
+				<div class="card-body flush table-wrap">
+					<p class="empty" x-show="!market.reviews.length">{{ _("No reviews yet.") }}</p>
+					<table class="nx-table" x-show="market.reviews.length">
+						<tbody>
+							<template x-for="rv in market.reviews" :key="rv.name">
+								<tr>
+									<td class="ltr small" x-text="rv.app"></td>
+									<td class="nowrap" x-text="'★'.repeat(rv.rating || 0)"></td>
+									<td><div x-text="rv.review || ''"></div><div class="small muted" x-show="rv.hidden" x-text="rv.hidden_reason || ''"></div></td>
+									<td class="small muted" x-text="rv.team"></td>
+									<td class="nx-admin-actions"><button class="btn sm ghost" type="button" @click="toggleReview(rv)" :disabled="busy" x-text="rv.hidden ? __('Show') : __('Hide')"></button></td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</div>
+	</template>
+
+	<!-- ============================================================ teams & servers -->
+	<template x-if="tab === 'teams' && loaded.teams">
+		<div class="stack">
+			<section class="card">
+				<div class="card-head">
+					<h2>{{ _("Teams") }}</h2>
+					<form class="row" @submit.prevent="searchTeams()"><input class="input" type="search" x-model="teamQuery" placeholder="{{ _('Search teams') }}"><button class="btn sm" type="submit">{{ _("Search") }}</button></form>
+				</div>
+				<div class="card-body flush table-wrap">
+					<table class="nx-table">
+						<thead><tr><th>{{ _("Team") }}</th><th>{{ _("Sites") }}</th><th>{{ _("Servers") }}</th><th>{{ _("Credits") }}</th><th>{{ _("Billing exempt") }}</th><th>{{ _("Extended retention") }}</th><th>{{ _("Enabled") }}</th><th></th></tr></thead>
+						<tbody>
+							<template x-for="tm in teams" :key="tm.name">
+								<tr>
+									<td><div x-text="tm.title"></div><div class="small muted ltr" x-text="tm.owner_user || tm.name"></div></td>
+									<td><span x-text="tm.sites"></span> <span class="badge warning" x-show="tm.suspended_sites"><span x-text="tm.suspended_sites"></span> {{ _("suspended") }}</span> <span class="badge danger" x-show="tm.overdue_invoices"><span x-text="tm.overdue_invoices"></span> {{ _("overdue") }}</span></td>
+									<td x-text="tm.servers"></td>
+									<td class="nowrap" x-text="nx.money(tm.credit_balance || 0, tm.currency)"></td>
+									<td><input type="checkbox" :checked="!!tm.billing_exempt" @change="toggleFlag(tm, 'billing_exempt')" :disabled="busy" aria-label="{{ _('Billing exempt') }}"></td>
+									<td><input type="checkbox" :checked="!!tm.extended_backup_retention" @change="toggleFlag(tm, 'extended_backup_retention')" :disabled="busy" aria-label="{{ _('Extended retention') }}"></td>
+									<td><input type="checkbox" :checked="!!tm.enabled" @change="toggleFlag(tm, 'enabled')" :disabled="busy" aria-label="{{ _('Enabled') }}"></td>
+									<td class="nx-admin-actions">
+										<button class="btn sm" type="button" @click="grant(tm)" :disabled="busy">{{ _("Credits") }}</button>
+										<button class="btn sm ghost" type="button" x-show="!tm.suspended_sites" @click="suspend(tm, true)" :disabled="busy">{{ _("Suspend") }}</button>
+										<button class="btn sm" type="button" x-show="tm.suspended_sites" @click="suspend(tm, false)" :disabled="busy">{{ _("Unsuspend") }}</button>
+									</td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section class="card">
+				<div class="card-head"><h2>{{ _("All servers") }}</h2></div>
+				<div class="card-body flush table-wrap">
+					<table class="nx-table">
+						<thead><tr><th>{{ _("Server") }}</th><th>{{ _("Team") }}</th><th>{{ _("Type") }}</th><th>{{ _("Status") }}</th><th>{{ _("Disk") }}</th><th>{{ _("Agent") }}</th><th>{{ _("Heartbeat") }}</th></tr></thead>
+						<tbody>
+							<template x-for="s in servers" :key="s.name">
+								<tr>
+									<td><a class="ltr" :href="'/dashboard/server?name=' + encodeURIComponent(s.name)" x-text="s.hostname || s.name"></a> <span class="badge info" x-show="s.hosts_control_plane">{{ _("Control plane") }}</span> <span class="badge" x-show="s.is_build_server">{{ _("Build server") }}</span></td>
+									<td class="small" x-text="s.team_title || ''"></td>
+									<td x-text="__(s.ownership)"></td>
+									<td><span :class="nx.statusClass(s.status)" x-text="__(s.status)"></span></td>
+									<td><span :class="(s.disk_used_percent || 0) >= 85 ? 'badge danger' : ''" x-text="s.disk_used_percent ? Math.round(s.disk_used_percent) + ' %' : ''"></span></td>
+									<td><span class="ltr" x-text="s.agent_version || '?'"></span> <span class="badge warning" x-show="s.outdated">{{ _("Outdated") }}</span></td>
+									<td class="small muted nowrap" x-text="nx.since(s.last_heartbeat)"></td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</div>
+	</template>
+</div>
+{% endblock %}

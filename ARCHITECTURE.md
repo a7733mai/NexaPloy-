@@ -573,6 +573,27 @@ Pure helpers (no frappe import) live in `nexaploy/team_utils.py`: `role_allows(r
 slug generation, invitation token hashing. Platform admins pass every check.
 Portal JS sends `X-Nexaploy-Team` on every call (team switcher in the sidebar).
 
+### 9.1 Platform Administrator dashboard
+
+`/dashboard/admin` (sidebar link only for platform admins; the page itself raises PermissionError for
+anyone else) is the operator's place for every platform feature, in tabs: Overview (servers online/offline,
+agent versions vs the latest published Agent Release, disk ≥ 85 %, sites by status and Frappe major, failed
+Agent Jobs of the last 24 h with desk links, open tickets, MRR of Active subscriptions without billing-exempt
+teams, overdue invoices, recent platform changes), Features & pricing (Nexaploy Plans incl. Add-ons, Storage
+Settings + add-on prices, backup retention limits, agent-upgrade settings, Billing Settings), Storage &
+backups (Storage Profiles CRUD + connection test, platform backup profile, Drive/OneDrive/Dropbox OAuth apps
+with the redirect URI), E-mail relay & Brands, Agent releases (publish/unpublish, bulk/per-server upgrade),
+Marketplace review (approve/reject listings, release status override/re-test, hide reviews), Teams & servers
+(billing_exempt / extended retention / enabled, suspend/unsuspend, credit grants, all servers). API
+`nexaploy.api.admin.*` (every method starts with `_admin()` → `is_platform_admin`, reusing the storage,
+agent-release, publisher, marketplace and billing functions); pure logic `nexaploy/admin_utils.py`. Secrets
+are write-only (`{set, hint}` with a `••••last4` hint; `""` keeps, `"__clear__"` removes). A profile test is a
+`backup.test_remote` with a throw-away rclone config, only on a server allowed to hold the credentials (a
+team bucket: that team's server; a platform bucket: a Hosted / control-plane server). Every change is logged
+with `nexaploy.activity.log_platform_activity(action, ..., team=None)`: the affected team's Team Activity, else
+a row with an empty team (platform marker; customers' Team Activity reads filter on their teams). Actions:
+`platform.*` (`platform.plan_update`, `platform.settings_update`, `platform.billing_update`, …).
+
 ## 10. Activity log (shared contract for Phase 4 features)
 
 Every customer-visible mutation is recorded in **Team Activity** (`team`, `user`, `action`,

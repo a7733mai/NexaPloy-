@@ -1673,3 +1673,252 @@ replica,النسخة المتماثلة
 {0} must be a platform profile (no team),يجب أن يكون {0} ملف تعريف تابعاً للمنصة (بدون فريق)
 {0} must be an Add-on plan,يجب أن تكون {0} خطة إضافة
 {0} needs a {1},{0} يحتاج إلى {1}
+API base URL,عنوان URL الأساسي للواجهة البرمجية
+Access key,مفتاح الوصول
+Add-on prices (per site and month),أسعار الإضافات (لكل موقع شهرياً)
+Addressing,طريقة العنونة
+Administration,الإدارة
+Agent release {0} not found,إصدار الوكيل {0} غير موجود
+Agent releases,إصدارات الوكيل
+Agent repository URL,عنوان مستودع الوكيل
+Agent upgrade timeout (minutes),مهلة ترقية الوكيل (بالدقائق)
+Agent upgrades started,بدأت ترقيات الوكيل
+Agent versions,إصدارات الوكيل
+Agents on servers,الوكلاء على الخوادم
+Alert e-mail,بريد التنبيهات
+All servers,كل الخوادم
+Amount is too large,المبلغ كبير جداً
+Amount must be a number,يجب أن يكون المبلغ رقماً
+Amount must not be zero,يجب ألا يكون المبلغ صفراً
+Apply,تطبيق
+Approve,موافقة
+Are you sure?,هل أنت متأكد؟
+BYOS server plan,خطة خادم BYOS
+Backup storage updated,تم تحديث تخزين النسخ الاحتياطية
+Backups and agents,النسخ الاحتياطية والوكلاء
+Billing enabled,الفوترة مفعّلة
+Billing exempt,معفى من الفوترة
+Brand,العلامة التجارية
+Brand ID,معرّف العلامة التجارية
+Brand ID is required,معرّف العلامة التجارية مطلوب
+Brand deleted,تم حذف العلامة التجارية
+Brand saved,تم حفظ العلامة التجارية
+Brand {0} not found,العلامة التجارية {0} غير موجودة
+Brands (white label),العلامات التجارية (العلامة البيضاء)
+By Frappe version,حسب إصدار Frappe
+CPU s/day,ث معالج/يوم
+CPU seconds per day,ثواني المعالج يومياً
+Cache size per mount,حجم الذاكرة المؤقتة لكل تركيب
+Channel,القناة
+Compare files by,مقارنة الملفات حسب
+Control plane,لوحة التحكم المركزية
+"Credit type must be Promo, Refund or Adjustment",يجب أن يكون نوع الرصيد ترويجياً أو استرداداً أو تسوية
+Credits to add to {0} ({1}); negative = adjustment,الرصيد المراد إضافته إلى {0} ({1})؛ القيمة السالبة = تسوية
+Credits updated,تم تحديث الرصيد
+Currency,العملة
+Customers may upgrade the agent on their own servers,يمكن للعملاء ترقية الوكيل على خوادمهم الخاصة
+Customers may use their own buckets,يمكن للعملاء استخدام حاوياتهم الخاصة
+DKIM record type,نوع سجل DKIM
+DKIM selector,محدد DKIM
+DKIM value,قيمة DKIM
+DMARC policy,سياسة DMARC
+DMARC reports to,إرسال تقارير DMARC إلى
+DR replica,نسخة التعافي من الكوارث
+Daily send limit per site,حد الإرسال اليومي لكل موقع
+Default primary bucket,الحاوية الأساسية الافتراضية
+Default replica bucket,حاوية النسخة الافتراضية
+Default sender domain,نطاق المرسل الافتراضي
+Default site plan,خطة الموقع الافتراضية
+Default trash bucket,حاوية سلة المحذوفات الافتراضية
+Default trash retention (days),مدة الاحتفاظ الافتراضية في سلة المحذوفات (أيام)
+Delete brand {0}?,حذف العلامة التجارية {0}؟
+Delete storage profile {0}?,حذف ملف التخزين {0}؟
+Disk,القرص
+Disk alerts,تنبيهات القرص
+Dropbox app key,مفتاح تطبيق Dropbox
+Dropbox app secret,سر تطبيق Dropbox
+E-mail & brands,البريد والعلامات التجارية
+Encryption,التشفير
+Every active server runs the latest agent of its channel.,كل خادم نشط يشغّل أحدث وكيل في قناته.
+Every release is verified.,كل الإصدارات موثّقة.
+Every server will upload its backups to the selected bucket. Continue?,سترفع كل الخوادم نسخها الاحتياطية إلى الحاوية المحددة. هل تريد المتابعة؟
+Exchange rate,سعر الصرف
+Extended retention,احتفاظ ممتد
+Failed agent jobs in the last 24 hours,مهام الوكيل الفاشلة خلال آخر 24 ساعة
+Failed jobs (24 h),المهام الفاشلة (24 ساعة)
+Favicon URL,عنوان أيقونة الموقع
+Features & pricing,الميزات والأسعار
+Footer text,نص التذييل
+Frappe,Frappe
+Git ref,مرجع Git
+"Google Drive, OneDrive and Dropbox apps",تطبيقات Google Drive وOneDrive وDropbox
+Google client ID,معرّف عميل Google
+Google client secret,سر عميل Google
+Grace days,أيام السماح
+Granted by a platform administrator,منحه مسؤول المنصة
+Included retention (days),مدة الاحتفاظ المضمّنة (أيام)
+Included retention cannot exceed the maximum,لا يمكن أن تتجاوز مدة الاحتفاظ المضمّنة الحد الأقصى
+Integration ID,معرّف التكامل
+Invalid request,طلب غير صالح
+Invalid value for {0},قيمة غير صالحة لـ {0}
+Invoice day,يوم الفوترة
+Invoice day must be between 1 and 31,يجب أن يكون يوم الفوترة بين 1 و31
+Keep a local copy after offloading,الاحتفاظ بنسخة محلية بعد النقل
+Latest,الأحدث
+Leave empty to keep,اتركه فارغاً للإبقاء عليه
+Lift the billing suspension of {0}?,رفع إيقاف الفوترة عن {0}؟
+Limits,الحدود
+Listing updated,تم تحديث الإدراج
+Listings in review,إدراجات قيد المراجعة
+Listings waiting for review,إدراجات بانتظار المراجعة
+MRR,الإيراد الشهري المتكرر
+Managed e-mail relay,مرحّل البريد المُدار
+Marketplace review,مراجعة المتجر
+Max database (MB),أقصى حجم لقاعدة البيانات (ميغابايت)
+Max deletions per sync,أقصى عدد حذف لكل مزامنة
+Max local retention (days),أقصى احتفاظ محلي (أيام)
+Max monthly backups kept,أقصى عدد للنسخ الشهرية المحتفظ بها
+Max sites,أقصى عدد للمواقع
+Max storage (MB),أقصى تخزين (ميغابايت)
+Max trash retention (days),أقصى احتفاظ في سلة المحذوفات (أيام)
+Maximum retention (days),أقصى مدة احتفاظ (أيام)
+Maximum top-up,أقصى مبلغ شحن
+Microsoft client ID,معرّف عميل Microsoft
+Microsoft client secret,سر عميل Microsoft
+Microsoft tenant,مستأجر Microsoft
+Minimum retention (days),أدنى مدة احتفاظ (أيام)
+Minimum retention cannot exceed the maximum,لا يمكن أن تتجاوز أدنى مدة احتفاظ الحد الأقصى
+Minimum top-up,أدنى مبلغ شحن
+Minimum top-up cannot exceed the maximum,لا يمكن أن يتجاوز أدنى مبلغ شحن الحد الأقصى
+New brand,علامة تجارية جديدة
+New plan,خطة جديدة
+New profile,ملف جديد
+New release,إصدار جديد
+No active server can test this bucket,لا يوجد خادم نشط يمكنه اختبار هذه الحاوية
+No brands yet: the portal uses the built-in Nexaploy look.,لا توجد علامات تجارية بعد: تستخدم البوابة مظهر Nexaploy المدمج.
+No failed jobs.,لا توجد مهام فاشلة.
+No plan is linked,لا توجد خطة مرتبطة
+No platform changes yet.,لا توجد تغييرات على المنصة بعد.
+No server is above 85 % disk usage.,لا يوجد خادم تجاوز استخدام القرص فيه 85 %.
+No storage profiles yet.,لا توجد ملفات تخزين بعد.
+None (manual settings),لا شيء (إعدادات يدوية)
+Not set,غير معيّن
+Notes to the publisher,ملاحظات للناشر
+Nothing to review.,لا يوجد ما يُراجع.
+Offsite attachments,المرفقات خارج الخادم
+"Offsite attachments, DR replica and trash bin",المرفقات خارج الخادم ونسخة التعافي وسلة المحذوفات
+Only an adjustment can remove credits,التسوية فقط يمكنها خصم الرصيد
+Open tickets,التذاكر المفتوحة
+Order,الترتيب
+Outdated,قديم
+Outdated agents,وكلاء قديمون
+Over the limit,عند تجاوز الحد
+Overdue invoices,الفواتير المتأخرة
+Override,تجاوز
+Path prefix,بادئة المسار
+Path style,نمط المسار
+Plan saved,تم حفظ الخطة
+Plan title is required,عنوان الخطة مطلوب
+Plan title must be 2-80 characters,يجب أن يكون عنوان الخطة بين 2 و80 حرفاً
+Plan type is required,نوع الخطة مطلوب
+Plan {0} not found,الخطة {0} غير موجودة
+Plans and add-ons,الخطط والإضافات
+Platform,المنصة
+Platform backup storage,تخزين النسخ الاحتياطية للمنصة
+Platform default brand,العلامة التجارية الافتراضية للمنصة
+Portal domains,نطاقات البوابة
+Portal domains (one per line),نطاقات البوابة (واحد في كل سطر)
+Preset default,الإعداد الافتراضي
+Preview outdated,معاينة القديمة
+Price per month,السعر الشهري
+Primary colour,اللون الأساسي
+Profile ID,معرّف الملف
+Publish,نشر
+Publishable key,المفتاح القابل للنشر
+Reason (shown in the team's credit ledger),السبب (يظهر في سجل رصيد الفريق)
+Recent platform changes,أحدث تغييرات المنصة
+Redirect URI to register with each provider,عنوان إعادة التوجيه لتسجيله لدى كل مزوّد
+Reference,المرجع
+Region label,تسمية المنطقة
+Registry,السجل
+Registry password,كلمة مرور السجل
+Registry user,مستخدم السجل
+Reject,رفض
+Release notes,ملاحظات الإصدار
+Release published,تم نشر الإصدار
+Release saved,تم حفظ الإصدار
+Release unpublished,تم إلغاء نشر الإصدار
+Release updated,تم تحديث الإصدار
+Released,تاريخ الإصدار
+Releases waiting for or failing verification,إصدارات بانتظار التحقق أو فشل التحقق منها
+Remove the stored value of {0}?,إزالة القيمة المخزنة لـ {0}؟
+Replication interval (minutes),فترة النسخ المتماثل (دقائق)
+Return URL after payment,عنوان العودة بعد الدفع
+Return-Path host,مضيف Return-Path
+Return-Path value,قيمة Return-Path
+Review updated,تم تحديث المراجعة
+Reviews,المراجعات
+SMTP host,مضيف SMTP
+SMTP port,منفذ SMTP
+SPF include,تضمين SPF
+Saving a change re-configures the relay on every site that uses it.,حفظ أي تغيير يعيد إعداد المرحّل على كل موقع يستخدمه.
+Search teams,البحث في الفرق
+Secret key,المفتاح السري
+Secrets are never shown. Leave a secret empty to keep it.,لا تُعرض الأسرار أبداً. اترك الحقل فارغاً للإبقاء على القيمة.
+Sender address,عنوان المرسل
+Sender name,اسم المرسل
+Server BYOS,خادم BYOS
+Server Hosted,خادم مستضاف
+Server health,صحة الخوادم
+Server {0} cannot be used to test this bucket,لا يمكن استخدام الخادم {0} لاختبار هذه الحاوية
+Set,معيّن
+Set status,تعيين الحالة
+Settings saved,تم حفظ الإعدادات
+Sign-up credits,رصيد التسجيل
+Sites by status,المواقع حسب الحالة
+Storage & backups,التخزين والنسخ الاحتياطية
+Storage profile deleted,تم حذف ملف التخزين
+Storage profile saved,تم حفظ ملف التخزين
+Storage profiles (S3-compatible buckets),ملفات التخزين (حاويات متوافقة مع S3)
+Submitted,تاريخ الإرسال
+Support e-mail,بريد الدعم
+Suspend after (days),الإيقاف بعد (أيام)
+Suspend every active site of {0}?,إيقاف كل المواقع النشطة لـ {0}؟
+Tax (%),الضريبة (%)
+Tax must be between 0 and 100 %,يجب أن تكون الضريبة بين 0 و100 %
+Team suspended,تم إيقاف الفريق
+Team unsuspended,تم رفع الإيقاف عن الفريق
+Team updated,تم تحديث الفريق
+Teams,الفرق
+Teams & servers,الفرق والخوادم
+Teams still use brand {0}; disable it instead,ما زالت فرق تستخدم العلامة التجارية {0}؛ عطّلها بدلاً من ذلك
+Teams with the extended retention add-on,الفرق التي لديها إضافة الاحتفاظ الممتد
+Unknown review action {0},إجراء مراجعة غير معروف {0}
+Unknown secret {0},سر غير معروف {0}
+Unpublish,إلغاء النشر
+Unsuspend,رفع الإيقاف
+Upgrade,ترقية
+Upgrade all outdated servers,ترقية كل الخوادم القديمة
+Upgrade the agent on every outdated server now?,ترقية الوكيل على كل الخوادم القديمة الآن؟
+Upgrade the agent on {0} to {1}?,ترقية الوكيل على {0} إلى {1}؟
+Use this storage profile for database backups,استخدام ملف التخزين هذا لنسخ قواعد البيانات الاحتياطية
+Username,اسم المستخدم
+Verify the SMTP login when sites are configured,التحقق من تسجيل دخول SMTP عند إعداد المواقع
+Version is required,الإصدار مطلوب
+Virtual-hosted style,نمط الاستضافة الافتراضية
+Wheel SHA-256,SHA-256 لحزمة Wheel
+Wheel URL,عنوان حزمة Wheel
+active subscriptions,اشتراكات نشطة
+first response overdue,الرد الأول متأخر
+iframe ID,معرّف iframe
+online,متصل
+overdue,متأخرة
+published,منشورة
+sites,مواقع
+suspended,موقوفة
+teams,فرق
+{0} is too long,{0} طويل جداً
+{0} must be a 3-letter currency code,يجب أن يكون {0} رمز عملة من 3 أحرف
+{0} must be an e-mail address,يجب أن يكون {0} عنوان بريد إلكتروني
+{0} must be an https URL,يجب أن يكون {0} عنوان https
+{0} must be one of {1},يجب أن يكون {0} أحد: {1}
