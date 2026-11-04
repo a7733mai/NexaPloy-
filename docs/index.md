@@ -47,6 +47,11 @@ you, or **bring your own server** (BYOS) and let Nexaploy manage it.
 
 ## Where to go next
 
+- **[Operator guide](guide/operator.md)**: for the platform owner. Installation (all-in-one or
+  hosted + BYOS), the Administration area, pricing and payments, storage, e-mail, branding,
+  agent releases, server health and OS updates, daily operations, disaster recovery, CLI.
+- **[Customer guide](guide/customer.md)**: for customers. Teams, servers, bench groups, sites,
+  apps, domains, backups and restore, safe updates, monitoring, notifications, billing, support.
 - [Quick start](quick-start.md): everything on one server, or a hosted control plane with BYOS servers.
 - [Install reference](install.md): every `install.sh` option.
 - [Operating](operating.md): backups, updates, agent upgrades, moving sites, Frappe versions.
@@ -55,8 +60,8 @@ you, or **bring your own server** (BYOS) and let Nexaploy manage it.
 
 ## New features { #new }
 
-These features are being added now. Each line says what the feature does. Details will
-be documented when the feature is released.
+Each line says what the feature does. How to use them is explained in the
+[operator guide](guide/operator.md) and the [customer guide](guide/customer.md).
 
 | Feature | What it does |
 |---|---|

@@ -63,6 +63,9 @@ plugins:
             Troubleshooting: حل المشكلات
             Security model: نموذج الأمان
             FAQ: الأسئلة الشائعة
+            Guides: الأدلة
+            Operator guide: دليل المشغّل
+            Customer guide: دليل العميل
 
 markdown_extensions:
   - admonition
@@ -81,6 +84,9 @@ markdown_extensions:
 nav:
   - Overview: index.md
   - Quick start: quick-start.md
+  - Guides:
+      - Operator guide: guide/operator.md
+      - Customer guide: guide/customer.md
   - Install reference: install.md
   - Operating: operating.md
   - Troubleshooting: troubleshooting.md
