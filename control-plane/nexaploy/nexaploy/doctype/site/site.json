@@ -19,6 +19,15 @@
   "apps",
   "section_break_domains",
   "domains",
+  "section_break_tls",
+  "tls_status",
+  "tls_issuer",
+  "tls_expires_on",
+  "column_break_tls",
+  "tls_checked_at",
+  "tls_message",
+  "tls_detail",
+  "tls_alert_marker",
   "section_break_backups",
   "backup_frequency",
   "backup_retention_days",
@@ -145,6 +154,62 @@
    "fieldtype": "Table",
    "label": "Domains",
    "options": "Site Domain"
+  },
+  {
+   "fieldname": "section_break_tls",
+   "fieldtype": "Section Break",
+   "label": "TLS (primary hostname)",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "tls_status",
+   "fieldtype": "Select",
+   "label": "TLS Status",
+   "read_only": 1,
+   "options": "\nValid\nExpiring\nExpired\nDefault Certificate\nPending\nUntrusted\nError"
+  },
+  {
+   "fieldname": "tls_issuer",
+   "fieldtype": "Data",
+   "label": "Certificate Issuer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tls_expires_on",
+   "fieldtype": "Datetime",
+   "label": "Certificate Expires On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_tls",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "tls_checked_at",
+   "fieldtype": "Datetime",
+   "label": "TLS Checked At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tls_message",
+   "fieldtype": "Small Text",
+   "label": "TLS Message",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tls_detail",
+   "fieldtype": "JSON",
+   "label": "TLS Detail",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "tls_alert_marker",
+   "fieldtype": "Int",
+   "label": "TLS Alert Marker",
+   "read_only": 1,
+   "hidden": 1,
+   "description": "Lowest expiry threshold (days + 1) already notified; 0 = none"
   },
   {
    "fieldname": "section_break_backups",
@@ -381,7 +446,7 @@
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-28 12:00:00.000000",
+ "modified": "2026-12-01 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Site",

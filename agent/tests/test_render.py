@@ -81,7 +81,11 @@ def test_route_render():
     assert router["entryPoints"] == ["websecure"]
     assert router["tls"]["certResolver"] == "letsencrypt"
     assert router["middlewares"] == ["site-erp-example-com-name@file", "security-headers@file", "compress@file"]
-    assert router["rule"] == "Host(`erp.example.com`) || Host(`www.example.com`)"
+    assert router["rule"] == "Host(`erp.example.com`)"
+    # each custom domain has its own router (and so its own ACME certificate)
+    www = doc["http"]["routers"]["site-erp-example-com--www-example-com"]
+    assert www["rule"] == "Host(`www.example.com`)" and www["service"] == "svc-erp-example-com"
+    assert www["tls"]["certResolver"] == "letsencrypt"
     servers = doc["http"]["services"]["svc-erp-example-com"]["loadBalancer"]["servers"]
     assert servers == [{"url": "http://erp-v15-frontend:8080"}]
 

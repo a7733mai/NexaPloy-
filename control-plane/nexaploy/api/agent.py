@@ -255,6 +255,9 @@ def heartbeat(server_id=None, facts=None, benches=None, agent_version=None, **kw
 		values["benches_report"] = frappe.as_json(_load_json(benches, []))
 	if agent_version:
 		values["agent_version"] = agent_version
+	request_ip = getattr(frappe.local, "request_ip", None)
+	if request_ip:
+		values["agent_ip"] = request_ip  # fallback DNS target for custom domains
 	previous_status, provisioning_status = frappe.db.get_value(
 		"Server", server, ["status", "provisioning_status"]
 	)
@@ -277,6 +280,10 @@ def heartbeat(server_id=None, facts=None, benches=None, agent_version=None, **kw
 	except Exception:
 		frappe.log_error(title=f"Nexaploy: heartbeat metrics failed for {server}")
 	ops.ingest_usage(server, kwargs.get("usage"))  # never raises
+	if kwargs.get("tls"):
+		from nexaploy.domains import ingest_tls
+
+		ingest_tls(server, kwargs.get("tls"))  # never raises
 	pending = frappe.db.count("Agent Job", {"server": server, "status": "Pending"})
 	return {"ok": True, "pending_jobs": pending}
 

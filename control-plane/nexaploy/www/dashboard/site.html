@@ -5,6 +5,8 @@
 {% block head %}
 {# site tools (usage, backup downloads, config editor): plain script so it registers before Alpine starts #}
 <script src="/assets/nexaploy/js/site_tools.js"></script>
+{# custom domains: DNS verification and TLS health #}
+<script src="/assets/nexaploy/js/domains.js"></script>
 <style>
 	.nx-meter { height: 8px; border-radius: 99px; background: var(--nx-border); overflow: hidden; }
 	.nx-meter > span { display: block; height: 100%; background: var(--nx-primary); border-radius: inherit; }
@@ -123,30 +125,118 @@
 				</section>
 			</div>
 
-			<!-- Domains -->
-			<section class="card" x-show="tab === 'domains'">
-				<div class="card-head"><h2>{{ _("Domains") }}</h2></div>
+			<!-- Domains (nxDomains: public/js/domains.js) -->
+			<section class="card" x-show="tab === 'domains'" x-data="nxDomains">
+				<div class="card-head">
+					<h2>{{ _("Domains") }}</h2>
+					<button class="btn sm" type="button" x-show="dn && dn.can_write" :disabled="dnBusy.tls || !site || site.status !== 'Active'" @click="checkTls()">{{ _("Check certificates") }}</button>
+				</div>
 				<div class="card-body stack">
 					<form class="row" @submit.prevent="addDomain()">
-						<input class="input ltr" style="max-width: 360px" type="text" x-model="domain" placeholder="erp.example.com" spellcheck="false">
-						<button class="btn primary" type="submit" :disabled="site.status !== 'Active' || busy.add_domain || !domain.trim()">{{ _("Add domain") }}</button>
+						<input class="input ltr" style="max-width: 360px" type="text" x-model="newDomain" @change="previewRecords()" placeholder="erp.example.com" spellcheck="false">
+						<button class="btn primary" type="submit" :disabled="!canWrite() || dnBusy.add || !newDomain.trim()">{{ _("Add domain") }}</button>
+						<template x-if="dn && dn.is_admin">
+							<label class="small"><input type="checkbox" x-model="skipNew"> {{ _("Skip DNS verification (administrator)") }}</label>
+						</template>
 					</form>
-					<div class="small muted">{{ _("Point a CNAME (or A record) for the domain to your site before adding it, so the certificate can be issued.") }}</div>
+					<div class="small muted">{{ _("Create the DNS record first: a CNAME to the site's address for a subdomain, or an A record to the server's IP for a root domain. We verify it before adding the domain, then issue a free Let's Encrypt certificate.") }}</div>
+					<template x-if="preview && preview.records.length">
+						<div class="small">
+							<div class="muted">{{ _("DNS records you can create (one is enough):") }} <span class="ltr" x-text="preview.domain"></span></div>
+							<table class="nx-table">
+								<tbody>
+									<template x-for="r in preview.records" :key="r.type + r.value">
+										<tr>
+											<td class="mono" x-text="r.type"></td>
+											<td class="mono ltr" x-text="r.name"></td>
+											<td class="mono ltr" x-text="r.value"></td>
+											<td class="actions">
+												<template x-if="r.recommended"><span class="badge plain">{{ _("Recommended") }}</span></template>
+												<button class="btn sm" type="button" @click="copy(r.value)">{{ _("Copy") }}</button>
+											</td>
+										</tr>
+									</template>
+								</tbody>
+							</table>
+						</div>
+					</template>
+					<template x-if="dnError"><div class="alert danger" x-text="dnError"></div></template>
+					<template x-if="dnLoading && !dn"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
 				</div>
 				<div class="card-body flush">
 					<table class="nx-table">
 						<tbody>
 							<tr>
-								<td class="ltr" x-text="site.name"></td>
+								<td>
+									<div class="ltr" x-text="site.name"></div>
+									<template x-if="dn && dn.primary.tls.status">
+										<div class="small muted">
+											<span :class="tlsClass(dn.primary.tls.status)" x-text="__(dn.primary.tls.status)"></span>
+											<template x-if="dn.primary.tls.issuer"><span x-text="' ' + dn.primary.tls.issuer"></span></template>
+											<template x-if="dn.primary.tls.expires_on"><span x-text="' · ' + __('expires {0}', [fmt(dn.primary.tls.expires_on)])"></span></template>
+										</div>
+									</template>
+									<template x-if="dn && dn.primary.tls.message && dn.primary.tls.status !== 'Valid'">
+										<div class="small" x-text="dn.primary.tls.message"></div>
+									</template>
+								</td>
 								<td class="actions"><span class="badge plain">{{ _("Primary") }}</span></td>
 							</tr>
-							<template x-for="d in site.domains" :key="d.domain">
+							<template x-for="d in (dn ? dn.domains : site.domains)" :key="d.domain">
 								<tr>
-									<td><a class="ltr" :href="'https://' + d.domain" target="_blank" rel="noopener" x-text="d.domain"></a></td>
+									<td>
+										<div>
+											<a class="ltr" :href="'https://' + d.domain" target="_blank" rel="noopener" x-text="d.domain"></a>
+											<span :class="domainClass(d.status)" x-text="__(d.status)"></span>
+											<template x-if="d.verification_type"><span class="badge plain" x-text="d.verification_type === 'Skipped' ? __('DNS check skipped') : d.verification_type"></span></template>
+											<template x-if="d.proxied"><span class="badge warning">{{ _("Cloudflare proxy") }}</span></template>
+										</div>
+										<template x-if="d.tls && d.tls.status">
+											<div class="small muted">
+												<span :class="tlsClass(d.tls.status)" x-text="__(d.tls.status)"></span>
+												<template x-if="d.tls.issuer"><span x-text="' ' + d.tls.issuer"></span></template>
+												<template x-if="d.tls.expires_on"><span x-text="' · ' + __('expires {0}', [fmt(d.tls.expires_on)])"></span></template>
+											</div>
+										</template>
+										<template x-if="d.tls && d.tls.message && ['Valid', 'Pending'].indexOf(d.tls.status) === -1">
+											<div class="alert warning small" style="margin-block-start: 6px" x-text="d.tls.message"></div>
+										</template>
+										<template x-if="d.message && d.status !== 'Active'">
+											<div class="small" :class="d.status === 'Broken' ? 'alert danger' : 'muted'" style="margin-block-start: 6px" x-text="d.message"></div>
+										</template>
+										<template x-if="needsDns(d) && d.records && d.records.length">
+											<div class="small" style="margin-block-start: 8px">
+												<div class="muted">{{ _("Create one of these DNS records at your DNS provider:") }}</div>
+												<table class="nx-table">
+													<tbody>
+														<template x-for="r in d.records" :key="r.type + r.value">
+															<tr>
+																<td class="mono" x-text="r.type"></td>
+																<td class="mono ltr" x-text="r.name"></td>
+																<td class="mono ltr" x-text="r.value"></td>
+																<td class="actions">
+																	<template x-if="r.recommended"><span class="badge plain">{{ _("Recommended") }}</span></template>
+																	<button class="btn sm" type="button" @click="copy(r.value)">{{ _("Copy") }}</button>
+																</td>
+															</tr>
+														</template>
+													</tbody>
+												</table>
+												<div class="muted" x-show="d.status === 'Pending DNS'">
+													<span x-text="__('Last checked {0}.', [ago(d.last_checked_at)])"></span>
+													<span x-text="__('We check automatically for {0} hours after the domain was added.', [dn.give_up_hours])"></span>
+												</div>
+											</div>
+										</template>
+									</td>
 									<td class="actions">
-										<span :class="nx.statusClass(d.status)" x-text="__(d.status)"></span>
-										<button class="btn sm danger" type="button" :disabled="site.status !== 'Active' || d.status === 'Removing' || busy.remove_domain"
-											@click="run('remove_domain', { domain: d.domain }, __('Remove domain {0}?', [d.domain]))">{{ _("Remove") }}</button>
+										<template x-if="dn">
+											<span>
+												<button class="btn sm" type="button" x-show="d.status !== 'Removing'" :disabled="!canWrite() || dnBusy[d.domain]" @click="verify(d)">{{ _("Verify now") }}</button>
+												<button class="btn sm" type="button" x-show="dn.is_admin && needsDns(d)" :disabled="dnBusy[d.domain]" @click="toggleSkip(d)" x-text="d.skip_dns_check ? __('Require DNS check') : __('Skip DNS check')"></button>
+												<button class="btn sm danger" type="button" :disabled="!canWrite() || d.status === 'Removing' || dnBusy[d.domain]" @click="remove(d)">{{ _("Remove") }}</button>
+											</span>
+										</template>
 									</td>
 								</tr>
 							</template>

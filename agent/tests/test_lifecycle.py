@@ -199,9 +199,9 @@ def test_site_rename(ctx, worker, runner):
     assert cfg["db_name"] == "_abc"  # same database
     assert cfg["maintenance_mode"] == 0 and seen["maintenance"] == 1
     assert not ctx.proxy.has_route("old.example.com")
-    rule = yaml.safe_load(ctx.proxy.route_path("new.example.com").read_text())["http"]["routers"][
-        "site-new-example-com"]["rule"]
-    assert rule == "Host(`new.example.com`) || Host(`www.example.com`) || Host(`old.example.com`)"
+    routers = yaml.safe_load(ctx.proxy.route_path("new.example.com").read_text())["http"]["routers"]
+    assert [r["rule"] for r in routers.values()] == [
+        "Host(`new.example.com`)", "Host(`www.example.com`)", "Host(`old.example.com`)"]
     assert runner.called("--site new.example.com clear-cache")
     assert ctx.sites.find_bench("new.example.com") == "erp-v15"
 

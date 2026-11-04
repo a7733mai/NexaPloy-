@@ -264,6 +264,10 @@ def create_app(ctx: AgentContext | None = None, settings: Settings | None = None
     def collect_usage(body: dict[str, Any] | None = Body(None)):
         return accepted("site.usage", dict(body or {}))
 
+    @app.post("/v1/tls-status", dependencies=auth, status_code=202)
+    def tls_status(body: dict[str, Any] | None = Body(None)):
+        return accepted("site.tls_status", dict(body or {}))
+
     @app.delete("/v1/sites/{site}", dependencies=auth, status_code=202)
     def drop_site(site: str, skip_backup: bool = Query(False), body: dict[str, Any] | None = Body(None)):
         params = body_with(body, site=site)

@@ -14,6 +14,7 @@ from .runtime.docker import Docker, LoggingRunner, Runner, SubprocessRunner
 from .runtime.image import ImageBuilder
 from .runtime.proxy import ProxyManager
 from .runtime.site import SiteManager
+from .runtime.tls import TlsChecker
 from .runtime.usage import UsageCollector
 
 
@@ -30,6 +31,7 @@ class AgentContext:
         self.proxy = ProxyManager(settings.proxy_sites_dir, templates)
         self.images = ImageBuilder(settings, self.runner)
         self.usage = UsageCollector(settings, self.runner, self.benches, self.sites)
+        self.tls = TlsChecker(settings, self.sites)
         self.store = store or JobStore(settings.jobs_db)
         # Set when a job is enqueued in this process so the worker wakes early.
         self.wake = threading.Event()

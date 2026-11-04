@@ -43,6 +43,8 @@
   "provider_server_id",
   "public_ipv4",
   "public_ipv6",
+  "dns_target_ips",
+  "agent_ip",
   "provisioning_started_at",
   "provisioning_error"
  ],
@@ -288,6 +290,19 @@
    "read_only": 1
   },
   {
+   "fieldname": "dns_target_ips",
+   "fieldtype": "Small Text",
+   "label": "DNS Target IPs (override)",
+   "description": "Custom domains must point here (A/AAAA). Comma separated. Leave empty to use the public IPv4/IPv6 above and the addresses the agent reports; set it for a floating IP, load balancer or NAT."
+  },
+  {
+   "fieldname": "agent_ip",
+   "fieldtype": "Data",
+   "label": "Agent Source IP",
+   "read_only": 1,
+   "description": "Address the agent's last heartbeat came from (fallback DNS target)."
+  },
+  {
    "fieldname": "provisioning_started_at",
    "fieldtype": "Datetime",
    "label": "Provisioning Started At",
@@ -303,7 +318,7 @@
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-28 12:00:00.000000",
+ "modified": "2026-12-01 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Server",

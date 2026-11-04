@@ -7,7 +7,27 @@
  "engine": "InnoDB",
  "field_order": [
   "domain",
-  "status"
+  "status",
+  "verification_type",
+  "skip_dns_check",
+  "proxied",
+  "column_break_dns",
+  "dns_requested_at",
+  "last_checked_at",
+  "dns_check_attempts",
+  "activated_at",
+  "section_break_dns_message",
+  "dns_check_message",
+  "dns_check_detail",
+  "section_break_tls",
+  "tls_status",
+  "tls_issuer",
+  "tls_expires_on",
+  "column_break_tls",
+  "tls_checked_at",
+  "tls_message",
+  "tls_detail",
+  "tls_alert_marker"
  ],
  "fields": [
   {
@@ -18,19 +38,143 @@
    "reqd": 1
   },
   {
-   "default": "Pending",
+   "default": "Pending DNS",
    "fieldname": "status",
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Status",
-   "options": "Pending\nActive\nRemoving\nBroken",
+   "options": "Pending DNS\nVerifying\nPending\nActive\nRemoving\nBroken",
    "read_only": 1
+  },
+  {
+   "fieldname": "verification_type",
+   "fieldtype": "Select",
+   "label": "Verification",
+   "read_only": 1,
+   "options": "\nA\nCNAME\nSkipped",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "skip_dns_check",
+   "fieldtype": "Check",
+   "label": "Skip DNS Verification",
+   "default": "0",
+   "description": "Administrators only: send the domain to the server without checking DNS (e.g. behind the Cloudflare proxy)."
+  },
+  {
+   "fieldname": "proxied",
+   "fieldtype": "Check",
+   "label": "Proxied (Cloudflare)",
+   "read_only": 1,
+   "default": "0"
+  },
+  {
+   "fieldname": "column_break_dns",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "dns_requested_at",
+   "fieldtype": "Datetime",
+   "label": "DNS Requested At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_checked_at",
+   "fieldtype": "Datetime",
+   "label": "Last Checked At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "dns_check_attempts",
+   "fieldtype": "Int",
+   "label": "DNS Check Attempts",
+   "read_only": 1,
+   "default": "0"
+  },
+  {
+   "fieldname": "activated_at",
+   "fieldtype": "Datetime",
+   "label": "Activated At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_dns_message",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "dns_check_message",
+   "fieldtype": "Small Text",
+   "label": "DNS Check Message",
+   "read_only": 1
+  },
+  {
+   "fieldname": "dns_check_detail",
+   "fieldtype": "JSON",
+   "label": "DNS Check Detail",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "section_break_tls",
+   "fieldtype": "Section Break",
+   "label": "TLS",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "tls_status",
+   "fieldtype": "Select",
+   "label": "TLS Status",
+   "read_only": 1,
+   "options": "\nValid\nExpiring\nExpired\nDefault Certificate\nPending\nUntrusted\nError"
+  },
+  {
+   "fieldname": "tls_issuer",
+   "fieldtype": "Data",
+   "label": "Certificate Issuer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tls_expires_on",
+   "fieldtype": "Datetime",
+   "label": "Certificate Expires On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_tls",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "tls_checked_at",
+   "fieldtype": "Datetime",
+   "label": "TLS Checked At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tls_message",
+   "fieldtype": "Small Text",
+   "label": "TLS Message",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tls_detail",
+   "fieldtype": "JSON",
+   "label": "TLS Detail",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "tls_alert_marker",
+   "fieldtype": "Int",
+   "label": "TLS Alert Marker",
+   "read_only": 1,
+   "hidden": 1,
+   "description": "Lowest expiry threshold (days + 1) already notified; 0 = none"
   }
  ],
  "index_web_pages_for_search": 0,
  "istable": 1,
  "links": [],
- "modified": "2026-11-03 12:00:00.000000",
+ "modified": "2026-12-01 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Site Domain",

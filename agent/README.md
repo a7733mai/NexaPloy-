@@ -270,3 +270,18 @@ The GET routes enqueue a job like every other route (`202 {job_id}`); jobs still
   `frappe.db.commit()` if `commit` else `rollback()`, `frappe.destroy()`; `signal.alarm(timeout)` inside the
   container. Refused when the bench is down or (without `allow_shared_bench`) hosts other sites.
 - `site.sql` in write mode and `site.console` are not re-run when a crash interrupted them (the resumed step fails).
+
+## TLS status (custom domain health)
+
+**`site.tls_status`** `{site?, domains?}` (also `POST /v1/tls-status`) — step `check`
+(`nexaploy_agent/runtime/tls.py`). For every routed host (all sites, one site, or the listed domains) the
+agent connects to Traefik on `127.0.0.1:<HTTPS_PORT>` (`proxy/.env`, default 443) with SNI = host, first
+verified (system CA store), then — when verification fails — unverified to still describe the certificate
+(decoded with CPython's own DER decoder, no extra dependency). Per host: `trusted`, `not_before`,
+`not_after` (ISO UTC), `issuer`, `subject_cn`, `sans`, `default_cert` (Traefik's `TRAEFIK DEFAULT CERT`,
+i.e. ACME has not issued one), `verify_error`, `error`. Probes run 8 in parallel with a 5 s timeout.
+The heartbeat carries the same report as `tls` at most every 10 minutes, and `facts.public_ips` lists the
+global source addresses of the default IPv4/IPv6 routes (DNS targets for custom domains).
+
+Routes: one Traefik router per host (`site-<slug>` for the primary name, `site-<slug>--<host slug>` per custom
+domain), so each host gets its own certificate and a broken custom domain cannot block the others.
