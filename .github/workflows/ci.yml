@@ -48,6 +48,7 @@ jobs:
       - run: bash -n agent/install/install.sh image-builder/build.sh
       - run: shellcheck -S warning image-builder/build.sh agent/install/install.sh
       - run: bash image-builder/tests/test_build_sh.sh
+      - run: bash agent/install/tests/test_os_upgrade.sh
 
   release-tooling:
     runs-on: ubuntu-latest

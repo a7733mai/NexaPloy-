@@ -32,6 +32,9 @@ FORCE_REGISTER=0
 SKIP_PACKAGES=0
 NO_SYSTEMD=0
 SKIP_FRAPPE_DOCKER=0
+OS_UPGRADE=1
+HWE_KERNEL=0
+REBOOT=auto        # auto: reboot at the end when the OS upgrade needs it; no: never
 CP_DOMAIN=""
 CP_IMAGE="${NEXAPLOY_CONTROL_PLANE_IMAGE:-ghcr.io/a7733mai/nexaploy-control-plane:16}"
 CP_BENCH="nexaploy-cp"
@@ -57,6 +60,12 @@ Usage: install.sh [options]
   --skip-packages          do not install OS packages (Docker, rclone, ... must already exist)
   --no-systemd             do not install systemd units (run `nexaploy-agent api|worker` yourself)
   --skip-frappe-docker     do not clone frappe_docker (no image builds on this server)
+
+ Server update (done first, before anything is installed):
+  --no-os-upgrade          do not run the full system upgrade (apt full-upgrade incl. kernel)
+  --hwe-kernel             Ubuntu: also install the newer HWE kernel (linux-generic-hwe-<ver>)
+  --no-reboot              never reboot; by default the server reboots 1 minute after a
+                           successful install when the upgrade requires it (new kernel)
 
  All-in-one (control plane on this server):
   --with-control-plane DOMAIN  also install the control plane at https://DOMAIN (a bench +
@@ -92,6 +101,9 @@ while [[ $# -gt 0 ]]; do
         --skip-packages)     SKIP_PACKAGES=1; shift ;;
         --no-systemd)        NO_SYSTEMD=1; shift ;;
         --skip-frappe-docker) SKIP_FRAPPE_DOCKER=1; shift ;;
+        --no-os-upgrade)     OS_UPGRADE=0; shift ;;
+        --hwe-kernel)        HWE_KERNEL=1; shift ;;
+        --no-reboot)         REBOOT=no; shift ;;
         --with-control-plane) need_val "$@"; CP_DOMAIN="${2,,}"; shift 2 ;;
         --control-plane-image) need_val "$@"; CP_IMAGE="$2"; shift 2 ;;
         --control-plane-port) need_val "$@"; CP_PORT="$2"; shift 2 ;;
@@ -124,6 +136,8 @@ if [[ $ORIG_ARGC -eq 0 && $ASSUME_YES -eq 0 ]] && ( : </dev/tty ) 2>/dev/null; t
         3) ;;
         *) die "invalid choice: $REPLY" ;;
     esac
+    ask "Update the whole server (packages + kernel) first, and reboot at the end if needed? [Y/n]: " "y"
+    case "${REPLY,,}" in n|no) OS_UPGRADE=0; REBOOT=no ;; esac
     exec 3<&-
 fi
 
@@ -178,12 +192,59 @@ preflight() {
     done
 }
 
-# --------------------------------------------------------------------------- 2. packages
+# --------------------------------------------------------------------------- 2. OS upgrade (first)
+BOOT_DIR="${NEXAPLOY_BOOT_DIR:-/boot}"                       # overridable for tests
+REBOOT_REQUIRED_FILE="${NEXAPLOY_REBOOT_REQUIRED_FILE:-/var/run/reboot-required}"
+APT_OPTS=(-y -qq -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold
+          -o DPkg::Lock::Timeout=600)
+
+os_upgrade() {
+    export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a NEEDRESTART_SUSPEND=1
+    local kernel_before; kernel_before="$(uname -r)"
+    log "updating the whole server first (apt full-upgrade, kernel included); this can take a few minutes"
+    apt-get update -qq -o DPkg::Lock::Timeout=600
+    apt-get "${APT_OPTS[@]}" full-upgrade >/dev/null || die "system upgrade failed (apt-get full-upgrade)"
+    if [[ $HWE_KERNEL -eq 1 ]]; then
+        . /etc/os-release
+        if [[ "${ID:-}" == ubuntu ]]; then
+            log "installing the HWE kernel (linux-generic-hwe-${VERSION_ID})"
+            apt-get "${APT_OPTS[@]}" install --install-recommends "linux-generic-hwe-${VERSION_ID}" >/dev/null \
+                || warn "HWE kernel not available for Ubuntu ${VERSION_ID}; keeping the GA kernel"
+        else
+            warn "--hwe-kernel only applies to Ubuntu; skipped"
+        fi
+    fi
+    apt-get "${APT_OPTS[@]}" autoremove --purge >/dev/null || true
+    apt-get clean
+    local newest
+    newest="$(ls -1 "$BOOT_DIR"/vmlinuz-* 2>/dev/null | sed "s|^$BOOT_DIR/vmlinuz-||" | sort -V | tail -1)"
+    if [[ -f "$REBOOT_REQUIRED_FILE" ]] || [[ -n "$newest" && "$newest" != "$kernel_before" ]]; then
+        NEEDS_REBOOT=1
+        log "server updated; running kernel $kernel_before, newest installed ${newest:-?} (reboot required)"
+    else
+        log "server updated; kernel $kernel_before is current"
+    fi
+}
+
+finish_reboot() {
+    [[ "${NEEDS_REBOOT:-0}" -eq 1 ]] || return 0
+    if [[ "$REBOOT" == no ]]; then
+        warn "a reboot is required to finish the system upgrade (new kernel): run 'sudo reboot' when convenient"
+        return 0
+    fi
+    echo
+    log "rebooting in 1 minute to load the new kernel (cancel with: sudo shutdown -c)"
+    echo "  Benches, sites, the proxy, the database and the agent start again by themselves."
+    shutdown -r +1 "Nexaploy: reboot to finish the system upgrade" >/dev/null 2>&1 \
+        || warn "could not schedule the reboot; run 'sudo reboot'"
+}
+
+# --------------------------------------------------------------------------- 3. packages
 install_packages() {
     export DEBIAN_FRONTEND=noninteractive
     log "installing packages"
     apt-get update -qq
-    apt-get install -y -qq ca-certificates curl gnupg git jq acl rclone openssl iproute2 fuse3 unzip >/dev/null
+    apt-get "${APT_OPTS[@]}" install ca-certificates curl gnupg git jq acl rclone openssl iproute2 fuse3 unzip >/dev/null
     ensure_rclone
 
     if ! command -v docker >/dev/null || ! docker compose version >/dev/null 2>&1; then
@@ -226,7 +287,7 @@ ensure_rclone() {
     curl -fsSL https://rclone.org/install.sh | bash >/dev/null || warn "rclone upgrade failed; offsite attachments need rclone >= 1.62"
 }
 
-# --------------------------------------------------------------------------- 3. users + tree
+# --------------------------------------------------------------------------- 4. users + tree
 ensure_user() {  # name uid
     local name=$1 uid=$2
     getent group "$uid" >/dev/null || groupadd --system --gid "$uid" "$name"
@@ -272,7 +333,7 @@ create_tree() {
     fi
 }
 
-# --------------------------------------------------------------------------- 4. networks
+# --------------------------------------------------------------------------- 5. networks
 create_networks() {
     local net
     for net in proxy-network nexaploy-db; do
@@ -280,7 +341,7 @@ create_networks() {
     done
 }
 
-# --------------------------------------------------------------------------- 5. agent
+# --------------------------------------------------------------------------- 6. agent
 fetch_source() {
     local script_dir src
     script_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
@@ -399,7 +460,7 @@ set_env_var() {  # file key value
     cat "$tmp" > "$file"; rm -f "$tmp"
 }
 
-# --------------------------------------------------------------------------- 6. config
+# --------------------------------------------------------------------------- 7. config
 write_config() {
     log "writing $CONFIG"
     [[ -f "$ROOT/config/db.env" ]] || {
@@ -464,7 +525,7 @@ register() {
     log "backup storage will be configured by the control plane (job server.configure_backups)"
 }
 
-# --------------------------------------------------------------------------- 7. services
+# --------------------------------------------------------------------------- 8. services
 install_units() {
     log "installing systemd units"
     local unit unit_dir
@@ -493,7 +554,7 @@ start_stacks() {
     [[ "$status" == healthy ]] || warn "nexaploy-db is not healthy yet (status: ${status:-unknown})"
 }
 
-# --------------------------------------------------------------------------- 8. all-in-one
+# --------------------------------------------------------------------------- 9. all-in-one
 cp_exec() {  # bench command inside the control plane backend container
     docker exec "$CP_BENCH-backend" bench --site "$CP_DOMAIN" "$@"
 }
@@ -620,6 +681,7 @@ main() {
         done
         [[ -n "$PYTHON" ]] || die "python >= 3.11 not found"
     else
+        [[ $OS_UPGRADE -eq 1 ]] && os_upgrade || log "skipping the system upgrade (--no-os-upgrade)"
         install_packages
     fi
     create_tree
@@ -636,6 +698,7 @@ main() {
     start_stacks
     install_control_plane
     summary
+    finish_reboot
 }
 
-main "$@"
+[[ "${NEXAPLOY_INSTALL_SOURCE_ONLY:-0}" == 1 ]] || main "$@"
