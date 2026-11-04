@@ -359,3 +359,31 @@ def test_no_for_update_in_get_all():
 			if name.endswith(".py"):
 				text = open(os.path.join(root, name)).read()
 				assert not call.search(text), os.path.join(root, name)
+
+
+# --------------------------------------------------------------------------- safe update & console audit
+EXPECTED.update({"Site Update Test", "Console Audit Log"})
+
+
+def test_safe_update_and_console_audit_doctypes():
+	sut = {f["fieldname"]: f for f in BY_NAME["Site Update Test"]["fields"]}
+	for name in ("site", "team", "status", "source_bench", "target_bench", "deploy_candidate", "test_site",
+	             "clone_job", "smoke_job", "apply_backup", "checks", "log", "error"):
+		assert name in sut, name
+	assert sut["team"]["options"] == "Team" and sut["test_site"]["options"] == "Site"
+	assert sut["status"]["options"].split("\n")[:6] == ["Pending", "Preparing Bench", "Cloning", "Testing", "Passed", "Failed"]
+	cal = {f["fieldname"]: f for f in BY_NAME["Console Audit Log"]["fields"]}
+	for name in ("team", "user", "site", "kind", "command", "status", "duration", "ip_address", "executed_at"):
+		assert name in cal, name
+	assert cal["kind"]["options"].split("\n") == ["sql", "console", "logs"]
+	assert all(f.get("read_only") for f in cal.values() if f["fieldtype"] not in LAYOUT)
+	# nobody creates, edits or deletes audit rows from the desk; customers only read
+	for perm in BY_NAME["Console Audit Log"]["permissions"]:
+		assert not perm.get("write") and not perm.get("delete") and not perm.get("create")
+	member = {f["fieldname"] for f in BY_NAME["Team Member"]["fields"]}
+	assert {"custom_capabilities", "can_view_logs", "can_run_sql", "can_run_sql_write", "can_use_console"} <= member
+	assert "console_two_factor_required" in {f["fieldname"] for f in BY_NAME["Team"]["fields"]}
+	assert "test_before_auto_update" in {f["fieldname"] for f in BY_NAME["Release Group"]["fields"]}
+	hooks = open(os.path.join(APP, "hooks.py")).read()
+	for dt in ("Site Update Test", "Console Audit Log"):
+		assert hooks.count(f'"{dt}":') == 2, dt  # permission_query_conditions + has_permission

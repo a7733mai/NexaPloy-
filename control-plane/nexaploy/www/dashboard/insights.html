@@ -28,10 +28,11 @@
 
 	<template x-if="site && perms">
 		<div class="stack">
+			<template x-if="perms.two_factor_required && !perms.two_factor_ok"><div class="alert warning">{{ _("Your team requires two-factor authentication for SQL and the console. Enable it for your account and sign in again.") }}</div></template>
 			<div class="tabs" role="tablist">
 				<button type="button" :class="{ active: tab === 'analytics' }" @click="show('analytics')">{{ _("Analytics") }}</button>
-				<button type="button" :class="{ active: tab === 'logs' }" @click="show('logs')">{{ _("Logs") }}</button>
-				<button type="button" :class="{ active: tab === 'slow' }" @click="show('slow')">{{ _("Slow queries") }}</button>
+				<button type="button" x-show="perms.logs" :class="{ active: tab === 'logs' }" @click="show('logs')">{{ _("Logs") }}</button>
+				<button type="button" x-show="perms.logs" :class="{ active: tab === 'slow' }" @click="show('slow')">{{ _("Slow queries") }}</button>
 				<button type="button" x-show="perms.sql" :class="{ active: tab === 'sql' }" @click="show('sql')">{{ _("SQL") }}</button>
 				<button type="button" x-show="perms.console" :class="{ active: tab === 'console' }" @click="show('console')">{{ _("Console") }}</button>
 			</div>
@@ -124,7 +125,7 @@
 			</div>
 
 			<!-- Logs -->
-			<section class="card" x-show="tab === 'logs'">
+			<section class="card" x-show="tab === 'logs' && perms.logs">
 				<div class="card-head">
 					<select class="input" style="width: auto" x-model="logs.log" @change="loadLogs(true)" aria-label="{{ _('Log') }}">
 						<option value="web">{{ _("Web") }}</option>
@@ -173,7 +174,7 @@
 			</section>
 
 			<!-- Slow queries -->
-			<section class="card" x-show="tab === 'slow'">
+			<section class="card" x-show="tab === 'slow' && perms.logs">
 				<div class="card-head">
 					<h2>{{ _("Slow queries") }}</h2>
 					<span class="spacer"></span>

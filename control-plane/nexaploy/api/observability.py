@@ -6,12 +6,18 @@ Every call queues one agent job (`site.logs`, `site.analytics`, `site.slow_queri
 `get_result(job)` until `done`. Results come back from the agent through `job_update` and are
 stored in `Agent Job.result` (the agent caps them well below 2 MB).
 
-Permissions (team roles, `nexaploy.teams.check_team_access`):
-  read  -> logs, analytics, slow queries
-  write -> SQL in read-only mode
-  admin -> SQL in write mode, console
-Every call is recorded with `nexaploy.activity.log_activity` (SQL / code text truncated).
-Pure logic: nexaploy.observability_utils.
+Permissions: team membership (`nexaploy.teams.check_team_access`, read) plus the member's
+console capabilities (`nexaploy.console_access.check_capability`, enforced here, never trusted
+from the client):
+  analytics                     -> any member
+  logs, slow queries            -> can_view_logs
+  SQL read-only / write mode    -> can_run_sql / can_run_sql_write
+  console                       -> can_use_console
+Role defaults: Owner/Admin everything, Developer logs + read-only SQL, Billing nothing; Owners and
+Admins can customise them per member. A team may also require 2FA for SQL and the console.
+Every SQL / console / logs / slow-query execution (and every refused attempt) is written to the
+Console Audit Log (redacted, truncated command text) and to Team Activity.
+Pure logic: nexaploy.observability_utils, nexaploy.console_access_utils.
 """
 
 from datetime import timedelta
@@ -44,14 +50,18 @@ def _check(team, action):
 	return check_team_access(team, action)
 
 
-def _site(site, action):
+def _site(site, kind, read_only=True, command=None):
+	"""Site row after the membership + capability check for observability job `kind`.
+	`command` (query / code / log params) is only used to audit a refused attempt."""
+	from nexaploy.console_access import check_capability
+
 	_require_user()
 	if not site:
 		frappe.throw(_("Site is required"))
 	row = frappe.db.get_value("Site", site, ["name", "site_name", "team", "server", "status"], as_dict=True)
 	if not row:
 		raise frappe.DoesNotExistError(_("Site {0} not found").format(site))
-	_check(row.team, action)
+	check_capability(row.team, kind, read_only, site=row.name, params=command)
 	if row.status in BLOCKED_STATUSES:
 		frappe.throw(_("Site {0} is {1}").format(row.name, _(row.status)))
 	if not row.server:
@@ -106,6 +116,15 @@ def _reusable(row, kind, params):
 	return None
 
 
+def _audit(row, kind, params, job):
+	"""Console Audit Log row for every audited execution (raises: no job without its audit row)."""
+	from nexaploy.console_access import start_audit
+	from nexaploy.console_access_utils import AUDIT_KINDS
+
+	if kind in AUDIT_KINDS:
+		start_audit(row.team, row.name, kind, params, job, read_only=obs.to_bool(params.get("read_only"), True))
+
+
 def _enqueue(row, kind, params, reuse=False):
 	from nexaploy.agent_job import create_agent_job
 
@@ -113,10 +132,12 @@ def _enqueue(row, kind, params, reuse=False):
 	if reuse:
 		job = _reusable(row, kind, params)
 		if job:
+			_audit(row, kind, params, job.name)
 			return {"job": job.name, "status": job.status, "reused": True}
 	if _in_flight(row.name) >= MAX_IN_FLIGHT:
 		frappe.throw(_("Too many requests are in progress for this site. Wait for them to finish."))
 	job = create_agent_job(row.server, kind, params, "Site", row.name)
+	_audit(row, kind, params, job.name)
 	return {"job": job.name, "status": job.status}
 
 
@@ -133,7 +154,7 @@ def _params(fn, *args):
 @frappe.whitelist()
 def get_logs(site, log="web", lines=200, since=None, refresh=0):
 	"""Tail a log of the site: web | worker | scheduler | frappe | error (Error Log rows)."""
-	row = _site(site, obs.required_action("site.logs"))
+	row = _site(site, "site.logs", command={"log": log, "lines": lines, "since": since})
 	params = _params(obs.logs_params, row.site_name, log, lines, since)
 	return _enqueue(row, "site.logs", params, reuse=not obs.to_bool(refresh))
 
@@ -141,7 +162,7 @@ def get_logs(site, log="web", lines=200, since=None, refresh=0):
 @frappe.whitelist()
 def get_analytics(site, days=7, refresh=0):
 	"""Request / background-job analytics of the last `days` (1-31) UTC days."""
-	row = _site(site, obs.required_action("site.analytics"))
+	row = _site(site, "site.analytics")
 	params = obs.analytics_params(row.site_name, days, now_datetime().date())
 	return _enqueue(row, "site.analytics", params, reuse=not obs.to_bool(refresh))
 
@@ -149,7 +170,7 @@ def get_analytics(site, days=7, refresh=0):
 @frappe.whitelist()
 def get_slow_queries(site, limit=50, min_seconds=0, refresh=0):
 	"""Slow queries of the site's database grouped by normalised query."""
-	row = _site(site, obs.required_action("site.slow_queries"))
+	row = _site(site, "site.slow_queries", command={"limit": limit, "min_seconds": min_seconds})
 	params = obs.slow_query_params(row.site_name, limit, min_seconds)
 	return _enqueue(row, "site.slow_queries", params, reuse=not obs.to_bool(refresh))
 
@@ -159,10 +180,10 @@ def get_slow_queries(site, limit=50, min_seconds=0, refresh=0):
 
 @frappe.whitelist(methods=["POST"])
 def run_sql(site, query, read_only=True, max_rows=None, timeout=None):
-	"""Run SQL as the site's own DB user. Read-only (team `write`): SELECT/SHOW/DESCRIBE/
-	EXPLAIN/WITH inside a read-only transaction. Write mode needs team `admin`."""
+	"""Run SQL as the site's own DB user. Read-only (can_run_sql): SELECT/SHOW/DESCRIBE/
+	EXPLAIN/WITH inside a read-only transaction. Write mode needs can_run_sql_write."""
 	ro = obs.to_bool(read_only, True)
-	row = _site(site, obs.required_action("site.sql", ro))
+	row = _site(site, "site.sql", ro, command={"query": query, "read_only": ro})
 	try:
 		params = obs.sql_params(row.site_name, query, ro, max_rows, timeout)
 	except obs.QueryError as exc:
@@ -172,9 +193,9 @@ def run_sql(site, query, read_only=True, max_rows=None, timeout=None):
 
 @frappe.whitelist(methods=["POST"])
 def run_console(site, code, commit=False, timeout=None):
-	"""Execute Python in the site's bench (frappe initialised and connected). Team `admin`;
-	rolled back unless `commit`."""
-	row = _site(site, obs.required_action("site.console"))
+	"""Execute Python in the site's bench (frappe initialised and connected). Needs
+	can_use_console; rolled back unless `commit`."""
+	row = _site(site, "site.console", command={"code": code, "commit": obs.to_bool(commit)})
 	params = _params(obs.console_params, row.site_name, code, commit, timeout)
 	# the bench container can read every site_config.json on the bench: never run a customer's
 	# code next to another team's site
@@ -195,8 +216,8 @@ def run_console(site, code, commit=False, timeout=None):
 
 @frappe.whitelist()
 def get_result(job):
-	"""Status and (when finished) data of an observability job. The caller needs the same team
-	permission as for starting it (read / write / admin)."""
+	"""Status and (when finished) data of an observability job. The caller needs the same
+	capability as for starting it (logs / SQL / SQL write / console)."""
 	_require_user()
 	row = frappe.db.get_value(
 		"Agent Job", job, ["name", "kind", "status", "params", "result", "error", "reference_doctype", "reference_name"],
@@ -204,9 +225,14 @@ def get_result(job):
 	)
 	if not row or row.kind not in obs.OBS_KINDS or row.reference_doctype != "Site":
 		raise frappe.PermissionError(_("Not allowed"))
+	from nexaploy.console_access import get_capabilities
+	from nexaploy.console_access_utils import capability_allows
+
 	team = frappe.db.get_value("Site", row.reference_name, "team")
 	params = frappe.parse_json(row.params or "{}") or {}
-	_check(team, obs.required_action(row.kind, obs.to_bool(params.get("read_only"), True)))
+	_check(team, "read")
+	if not capability_allows(get_capabilities(team), row.kind, obs.to_bool(params.get("read_only"), True)):
+		raise frappe.PermissionError(_("Not allowed"))
 	result = frappe.parse_json(row.result) if row.result else None
 	out = obs.shape_result(row.kind, row.status, result, row.error)
 	out["job"] = row.name
@@ -216,18 +242,24 @@ def get_result(job):
 
 @frappe.whitelist()
 def get_permissions(site):
-	"""What the current user may do on the insights page of `site`."""
-	from nexaploy.teams import has_team_action
+	"""What the current user may do on the insights page of `site` (console capabilities)."""
+	from nexaploy.console_access import console_two_factor_required, get_capabilities, user_has_two_factor
 
 	_require_user()
 	team = frappe.db.get_value("Site", site, "team")
 	if team is None and not frappe.db.exists("Site", site):
 		raise frappe.DoesNotExistError(_("Site {0} not found").format(site))
 	_check(team, "read")
+	caps = get_capabilities(team)
+	two_factor = console_two_factor_required(team)
 	return {
 		"site": site,
 		"read": True,
-		"sql": has_team_action(team, "write"),
-		"sql_write": has_team_action(team, "admin"),
-		"console": has_team_action(team, "admin"),
+		"logs": caps["can_view_logs"],
+		"sql": caps["can_run_sql"],
+		"sql_write": caps["can_run_sql_write"],
+		"console": caps["can_use_console"],
+		"capabilities": caps,
+		"two_factor_required": two_factor,
+		"two_factor_ok": (not two_factor) or user_has_two_factor(),
 	}

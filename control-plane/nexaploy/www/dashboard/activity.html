@@ -8,6 +8,7 @@
 	<section class="card" x-show="nx.can('admin')">
 		<div class="card-head">
 			<h2>{{ _("Activity") }}</h2>
+			<a class="btn sm ghost" href="/dashboard/console_access">{{ _("Console access") }}</a>
 			<button class="btn sm" type="button" @click="load()" :disabled="loading">{{ _("Refresh") }}</button>
 		</div>
 		<div class="card-body">

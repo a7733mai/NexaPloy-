@@ -63,6 +63,8 @@ permission_query_conditions = {
 	"Team Invitation": "nexaploy.permissions.team_invitation_query",
 	"Deploy Candidate": "nexaploy.permissions.deploy_candidate_query",
 	"Agent Job": "nexaploy.permissions.agent_job_query",
+	"Site Update Test": "nexaploy.permissions.team_query",
+	"Console Audit Log": "nexaploy.console_access.console_audit_query",
 }
 
 has_permission = {
@@ -85,6 +87,10 @@ has_permission = {
 	"Support Ticket": "nexaploy.support.has_support_ticket_permission",
 	"Team": "nexaploy.permissions.has_team_doc_permission",
 	"Team Invitation": "nexaploy.permissions.has_team_permission",
+	"Site Update Test": "nexaploy.permissions.has_team_permission",
+	"Console Audit Log": "nexaploy.permissions.has_read_only_team_permission",
+	# SQL / console / log jobs: only with the console capability that ran them
+	"Agent Job": "nexaploy.console_access.has_agent_job_permission",
 }
 
 # Document Events
@@ -114,6 +120,7 @@ scheduler_events = {
 			"nexaploy.tasks.check_sites_uptime",
 			"nexaploy.provisioning.jobs.check_provisioning",
 			"nexaploy.agent_callbacks.retry_failed_callbacks",
+			"nexaploy.update_test.sync_update_tests",
 		],
 		"*/15 * * * *": ["nexaploy.tasks.apply_auto_updates", "nexaploy.tasks.enforce_plan_limits"],
 	},

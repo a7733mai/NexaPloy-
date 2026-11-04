@@ -213,6 +213,13 @@ def apply_auto_updates(release_group, force_window=False):
 	updated = []
 	utc_now = datetime.utcnow()
 	for name in ou.benches_to_update(benches, latest):
+		if group.get("test_before_auto_update"):
+			# Safe update: clone + migrate + smoke check every site first (any time); roll the
+			# bench only once all of them passed (nexaploy.update_test)
+			from nexaploy.update_test import auto_update_gate
+
+			if not auto_update_gate(release_group, name, dc_name):
+				continue
 		bench = frappe.get_doc("Bench", name)
 		facts = frappe.parse_json(frappe.db.get_value("Server", bench.server, "facts") or "{}") or {}
 		try:

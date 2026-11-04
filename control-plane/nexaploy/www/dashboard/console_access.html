@@ -1,0 +1,126 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block head %}
+<!-- synchronous on purpose: registers its alpine:init listener before Alpine (deferred) starts -->
+<script src="/assets/nexaploy/js/console_access.js"></script>
+<style>
+	.nx-cmd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; max-inline-size: 520px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stack" x-data="nxConsoleAccess" x-cloak>
+	<template x-if="!nx.can('admin')">
+		<div class="alert warning">{{ _("Only team Owners and Admins can manage console access.") }}</div>
+	</template>
+	<template x-if="loading && nx.can('admin')"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+	<template x-if="error"><div class="alert danger" x-text="error"></div></template>
+
+	<template x-if="access">
+		<section class="card">
+			<div class="card-head">
+				<h2>{{ _("Console permissions") }}</h2>
+				<a class="btn sm ghost" href="/dashboard/activity">{{ _("Activity") }}</a>
+			</div>
+			<div class="card-body stack">
+				<p class="small muted">{{ _("Who may view logs, run SQL and use the Python console on the team's sites. Owners always have every permission; other members get their role's defaults unless you customise them.") }}</p>
+				<label class="check small">
+					<input type="checkbox" :checked="access.console_two_factor_required" :disabled="busy" @change="setTwoFactor($event)">
+					{{ _("Require two-factor authentication for SQL and the console") }}
+				</label>
+			</div>
+			<div class="card-body flush table-wrap">
+				<table class="nx-table">
+					<thead>
+						<tr>
+							<th>{{ _("Member") }}</th><th>{{ _("Role") }}</th>
+							<template x-for="c in access.capabilities" :key="c.key"><th class="small" x-text="__(c.label)"></th></template>
+							<th></th>
+						</tr>
+					</thead>
+					<tbody>
+						<template x-for="m in access.members" :key="m.user">
+							<tr>
+								<td class="small"><div x-text="m.full_name"></div><div class="muted ltr" x-show="m.full_name !== m.user" x-text="m.user"></div></td>
+								<td><span class="badge plain" x-text="__(m.role)"></span> <span class="small muted" x-text="m.custom ? __('Custom') : __('Role defaults')"></span></td>
+								<template x-for="c in access.capabilities" :key="c.key">
+									<td><input type="checkbox" :aria-label="__(c.label)" :checked="!!edits[m.user][c.key]" :disabled="busy || !m.editable" @change="setCap(m, c.key, $event.target.checked)"></td>
+								</template>
+								<td class="nowrap">
+									<button class="btn sm primary" type="button" x-show="m.editable" :disabled="busy || !dirty(m)" @click="save(m)">{{ _("Save") }}</button>
+									<button class="btn sm" type="button" x-show="m.editable && m.custom" :disabled="busy" @click="reset(m)">{{ _("Reset") }}</button>
+								</td>
+							</tr>
+						</template>
+					</tbody>
+				</table>
+			</div>
+		</section>
+	</template>
+
+	<section class="card" x-show="nx.can('admin')">
+		<div class="card-head">
+			<h2>{{ _("Console audit log") }}</h2>
+			<button class="btn sm" type="button" @click="loadAudit(audit.page)" :disabled="audit.loading">{{ _("Refresh") }}</button>
+		</div>
+		<div class="card-body">
+			<p class="small muted">{{ _("Every SQL query, console run and log view on the team's sites, including refused attempts. Entries cannot be edited or deleted.") }}</p>
+			<form class="row" @submit.prevent="loadAudit(1)">
+				<select class="input" style="width: auto" x-model="filters.site" aria-label="{{ _('Site') }}">
+					<option value="">{{ _("All sites") }}</option>
+					<template x-for="s in audit.sites" :key="s"><option :value="s" x-text="s"></option></template>
+				</select>
+				<select class="input" style="width: auto" x-model="filters.user" aria-label="{{ _('Member') }}">
+					<option value="">{{ _("All members") }}</option>
+					<template x-for="u in audit.users" :key="u.user"><option :value="u.user" x-text="u.full_name || u.user"></option></template>
+				</select>
+				<select class="input" style="width: auto" x-model="filters.kind" aria-label="{{ _('Kind') }}">
+					<option value="">{{ _("All kinds") }}</option>
+					<option value="sql">SQL</option>
+					<option value="console">{{ _("Console") }}</option>
+					<option value="logs">{{ _("Logs") }}</option>
+				</select>
+				<select class="input" style="width: auto" x-model="filters.status" aria-label="{{ _('Status') }}">
+					<option value="">{{ _("All statuses") }}</option>
+					<template x-for="s in audit.statuses" :key="s"><option :value="s" x-text="__(s)"></option></template>
+				</select>
+				<label class="row small"><span class="muted">{{ _("From") }}</span><input class="input ltr" style="width: auto" type="date" x-model="filters.date_from"></label>
+				<label class="row small"><span class="muted">{{ _("To") }}</span><input class="input ltr" style="width: auto" type="date" x-model="filters.date_to"></label>
+				<button class="btn primary sm" type="submit" :disabled="audit.loading">{{ _("Filter") }}</button>
+				<button class="btn sm" type="button" @click="resetFilters()" :disabled="audit.loading">{{ _("Clear") }}</button>
+			</form>
+		</div>
+		<div class="card-body flush table-wrap">
+			<template x-if="audit.loading"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+			<template x-if="!audit.loading && audit.error"><div class="alert danger" x-text="audit.error"></div></template>
+			<template x-if="!audit.loading && !audit.error && !audit.rows.length"><div class="empty">{{ _("Nothing recorded yet.") }}</div></template>
+			<table class="nx-table" x-show="!audit.loading && audit.rows.length">
+				<thead><tr><th>{{ _("When") }}</th><th>{{ _("Member") }}</th><th>{{ _("Site") }}</th><th>{{ _("Kind") }}</th><th>{{ _("Status") }}</th><th>{{ _("Duration") }}</th><th>{{ _("Command") }}</th><th>{{ _("IP address") }}</th></tr></thead>
+				<tbody>
+					<template x-for="r in audit.rows" :key="r.name">
+						<tr>
+							<td class="small nowrap" :title="r.creation" x-text="fmt(r.executed_at || r.creation)"></td>
+							<td class="small" x-text="r.full_name || '—'"></td>
+							<td class="small ltr" x-text="r.site || '—'"></td>
+							<td class="small"><span class="badge plain mono" x-text="r.kind"></span> <span class="muted" x-show="r.kind === 'sql' && !r.read_only_mode">{{ _("write") }}</span> <span class="muted" x-show="r.commit_changes">{{ _("commit") }}</span></td>
+							<td><span :class="statusClass(r.status)" x-text="__(r.status)"></span><div class="small muted" x-show="r.error" x-text="r.error"></div></td>
+							<td class="small nowrap" x-text="duration(r)"></td>
+							<td>
+								<pre class="nx-cmd mono ltr" x-text="preview(r)"></pre>
+								<button class="btn sm ghost" type="button" x-show="(r.command || '').length > 160" @click="toggle(r)" x-text="open[r.name] ? __('Less') : __('More')"></button>
+								<span class="small muted" x-show="r.command_truncated">{{ _("(truncated)") }}</span>
+							</td>
+							<td class="small mono ltr" x-text="r.ip_address || ''"></td>
+						</tr>
+					</template>
+				</tbody>
+			</table>
+		</div>
+		<div class="card-body row" x-show="audit.page > 1 || audit.hasMore">
+			<button class="btn sm" type="button" :disabled="audit.loading || audit.page <= 1" @click="loadAudit(audit.page - 1)">{{ _("Previous") }}</button>
+			<span class="small muted"><span>{{ _("Page") }}</span> <span x-text="audit.page"></span></span>
+			<button class="btn sm" type="button" :disabled="audit.loading || !audit.hasMore" @click="loadAudit(audit.page + 1)">{{ _("Next") }}</button>
+		</div>
+	</section>
+</div>
+{% endblock %}

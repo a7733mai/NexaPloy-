@@ -43,6 +43,8 @@ JOB_KINDS = (
 	"site.slow_queries",
 	"site.sql",
 	"site.console",
+	# safe update (Site Update Test)
+	"site.smoke_check",
 )
 
 

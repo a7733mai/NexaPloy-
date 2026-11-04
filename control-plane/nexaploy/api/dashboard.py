@@ -219,20 +219,23 @@ SENSITIVE_JOB_KINDS = ("site.logs", "site.analytics", "site.slow_queries", "site
 
 
 def _check_sensitive_job(job, doc, c):
-	"""SQL / console / log jobs carry queries, code and data: require the same team
-	action that was needed to run them (e.g. Billing members can't read SQL results)."""
+	"""SQL / console / log jobs carry queries, code and data: require the same console
+	capability that was needed to run them (nexaploy.console_access; e.g. Billing members
+	can't read SQL results)."""
 	if c.admin or job.kind not in SENSITIVE_JOB_KINDS:
 		return
-	from nexaploy.observability_utils import required_action
+	from nexaploy.console_access import get_capabilities
+	from nexaploy.console_access_utils import capability_allows
 
 	params = frappe.parse_json(doc.params) if doc.params else {}
-	action = required_action(job.kind, bool((params or {}).get("read_only", True)))
 	team = None
 	if job.reference_doctype == "Site" and job.reference_name:
 		team = frappe.db.get_value("Site", job.reference_name, "team")
 	if not team and job.server:
 		team = frappe.db.get_value("Server", job.server, "team")
-	check_team_access(team, action)
+	check_team_access(team, "read")
+	if not capability_allows(get_capabilities(team), job.kind, bool((params or {}).get("read_only", True))):
+		raise frappe.PermissionError(_("Not allowed"))
 
 
 def _job_allowed(job, c):

@@ -1015,3 +1015,136 @@ Revenue share must be a number,يجب أن تكون حصة الإيرادات ر
 Revenue share must be between 0 and 100 percent,يجب أن تكون حصة الإيرادات بين 0 و100 بالمئة
 Please enter a subject,يرجى إدخال موضوع
 Get help,احصل على مساعدة
+Safe update,تحديث آمن
+Open this page from a site.,افتح هذه الصفحة من موقع.
+Test the update before applying it,اختبر التحديث قبل تطبيقه
+"A copy of the site is created on a bench running the new version, migrated and checked (ping, login page, database). Your site is not changed until you apply the update.",تُنشأ نسخة من الموقع على منصة تعمل بالإصدار الجديد، ثم تُرحَّل وتُفحص (ping وصفحة الدخول وقاعدة البيانات). لا يتغير موقعك حتى تطبّق التحديث.
+Current bench,المنصة الحالية
+Current version,الإصدار الحالي
+Newest build,أحدث بناء
+This is a staging copy; test updates on the production site.,هذه نسخة تجريبية؛ اختبر التحديثات على موقع الإنتاج.
+Your role can view tests but not start them.,يمكن لدورك عرض الاختبارات دون تشغيلها.
+Target bench,المنصة الهدف
+Newest build of this bench group,أحدث بناء لمجموعة المنصات هذه
+Test update,اختبار التحديث
+The site already runs the newest build.,الموقع يعمل بالفعل بأحدث بناء.
+A test is already running.,يوجد اختبار قيد التشغيل بالفعل.
+Automatic updates,التحديثات التلقائية
+Only update automatically after every site passed an update test,لا تحدّث تلقائيًا إلا بعد نجاح اختبار التحديث لكل موقع
+This setting belongs to the bench group owner.,هذا الإعداد يخص مالك مجموعة المنصات.
+Update test,اختبار التحديث
+Automatic,تلقائي
+New version,الإصدار الجديد
+Test site,موقع الاختبار
+deleted,محذوف
+Started,بدأ
+Finished,انتهى
+Your site was not changed.,لم يتغير موقعك.
+Check,الفحص
+Result,النتيجة
+Passed,نجح
+Delete the test site afterwards,احذف موقع الاختبار بعد ذلك
+Apply update,تطبيق التحديث
+A fresh backup is taken first.,تؤخذ نسخة احتياطية جديدة أولًا.
+Delete test site,حذف موقع الاختبار
+Cancel test,إلغاء الاختبار
+Hide log,إخفاء السجل
+Show log,عرض السجل
+Previous tests,الاختبارات السابقة
+View,عرض
+Only team Owners and Admins can manage console access.,يمكن لمالكي الفريق ومسؤوليه فقط إدارة صلاحيات وحدة التحكم.
+Console permissions,صلاحيات وحدة التحكم
+"Who may view logs, run SQL and use the Python console on the team's sites. Owners always have every permission; other members get their role's defaults unless you customise them.",من يمكنه عرض السجلات وتشغيل SQL واستخدام وحدة تحكم بايثون على مواقع الفريق. للمالكين كل الصلاحيات دائمًا؛ ويحصل باقي الأعضاء على افتراضيات دورهم ما لم تخصصها.
+Require two-factor authentication for SQL and the console,اشتراط المصادقة الثنائية لـ SQL ووحدة التحكم
+Role defaults,افتراضيات الدور
+Reset,إعادة تعيين
+Console audit log,سجل تدقيق وحدة التحكم
+"Every SQL query, console run and log view on the team's sites, including refused attempts. Entries cannot be edited or deleted.",كل استعلام SQL وتشغيل لوحدة التحكم وعرض للسجلات على مواقع الفريق، بما في ذلك المحاولات المرفوضة. لا يمكن تعديل الإدخالات أو حذفها.
+All sites,كل المواقع
+Kind,النوع
+All kinds,كل الأنواع
+All statuses,كل الحالات
+Nothing recorded yet.,لم يُسجَّل شيء بعد.
+Duration,المدة
+Command,الأمر
+write,كتابة
+commit,حفظ
+Less,أقل
+More,المزيد
+(truncated),(مقتطع)
+Your team requires two-factor authentication for SQL and the console. Enable it for your account and sign in again.,يشترط فريقك المصادقة الثنائية لـ SQL ووحدة التحكم. فعّلها لحسابك ثم سجّل الدخول مجددًا.
+Console access,صلاحيات وحدة التحكم
+"Copy {0} onto bench {1}, migrate it and check it? The site itself is not changed.",نسخ {0} إلى المنصة {1} وترحيله وفحصه؟ لن يتغير الموقع نفسه.
+"Copy {0} onto the newest version, migrate it and check it? The site itself is not changed.",نسخ {0} إلى أحدث إصدار وترحيله وفحصه؟ لن يتغير الموقع نفسه.
+Update test started,بدأ اختبار التحديث
+"Apply the update to {0}? A fresh backup is taken first, then the site moves to bench {1}. Expect a short downtime.",تطبيق التحديث على {0}؟ تؤخذ نسخة احتياطية جديدة أولًا ثم ينتقل الموقع إلى المنصة {1}. توقّع توقفًا قصيرًا.
+Applying the update,جارٍ تطبيق التحديث
+Delete the test site {0}?,حذف موقع الاختبار {0}؟
+Deleting the test site,جارٍ حذف موقع الاختبار
+Cancel this update test?,إلغاء اختبار التحديث هذا؟
+Update test cancelled,أُلغي اختبار التحديث
+Automatic updates now wait for passing tests,التحديثات التلقائية تنتظر الآن نجاح الاختبارات
+Automatic updates no longer wait for tests,لم تعد التحديثات التلقائية تنتظر الاختبارات
+Prepare a bench with the new version,تجهيز منصة بالإصدار الجديد
+Copy the site and run the migration,نسخ الموقع وتشغيل الترحيل
+"Smoke check (ping, login page, database)",فحص سريع (ping وصفحة الدخول وقاعدة البيانات)
+Permissions saved,حُفظت الصلاحيات
+Back to the role defaults,أُعيدت افتراضيات الدور
+Two-factor authentication is now required for SQL and the console,أصبحت المصادقة الثنائية مطلوبة لـ SQL ووحدة التحكم
+Two-factor authentication is no longer required for SQL and the console,لم تعد المصادقة الثنائية مطلوبة لـ SQL ووحدة التحكم
+Two-factor login is not enabled on this platform yet; members without it are refused.,تسجيل الدخول الثنائي غير مفعّل على المنصة بعد؛ سيُرفض الأعضاء الذين لا يستخدمونه.
+"Test the update on the production site, not on a copy",اختبر التحديث على موقع الإنتاج وليس على نسخة
+An update test is already running for {0}: {1},يوجد اختبار تحديث قيد التشغيل للموقع {0}: {1}
+Site {0} has no bench,الموقع {0} ليس له منصة
+Release group {0} has no successful build to test,مجموعة الإصدارات {0} ليس لها بناء ناجح لاختباره
+The site already runs the newest build of {0},الموقع يعمل بالفعل بأحدث بناء من {0}
+"No bench with the new version exists on this server yet. Ask support to prepare one, or wait for the next platform update.",لا توجد بعد منصة بالإصدار الجديد على هذا الخادم. اطلب من الدعم تجهيز واحدة، أو انتظر تحديث المنصة القادم.
+"The site changed (status {0}, bench {1}) before the copy was made",تغير الموقع (الحالة {0}، المنصة {1}) قبل إنشاء النسخة
+An earlier test copy {0} still exists on bench {1}; delete it first,ما زالت نسخة اختبار سابقة {0} موجودة على المنصة {1}؛ احذفها أولًا
+The earlier test copy {0} is busy ({1}),نسخة الاختبار السابقة {0} مشغولة ({1})
+Creating bench {0} with the new image failed,فشل إنشاء المنصة {0} بالصورة الجديدة
+Creating the test copy failed,فشل إنشاء نسخة الاختبار
+Passed; applying automatically failed: {0},نجح الاختبار؛ وفشل التطبيق التلقائي: {0}
+Smoke check failed,فشل الفحص السريع
+The test site is busy ({0}); try again in a moment,موقع الاختبار مشغول ({0})؛ حاول بعد قليل
+A test that is {0} cannot be cancelled,لا يمكن إلغاء اختبار حالته {0}
+Update applied: the site runs on {0},طُبّق التحديث: الموقع يعمل على {0}
+The move failed after the site was removed from the old bench; restore backup {0} or retry the failed job,فشل النقل بعد إزالة الموقع من المنصة القديمة؛ استعد النسخة الاحتياطية {0} أو أعد تشغيل المهمة الفاشلة
+The move was aborted; the site keeps running on {0},أُلغي النقل؛ يستمر الموقع في العمل على {0}
+Applied by the automatic update of bench {0},طُبّق ضمن التحديث التلقائي للمنصة {0}
+Update test {0} not found,اختبار التحديث {0} غير موجود
+"Wait for the test to finish, or cancel it first",انتظر انتهاء الاختبار أو ألغِه أولًا
+Release group {0} not found,مجموعة الإصدارات {0} غير موجودة
+Only the platform can change shared release groups,المنصة وحدها يمكنها تغيير مجموعات الإصدارات المشتركة
+Your team permissions do not include: {0},صلاحياتك في الفريق لا تشمل: {0}
+Team {0} requires two-factor authentication for SQL and the console. Enable it for your account and sign in again.,يشترط الفريق {0} المصادقة الثنائية لـ SQL ووحدة التحكم. فعّلها لحسابك ثم سجّل الدخول مجددًا.
+{0} is not a member of this team,{0} ليس عضوًا في هذا الفريق
+You cannot change the console permissions of a team {0},لا يمكنك تغيير صلاحيات وحدة التحكم لعضو بدور {0}
+capabilities must be an object,يجب أن تكون الصلاحيات كائنًا
+Unknown capability {0},صلاحية غير معروفة {0}
+Unknown kind {0},نوع غير معروف {0}
+View logs,عرض السجلات
+Run read-only SQL,تشغيل SQL للقراءة فقط
+Run SQL that changes data,تشغيل SQL يغيّر البيانات
+Use the Python console,استخدام وحدة تحكم بايثون
+Error,خطأ
+Denied,مرفوض
+Preparing Bench,تجهيز المنصة
+Cloning,جارٍ النسخ
+Testing,جارٍ الاختبار
+Applying,جارٍ التطبيق
+Applied,مُطبَّق
+Apply Failed,فشل التطبيق
+Only a passed test can be applied,لا يمكن تطبيق إلا اختبار ناجح
+The site must be Active,يجب أن يكون الموقع نشطًا
+The site moved since the test ran; run a new test,انتقل الموقع منذ تشغيل الاختبار؛ شغّل اختبارًا جديدًا
+The tested bench is no longer active; run a new test,المنصة المختبرة لم تعد نشطة؛ شغّل اختبارًا جديدًا
+Migration failed on the new version,فشل الترحيل على الإصدار الجديد
+Backing up the production site failed,فشل النسخ الاحتياطي لموقع الإنتاج
+Restoring the copy on the new bench failed,فشلت استعادة النسخة على المنصة الجديدة
+Preparing the copy (muting emails) failed,فشل تجهيز النسخة (إيقاف البريد)
+Target bench not found,المنصة الهدف غير موجودة
+The site already runs on this bench,الموقع يعمل بالفعل على هذه المنصة
+Target bench is not active,المنصة الهدف غير نشطة
+"The test copy is created on the site's own server: choose a bench on the same server (move the site to another server first, then test the update there)",تُنشأ نسخة الاختبار على خادم الموقع نفسه: اختر منصة على الخادم نفسه (أو انقل الموقع إلى خادم آخر أولًا ثم اختبر التحديث هناك)
+Site name is too long for an update test copy,اسم الموقع طويل جدًا لنسخة اختبار التحديث

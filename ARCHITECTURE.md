@@ -484,3 +484,33 @@ Pending/Accepted/Rejected/Cancelled, `token_hash`, `expires_on`). Staging sites 
 `nexaploy_staging_of` and must not be billed. A site changes teams only while it lives on a shared hosted
 bench. Activity actions: `site.staging_create`, `site.staging_refresh`, `site.move`, `site.transfer_request`,
 `site.transfer`, `site.transfer_cancel`, `site.transfer_reject`, `site.rename`.
+
+## 11. Safe update & console access (shared contract)
+
+**Safe update** (owner: lifecycle; `nexaploy/update_test.py`, pure `nexaploy/update_test_utils.py`, API
+`nexaploy.api.update_test`, portal `/dashboard/safe_update?site=`). DocType **Site Update Test** (`site`,
+`team`, `status` Pending/Preparing Bench/Cloning/Testing/Passed/Failed/Applying/Applied/Apply Failed/Cancelled,
+`mode` Manual/Auto, `source_bench`, `target_bench`, `deploy_candidate`, `test_site`, `clone_job`, `smoke_job`,
+`apply_backup`, `checks`, `log`, `error`). The copy `uptest-<first label>.<rest>` (`is_staging`, `staging_of`)
+lives on a bench of the **same server** running the new image; production changes only on "Apply update"
+(= `Site.move_to_bench(target, allow_upgrade=True)`, which backs up first). Release Group
+`test_before_auto_update` gates `apply_auto_updates` on passing Auto tests.
+
+| Kind | Params | Notes |
+|---|---|---|
+| `site.clone` | `{bench, site, target_site, scrub, target_bench?}` | `target_bench`: copy onto another bench of the server (backup on `bench`, restore/migrate/route on `target_bench`) |
+| `site.smoke_check` | `{site, paths=[/api/method/ping, /login], timeout=20, apps=[]}` | probes inside the backend container; the job fails when a check fails; result `{checks, ok, summary}` |
+
+**Console access** (owner: observability; `nexaploy/console_access.py`, pure
+`nexaploy/console_access_utils.py`, API `nexaploy.api.console_access`, portal `/dashboard/console_access`).
+Team Member adds `custom_capabilities`, `can_view_logs`, `can_run_sql`, `can_run_sql_write`,
+`can_use_console` (role defaults: Owner/Admin all, Developer logs + read-only SQL, Billing none; Owners
+always all); Team adds `console_two_factor_required` (SQL + console need a 2FA-protected login). The
+observability API enforces them (`check_capability`), and every SQL / console / logs / slow-query
+execution and every refused attempt writes a **Console Audit Log** row (`team`, `user`, `site`, `kind`
+sql/console/logs, redacted `command` ≤ 10 000 chars, `status` Queued/Running/Success/Error/Failed/Denied,
+`duration`, `ip_address`, `executed_at`, `agent_job`), readable by Owners/Admins, never editable or
+deletable by customers. Activity actions: `site.update_test`, `site.update_test_failed`,
+`site.update_test_passed`, `site.update_apply`, `site.update_applied`, `site.update_test_cleanup`,
+`site.auto_update_blocked`, `release_group.safe_auto_update`, `team.console_permissions`,
+`team.console_two_factor`.

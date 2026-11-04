@@ -1,8 +1,11 @@
 """Site lifecycle jobs (ARCHITECTURE.md §10, owner: lifecycle).
 
-- ``site.clone`` ``{bench, site, target_site, scrub}``: staging copy of a site on the same
-  bench (local backup -> new-site -> restore --force -> encryption key -> scrub -> migrate
-  -> route). Re-running it on an existing staging site refreshes the copy.
+- ``site.clone`` ``{bench, site, target_site, scrub, target_bench?}``: staging copy of a site
+  (local backup -> new-site -> restore --force -> encryption key -> scrub -> migrate -> route).
+  The copy lives on ``bench`` unless ``target_bench`` (another bench on this server) is given:
+  the "Safe update" test clones a site onto a bench that runs a newer image, so the copy's
+  ``migrate`` step is the migration under the new code. Re-running it on an existing staging
+  site refreshes the copy.
 - ``site.rename`` ``{bench, site, new_name, keep_old_domain}``: maintenance on -> move
   ``sites/<old>`` to ``sites/<new>`` -> site_config (host_name, domains) -> route -> off.
 
@@ -38,11 +41,17 @@ class SiteCloneParams(BaseParams):
     site: str
     target_site: str
     scrub: bool = True
+    target_bench: str | None = None
 
     @field_validator("bench")
     @classmethod
     def _bench(cls, value: str) -> str:
         return v.bench_name(value)
+
+    @field_validator("target_bench")
+    @classmethod
+    def _target_bench(cls, value: str | None) -> str | None:
+        return v.bench_name(value) if value else None
 
     @field_validator("site", "target_site")
     @classmethod
@@ -57,7 +66,8 @@ class SiteCloneParams(BaseParams):
 
 
 class SiteClone(_SiteJob):
-    """Staging copy of ``site`` as ``target_site`` on the same bench."""
+    """Staging copy of ``site`` (on ``bench``) as ``target_site`` on ``target_bench`` (default:
+    the same bench)."""
 
     kind = "site.clone"
     steps = ("check", "backup", "stage", "new_site", "restore", "restore_config", "scrub", "migrate",
@@ -68,14 +78,22 @@ class SiteClone(_SiteJob):
     def target(self) -> str:
         return self.p.target_site
 
+    @property
+    def tbench(self) -> str:
+        """Bench of the copy."""
+        return self.p.target_bench or self.p.bench
+
     @classmethod
     def precheck(cls, ctx, params: dict[str, Any]) -> None:
         if not ctx.benches.exists(params["bench"]):
             raise NotFound(f"bench {params['bench']!r} not found")
+        tbench = params.get("target_bench") or params["bench"]
+        if not ctx.benches.exists(tbench):
+            raise NotFound(f"bench {tbench!r} not found")
         if ctx.sites.find_bench(params["site"]) != params["bench"]:
             raise NotFound(f"site {params['site']!r} not found on bench {params['bench']}")
         owner = ctx.sites.find_bench(params["target_site"])
-        if owner and owner != params["bench"]:
+        if owner and owner != tbench:
             raise Conflict(f"{params['target_site']} already exists on bench {owner}")
         if owner and ctx.sites.site_config(owner, params["target_site"]).get(STAGING_CONFIG_KEY) != params["site"]:
             raise Conflict(f"{params['target_site']} exists and is not a staging copy of {params['site']}")
@@ -84,24 +102,26 @@ class SiteClone(_SiteJob):
             raise Conflict(f"{params['target_site']} is already a domain of site {host_owner}")
 
     def step_check(self) -> None:
-        bench = self.p.bench
-        if not self.ctx.benches.exists(bench):
-            self.fail(f"bench {bench} does not exist")
+        bench, tbench = self.p.bench, self.tbench
+        for name in dict.fromkeys((bench, tbench)):
+            if not self.ctx.benches.exists(name):
+                self.fail(f"bench {name} does not exist")
         if not self.ctx.sites.exists(bench, self.site):
             self.fail(f"site {self.site} not found on bench {bench}")
         owner = self.ctx.sites.find_bench(self.target)
-        if owner and owner != bench:
+        if owner and owner != tbench:
             self.fail(f"{self.target} already exists on bench {owner}")
         if owner and not self.result.get("target_created"):
-            marker = self.ctx.sites.site_config(bench, self.target).get(STAGING_CONFIG_KEY)
+            marker = self.ctx.sites.site_config(tbench, self.target).get(STAGING_CONFIG_KEY)
             if marker != self.site:
                 self.fail(f"{self.target} exists and is not a staging copy of {self.site}; refusing to overwrite it")
             self.result["refresh"] = True
         host_owner = self.ctx.sites.all_hosts().get(self.target)
         if host_owner and host_owner != self.target:
             self.fail(f"{self.target} is already a domain of site {host_owner}")
-        self.result.update({"bench": bench, "target_site": self.target})
-        self.log(f"{'refreshing' if self.result.get('refresh') else 'creating'} {self.target} from {self.site} on {bench}")
+        self.result.update({"bench": bench, "target_bench": tbench, "target_site": self.target})
+        self.log(f"{'refreshing' if self.result.get('refresh') else 'creating'} {self.target} from {self.site} on {tbench}"
+                 + (f" (source bench {bench})" if tbench != bench else ""))
 
     def step_backup(self) -> None:
         self.take_backup(self.p.bench, with_files=True)
@@ -110,7 +130,7 @@ class SiteClone(_SiteJob):
         self.stage_backup(self.p.bench)
 
     def step_new_site(self) -> None:
-        bench = self.p.bench
+        bench = self.tbench
         if self.ctx.sites.exists(bench, self.target):
             self.skip(f"{self.target} exists")
         else:
@@ -123,7 +143,7 @@ class SiteClone(_SiteJob):
         self._write_target_config(lambda cfg: {**cfg, STAGING_CONFIG_KEY: self.site})
 
     def _write_target_config(self, change) -> bool:
-        bench = self.p.bench
+        bench = self.tbench
         current = self.ctx.sites.site_config(bench, self.target)
         new = change(dict(current))
         if new == current:
@@ -142,7 +162,7 @@ class SiteClone(_SiteJob):
         return files
 
     def step_restore(self) -> None:
-        bench = self.p.bench
+        bench = self.tbench
         files = self._backup_files()
         src = Path(self.result["path"])
         staging = self.ctx.benches.sites_dir(bench) / RESTORE_STAGING / self.id
@@ -163,8 +183,8 @@ class SiteClone(_SiteJob):
 
     def step_restore_config(self) -> None:
         """Same encryption_key as the source, so encrypted fields (passwords) stay readable."""
-        bench = self.p.bench
-        key = self.ctx.sites.site_config(bench, self.site).get("encryption_key")
+        bench = self.tbench
+        key = self.ctx.sites.site_config(self.p.bench, self.site).get("encryption_key")
         if not key:
             self.skip("source has no encryption_key")
             return
@@ -182,7 +202,7 @@ class SiteClone(_SiteJob):
         changed = self._write_target_config(lambda cfg: scrub_config(cfg, self.site))
         self.log("site_config: mute_emails=1, pause_scheduler=1, maintenance_mode=0"
                  if changed else "already done: site_config scrubbed")
-        db_name = self.ctx.sites.site_config(self.p.bench, self.target).get("db_name")
+        db_name = self.ctx.sites.site_config(self.tbench, self.target).get("db_name")
         if not db_name:
             self.fail(f"{self.target} has no db_name in site_config.json")
         try:
@@ -194,10 +214,10 @@ class SiteClone(_SiteJob):
         self.log("email accounts: outgoing and incoming disabled")
 
     def step_migrate(self) -> None:
-        self.check(self.ctx.sites.migrate(self.p.bench, self.target), "bench migrate")
+        self.check(self.ctx.sites.migrate(self.tbench, self.target), "bench migrate")
 
     def step_write_route(self) -> None:
-        bench = self.p.bench
+        bench = self.tbench
         domains = self.ctx.sites.domains(bench, self.target)
         changed = self.ctx.proxy.write_route(self.target, domains, bench)
         self.log(f"route {'written' if changed else 'unchanged'}: {self.target} -> {bench}-frontend")

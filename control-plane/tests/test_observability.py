@@ -255,13 +255,17 @@ def test_api_checks_access_and_logs_activity():
 	src = read(API)
 	assert "check_team_access" in src and "from nexaploy.activity import log_activity" in src
 	assert "except ImportError" in src
-	# each entry point resolves the site with the action from required_action()
-	for name in ("get_logs", "get_analytics", "get_slow_queries", "run_sql", "run_console"):
+	# each entry point resolves the site through the capability check of its job kind
+	kinds = {"get_logs": "site.logs", "get_analytics": "site.analytics", "get_slow_queries": "site.slow_queries",
+	         "run_sql": "site.sql", "run_console": "site.console"}
+	for name, kind in kinds.items():
 		body = src[src.index(f"def {name}("):]
 		body = body[: body.index("\n\n\n")] if "\n\n\n" in body else body
-		assert "_site(site, obs.required_action(" in body, name
+		assert f'_site(site, "{kind}"' in body, name
 		assert "_enqueue(" in body, name
-	assert 'required_action(row.kind' in src  # get_result re-checks per kind
+	assert "check_capability(row.team, kind" in src
+	assert "capability_allows(get_capabilities(team), row.kind" in src  # get_result re-checks per kind
+	assert "start_audit(" in src  # every execution is audited
 
 
 def test_js_calls_known_methods():
