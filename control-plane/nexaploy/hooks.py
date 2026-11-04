@@ -171,6 +171,7 @@ scheduler_events = {
 	"daily": [
 		"nexaploy.tasks.prune_remote_backups",
 		"nexaploy.tasks.prune_server_metrics",
+		"nexaploy.tasks.prune_agent_jobs",
 		"nexaploy.tasks.prune_site_usage",
 		"nexaploy.billing.subscriptions.reconcile_subscriptions",
 		"nexaploy.billing.invoicing.generate_monthly_invoices",

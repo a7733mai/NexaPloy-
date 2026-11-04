@@ -70,6 +70,14 @@ def job_update_payload(server_id: str, job: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def poll_interval(now: float, last_activity: float, poll_seconds: float, idle_seconds: float,
+                  active_window: float) -> float:
+    """Seconds until the next poll: fast while jobs were seen recently, slow when idle."""
+    if last_activity and now - last_activity < active_window:
+        return poll_seconds
+    return max(poll_seconds, idle_seconds)
+
+
 class ControlPlaneClient:
     def __init__(self, settings: Settings, client: httpx.Client | None = None,
                  sleep: Callable[[float], None] = time.sleep, attempts: int = 5,
@@ -188,6 +196,8 @@ class ControlPlaneService:
         self.client = client or ControlPlaneClient(ctx.settings)
         self._updates: "queue.Queue[str]" = queue.Queue()
         self._threads: list[threading.Thread] = []
+        self._last_activity = 0.0          # monotonic time a job was seen / updated
+        self._wake = threading.Event()     # set by a heartbeat that reports pending jobs
         from .runtime.usage import HeartbeatUsage
 
         self.usage = HeartbeatUsage(lambda: self.ctx.usage)
@@ -202,6 +212,7 @@ class ControlPlaneService:
     # on_change hook for the Worker -------------------------------------------------------
     def notify(self, job_id: str) -> None:
         if self.enabled:
+            self._last_activity = time.monotonic()
             self._updates.put(job_id)
 
     # single iterations (unit-testable) ------------------------------------------------------
@@ -218,7 +229,9 @@ class ControlPlaneService:
         usage = self.usage.maybe_collect()
         tls = self.tls.maybe_collect()
         try:
-            self.client.heartbeat(facts, benches, usage=usage, tls=tls)
+            reply = self.client.heartbeat(facts, benches, usage=usage, tls=tls)
+            if isinstance(reply, dict) and reply.get("pending_jobs"):
+                self._wake.set()  # work is waiting: poll now instead of at the next interval
         except Exception:
             if usage is not None:
                 self.usage.last = None  # not delivered: send it with the next heartbeat
@@ -238,7 +251,27 @@ class ControlPlaneService:
             job = self.enqueue_remote(item["kind"], item.get("params") or {}, remote_id)
             created.append(job["id"])
             self.notify(job["id"])
+        if created:
+            self._last_activity = time.monotonic()
         return created
+
+    def current_poll_interval(self) -> float:
+        cp = self.ctx.settings.control_plane
+        return poll_interval(time.monotonic(), self._last_activity, cp.poll_seconds,
+                             cp.idle_poll_seconds, cp.active_window_seconds)
+
+    def _poll_loop(self, stop: threading.Event) -> None:
+        while not stop.is_set():
+            try:
+                self.poll_once()
+            except Exception as exc:
+                log.warning("poll failed: %s", exc)
+            deadline = time.monotonic() + self.current_poll_interval()
+            # wake early on a heartbeat with pending jobs; check `stop` at least every second
+            while not stop.is_set() and time.monotonic() < deadline:
+                if self._wake.wait(min(1.0, max(0.0, deadline - time.monotonic()))):
+                    break
+            self._wake.clear()
 
     def enqueue_remote(self, kind: str, params: dict[str, Any], remote_id: str) -> dict[str, Any]:
         try:
@@ -302,7 +335,7 @@ class ControlPlaneService:
         cp = self.ctx.settings.control_plane
         specs = [
             ("cp-heartbeat", lambda: self._loop(stop, cp.heartbeat_seconds, self.heartbeat_once, "heartbeat")),
-            ("cp-poll", lambda: self._loop(stop, cp.poll_seconds, self.poll_once, "poll")),
+            ("cp-poll", lambda: self._poll_loop(stop)),
             ("cp-reporter", lambda: self._reporter(stop)),
         ]
         for name, target in specs:

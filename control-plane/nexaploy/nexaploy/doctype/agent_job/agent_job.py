@@ -21,3 +21,19 @@ class AgentJob(Document):
 			self.server, self.kind, frappe.parse_json(self.params or "{}"),
 			self.reference_doctype, self.reference_name,
 		).name
+
+
+# Composite indexes (Frappe calls this on every migrate; add_index is idempotent):
+# - poll / heartbeat look up Pending jobs of one server every few seconds per server; without
+#   it each call scanned the whole table (found in the load test, e2e/loadtest).
+# - callbacks and the portal find a document's jobs by (reference_doctype, reference_name).
+AGENT_JOB_INDEXES = (
+	("server", "status"),
+	("reference_doctype", "reference_name"),
+	("status", "modified"),  # retention pruning (nexaploy.tasks.prune_agent_jobs)
+)
+
+
+def on_doctype_update():
+	for columns in AGENT_JOB_INDEXES:
+		frappe.db.add_index("Agent Job", list(columns))

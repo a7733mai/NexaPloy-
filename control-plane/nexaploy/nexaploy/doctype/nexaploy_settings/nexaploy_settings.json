@@ -68,7 +68,11 @@
   "column_break_cleanup_policy",
   "auto_cleanup_targets",
   "cleanup_log_retention_days",
-  "cleanup_backup_local_keep_days"
+  "cleanup_backup_local_keep_days",
+  "section_break_retention_jobs",
+  "agent_job_retention_days",
+  "column_break_retention_jobs",
+  "agent_job_housekeeping_retention_days"
  ],
  "fields": [
   {
@@ -441,13 +445,36 @@
    "fieldtype": "Int",
    "label": "Local Backups Kept (days)",
    "description": "0 or empty: the agent's backup retention."
+  },
+  {
+   "fieldname": "section_break_retention_jobs",
+   "fieldtype": "Section Break",
+   "label": "Agent Job History"
+  },
+  {
+   "fieldname": "agent_job_retention_days",
+   "fieldtype": "Int",
+   "label": "Keep Agent Jobs (days)",
+   "default": "90",
+   "description": "Finished jobs older than this are deleted daily (0 = default 90)."
+  },
+  {
+   "fieldname": "column_break_retention_jobs",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "agent_job_housekeeping_retention_days",
+   "fieldtype": "Int",
+   "label": "Keep routine jobs (days)",
+   "default": "7",
+   "description": "Health, usage, binlog archiving, TLS checks, log/SQL reads (0 = default 7)."
   }
  ],
  "index_web_pages_for_search": 0,
  "issingle": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-12-09 00:00:00.000000",
+ "modified": "2026-12-10 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Nexaploy Settings",

@@ -210,6 +210,7 @@ METRIC_INTERVAL = timedelta(minutes=5)
 DISK_ALERT_PERCENT = 85.0
 ALERT_INTERVAL = timedelta(hours=6)
 METRIC_RETENTION_DAYS = 30
+METRIC_RAW_RETENTION_HOURS = 48  # older 5-minute rows are folded into hourly averages
 
 
 def _num(value: Any, default: float = 0.0) -> float:
@@ -773,3 +774,29 @@ def _json_value(value: Any, depth: int = 0) -> bool:
 	if isinstance(value, dict):
 		return all(isinstance(k, str) and _json_value(v, depth + 1) for k, v in value.items())
 	return False
+
+
+# --------------------------------------------------------------------------- agent job retention
+# Agent Jobs are never pruned otherwise; at scale routine jobs dominate the table
+# (server.archive_binlogs alone: 96 per server per day).
+JOB_RETENTION_DAYS = 90
+HOUSEKEEPING_JOB_RETENTION_DAYS = 7
+HOUSEKEEPING_JOB_KINDS = frozenset({
+	"server.health", "server.archive_binlogs", "backup.prune_remote", "backup.test_remote",
+	"site.usage", "site.get_config", "site.tls_status", "site.logs", "site.analytics",
+	"site.slow_queries", "site.sql", "site.console", "site.storage_status", "site.storage_trash_list",
+	"server.storage_replicate", "server.storage_prune_trash", "server.diagnose",
+})
+FINISHED_JOB_STATUSES = ("Success", "Failure", "Cancelled")
+
+
+def job_retention_cutoffs(now, days=None, housekeeping_days=None):
+	"""(cutoff for user-facing kinds, cutoff for housekeeping kinds); non-positive or missing
+	settings fall back to the defaults."""
+	from datetime import timedelta
+
+	days = int(days or 0) if str(days or "").strip().lstrip("-").isdigit() else 0
+	housekeeping_days = int(housekeeping_days or 0) if str(housekeeping_days or "").strip().lstrip("-").isdigit() else 0
+	days = days if days > 0 else JOB_RETENTION_DAYS
+	housekeeping_days = housekeeping_days if housekeeping_days > 0 else HOUSEKEEPING_JOB_RETENTION_DAYS
+	return now - timedelta(days=days), now - timedelta(days=min(housekeeping_days, days))

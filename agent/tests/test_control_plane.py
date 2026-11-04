@@ -210,3 +210,38 @@ def test_no_site_name_header_by_default(cp_settings):
     client, rec, _ = make_client(cp_settings, {"poll": httpx.Response(200, json={"message": []})})
     client.poll()
     assert "X-Frappe-Site-Name" not in rec.requests[0].headers
+
+
+# --------------------------------------------------------------------------- adaptive polling
+from nexaploy_agent.control_plane import poll_interval  # noqa: E402
+
+
+def test_poll_interval_fast_while_active_slow_when_idle():
+    assert poll_interval(1000, 900, 10, 30, 300) == 10    # job seen 100 s ago
+    assert poll_interval(1000, 600, 10, 30, 300) == 30    # idle for 400 s
+    assert poll_interval(1000, 0, 10, 30, 300) == 30      # never active
+    assert poll_interval(1000, 0, 10, 5, 300) == 10       # idle never polls faster than poll_seconds
+
+
+def test_heartbeat_with_pending_jobs_wakes_the_poller(cp_settings, ctx):
+    client, rec, _ = make_client(cp_settings, {"heartbeat": httpx.Response(200, json={"message": {"ok": True, "pending_jobs": 2}})})
+    svc = ControlPlaneService(ctx, client=client)
+    assert not svc._wake.is_set()
+    svc.heartbeat_once()
+    assert svc._wake.is_set()
+
+
+def test_heartbeat_without_pending_jobs_does_not_wake(cp_settings, ctx):
+    client, rec, _ = make_client(cp_settings, {"heartbeat": httpx.Response(200, json={"message": {"ok": True, "pending_jobs": 0}})})
+    svc = ControlPlaneService(ctx, client=client)
+    svc.heartbeat_once()
+    assert not svc._wake.is_set()
+
+
+def test_new_jobs_switch_to_fast_polling(cp_settings, ctx):
+    client, rec, _ = make_client(cp_settings, {"poll": httpx.Response(200, json={"message": [
+        {"job_id": "cp-1", "kind": "site.usage", "params": {}}]})})
+    svc = ControlPlaneService(ctx, client=client)
+    assert svc.current_poll_interval() == cp_settings.control_plane.idle_poll_seconds
+    svc.poll_once()
+    assert svc.current_poll_interval() == cp_settings.control_plane.poll_seconds

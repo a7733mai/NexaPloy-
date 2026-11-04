@@ -176,10 +176,67 @@ def check_alerts():
 	frappe.db.commit()
 
 
+def prune_agent_jobs(batch=5000):
+	"""Daily: delete finished Agent Jobs (and their steps) older than the retention: 7 days for
+	routine/housekeeping kinds, 90 days for the rest (Nexaploy Settings
+	agent_job_retention_days / agent_job_housekeeping_retention_days override). Pending, Queued
+	and Running jobs are never deleted. Deletes in batches so no long table locks."""
+	settings = frappe.get_single("Nexaploy Settings")
+	normal, housekeeping = ou.job_retention_cutoffs(
+		now_datetime(), settings.get("agent_job_retention_days"), settings.get("agent_job_housekeeping_retention_days")
+	)
+	kinds = sorted(ou.HOUSEKEEPING_JOB_KINDS)
+	deleted = 0
+	for cutoff, kind_filter in ((housekeeping, ["in", kinds]), (normal, ["not in", kinds])):
+		while True:
+			names = frappe.get_all(
+				"Agent Job",
+				filters={"status": ["in", list(ou.FINISHED_JOB_STATUSES)], "modified": ["<", cutoff], "kind": kind_filter},
+				pluck="name", limit=batch,
+			)
+			if not names:
+				break
+			frappe.db.delete("Agent Job Step", {"parent": ["in", names], "parenttype": "Agent Job"})
+			frappe.db.delete("Agent Job", {"name": ["in", names]})
+			frappe.db.commit()
+			deleted += len(names)
+			if len(names) < batch:
+				break
+	return deleted
+
+
 def prune_server_metrics():
-	"""Daily: delete Server Metric rows older than 30 days."""
+	"""Daily: fold 5-minute Server Metric rows older than 48 h into one row per server and hour
+	(averages; ~12x fewer rows), then delete everything older than 30 days."""
+	rollup_server_metrics(add_to_date(now_datetime(), hours=-ou.METRIC_RAW_RETENTION_HOURS))
 	cutoff = add_to_date(now_datetime(), days=-ou.METRIC_RETENTION_DAYS)
 	frappe.db.delete("Server Metric", {"timestamp": ["<", cutoff]})
+	frappe.db.commit()
+
+
+def rollup_server_metrics(before):
+	"""Replace raw rows older than `before` by hourly averages (idempotent: hourly rows are
+	keyed by server + hour and only raw rows are folded)."""
+	frappe.db.sql(
+		"""insert into `tabServer Metric`
+			(name, creation, modified, owner, modified_by, docstatus, server, timestamp, resolution,
+			 load_1, memory_used_mb, memory_total_mb, disk_used_gb, disk_total_gb, unhealthy_containers)
+		select concat('h-', md5(concat(server, '|', date_format(timestamp, '%%Y-%%m-%%d %%H')))),
+			now(), now(), 'Administrator', 'Administrator', 0, server,
+			str_to_date(date_format(timestamp, '%%Y-%%m-%%d %%H:00:00'), '%%Y-%%m-%%d %%H:%%i:%%s'), 'hour',
+			avg(load_1), avg(memory_used_mb), max(memory_total_mb), avg(disk_used_gb), max(disk_total_gb),
+			max(unhealthy_containers)
+		from `tabServer Metric`
+		where timestamp < %(before)s and ifnull(resolution, 'raw') = 'raw'
+		group by server, date_format(timestamp, '%%Y-%%m-%%d %%H')
+		on duplicate key update load_1 = values(load_1), memory_used_mb = values(memory_used_mb),
+			disk_used_gb = values(disk_used_gb), unhealthy_containers = values(unhealthy_containers)""",
+		{"before": before},
+	)
+	frappe.db.sql(
+		"delete from `tabServer Metric` where timestamp < %(before)s and ifnull(resolution, 'raw') = 'raw'",
+		{"before": before},
+	)
 	frappe.db.commit()
 
 

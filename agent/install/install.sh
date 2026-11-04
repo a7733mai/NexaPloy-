@@ -44,6 +44,7 @@ CP_FRAPPE_MAJOR=16
 CP_OFFICIAL_FALLBACK="frappe/erpnext:v16.53.0"   # when image-builder/versions.json has no official_image
 CP_BENCH="nexaploy-cp"
 CP_PORT=8090
+CP_WORKERS=auto
 CP_ADMIN_PASSWORD=""
 CP_RESTORE=""
 SKIP_DNS_CHECK=0
@@ -87,6 +88,8 @@ Usage: install.sh [options]
                            ghcr.io/a7733mai/nexaploy-control-plane:<agent version>, :16 or :latest,
                            else built on this server from the official frappe/erpnext image)
   --control-plane-port PORT  127.0.0.1 port the agent uses to reach it (default: 8090)
+  --control-plane-workers N  gunicorn workers of the control plane (default: auto, from CPUs
+                           and RAM: 2 x CPUs + 1, at most 9, about 400 MB of RAM each)
   --admin-password PASS    Administrator password of the control plane (default: random,
                            saved in <root>/config/control-plane.env)
   --restore-control-plane SRC  create the control plane site from a backup instead of a new one:
@@ -129,6 +132,7 @@ while [[ $# -gt 0 ]]; do
         --with-control-plane) need_val "$@"; CP_DOMAIN="${2,,}"; shift 2 ;;
         --control-plane-image) need_val "$@"; CP_IMAGE="$2"; shift 2 ;;
         --control-plane-port) need_val "$@"; CP_PORT="$2"; shift 2 ;;
+        --control-plane-workers) need_val "$@"; CP_WORKERS="$2"; shift 2 ;;
         --admin-password)    need_val "$@"; CP_ADMIN_PASSWORD="$2"; shift 2 ;;
         --restore-control-plane) need_val "$@"; CP_RESTORE="$2"; shift 2 ;;
         --skip-dns-check)    SKIP_DNS_CHECK=1; shift ;;
@@ -766,6 +770,17 @@ start_stacks() {
 }
 
 # --------------------------------------------------------------------------- 9. all-in-one
+cp_auto_workers() {  # 2 x CPUs + 1, capped at 9 and by RAM (~400 MB per worker), at least 2
+    local cpus mem_mb w
+    cpus="$(nproc 2>/dev/null || echo 2)"
+    mem_mb="$(awk '/^MemTotal:/ {print int($2 / 1024)}' /proc/meminfo 2>/dev/null || echo 4096)"
+    w=$((cpus * 2 + 1))
+    (( w > 9 )) && w=9
+    (( w > mem_mb / 400 )) && w=$((mem_mb / 400))
+    (( w < 2 )) && w=2
+    echo "$w"
+}
+
 cp_exec() {  # bench command inside the control plane backend container
     docker exec "$CP_BENCH-backend" bench --site "$CP_DOMAIN" "$@"
 }
@@ -886,6 +901,13 @@ install_control_plane() {
         log "creating control plane bench $CP_BENCH"
         nexaploy bench create "$CP_BENCH" --image "$CP_IMAGE" --wait || die "bench $CP_BENCH could not be created (nexaploy jobs; nexaploy retry <job>)"
     fi
+    # Web workers: the default 2 handle ~500 agents in the load test (e2e/loadtest); more
+    # CPUs/RAM -> more workers for agents + portal users. Applied on the next `up` below.
+    local workers="$CP_WORKERS"
+    if [[ "$workers" == auto ]]; then workers="$(cp_auto_workers)"; fi
+    [[ "$workers" =~ ^[1-9][0-9]?$ ]] || die "invalid --control-plane-workers: $workers"
+    set_env_var "$ROOT/benches/$CP_BENCH/.env" BACKEND_WORKERS "$workers"
+    log "control plane web workers: $workers"
     # The agent (on the host) reaches the control plane on 127.0.0.1:$CP_PORT; docker compose
     # merges this override with the agent-rendered docker-compose.yml on every `up`.
     cat > "$ROOT/benches/$CP_BENCH/docker-compose.override.yml" <<YAML

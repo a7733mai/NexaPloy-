@@ -8,6 +8,7 @@
  "field_order": [
   "server",
   "timestamp",
+  "resolution",
   "load_1",
   "column_break_1",
   "memory_used_mb",
@@ -36,6 +37,14 @@
    "label": "Timestamp",
    "reqd": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "resolution",
+   "fieldtype": "Select",
+   "label": "Resolution",
+   "options": "raw\nhour",
+   "default": "raw",
+   "read_only": 1
   },
   {
    "fieldname": "load_1",
@@ -90,7 +99,7 @@
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-10 12:00:00.000000",
+ "modified": "2026-12-10 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Server Metric",

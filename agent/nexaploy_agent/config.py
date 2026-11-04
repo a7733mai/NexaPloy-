@@ -45,6 +45,11 @@ class ControlPlaneSection(_Section):
     site_name: str = ""
     heartbeat_seconds: int = Field(default=60, ge=5)
     poll_seconds: int = Field(default=10, ge=1)
+    # adaptive polling: poll every `poll_seconds` while jobs were seen in the last
+    # `active_window_seconds`, else every `idle_poll_seconds`; a heartbeat reporting pending
+    # jobs triggers a poll at once (fewer requests on the control plane at scale)
+    idle_poll_seconds: int = Field(default=30, ge=1)
+    active_window_seconds: int = Field(default=300, ge=0)
     timeout_seconds: float = 15.0
 
     @property
