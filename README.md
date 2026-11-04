@@ -33,3 +33,10 @@ curl -fsSL https://<control-plane>/install.sh | sudo bash -s -- --token <REGISTR
 Standalone (no control plane) — see `agent/README.md`.
 
 Documentation: https://a7733mai.github.io/NexaPloy-/ (source in `docs/`, `mkdocs serve` to preview).
+
+Usage guides (English and Arabic):
+
+- [Operator guide](docs/guide/operator.md) ([العربية](docs/guide/operator.ar.md)): install, Administration area,
+  pricing, storage, e-mail, branding, agent releases, server health and OS updates, operations, disaster recovery, CLI.
+- [Customer guide](docs/guide/customer.md) ([العربية](docs/guide/customer.ar.md)): teams, servers, bench groups,
+  sites, domains, backups, safe updates, monitoring, notifications, billing, support.
