@@ -196,6 +196,7 @@ class CleanupParams(BaseParams):
     bench_log_max_mb: int = Field(default=200, ge=10, le=100_000)
     image_min_age_hours: int = Field(default=72, ge=1, le=24 * 365)
     job_retention_days: int = Field(default=30, ge=7, le=3650)
+    images_scope: Literal["unused", "dangling"] = "unused"
 
     @field_validator("targets")
     @classmethod
@@ -218,7 +219,7 @@ class ServerCleanup(Job):
             dry_run=p.dry_run, log_retention_days=p.log_retention_days,
             backup_local_keep_days=p.backup_local_keep_days, docker_log_max_mb=p.docker_log_max_mb,
             bench_log_max_mb=p.bench_log_max_mb, image_min_age_hours=p.image_min_age_hours,
-            job_retention_days=p.job_retention_days,
+            job_retention_days=p.job_retention_days, images_scope=p.images_scope,
         )
         return Cleaner(self.ctx, opts, log=self.log)
 

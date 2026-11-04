@@ -580,6 +580,8 @@ def on_archive_binlogs(job):
 	archive_finished(job)
 # agent.upgrade / agent.rollback handlers live with the upgrade logic
 import nexaploy.agent_upgrades  # noqa: E402,F401
+# server maintenance & health (§17)
+import nexaploy.server_maintenance  # noqa: E402,F401
 # offsite attachments, DR replica and trash (§15): handlers live in nexaploy.storage
 from nexaploy import storage as _storage  # noqa: E402
 

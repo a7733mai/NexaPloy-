@@ -55,7 +55,47 @@
   "column_break_agent_upgrade",
   "agent_upgrade_job",
   "agent_upgrade_started_at",
-  "agent_upgrade_error"
+  "agent_upgrade_error",
+  "section_break_os",
+  "os_updates_supported",
+  "os_pending_updates",
+  "os_security_updates",
+  "os_reboot_required",
+  "os_running_kernel",
+  "os_newest_kernel",
+  "os_boot_time",
+  "os_updates_checked_at",
+  "unattended_security",
+  "column_break_os",
+  "os_update_status",
+  "os_update_job",
+  "os_update_started_at",
+  "os_update_error",
+  "last_os_update_at",
+  "section_break_maintenance",
+  "maintenance_enabled",
+  "maintenance_day",
+  "maintenance_hour",
+  "column_break_maintenance",
+  "maintenance_mode",
+  "maintenance_reboot",
+  "last_maintenance_at",
+  "auto_cleanup_enabled",
+  "section_break_health",
+  "health_status",
+  "health_checked_at",
+  "health_diagnosed_at",
+  "column_break_health",
+  "health_issues",
+  "health_diagnose",
+  "health_alert_state",
+  "section_break_cleanup",
+  "last_cleanup_at",
+  "last_cleanup_freed",
+  "last_cleanup_job",
+  "column_break_cleanup",
+  "last_auto_cleanup_at",
+  "last_scheduled_cleanup_at"
  ],
  "fields": [
   {
@@ -379,12 +419,254 @@
    "fieldtype": "Small Text",
    "label": "Agent Upgrade Error",
    "read_only": 1
+  },
+  {
+   "fieldname": "section_break_os",
+   "fieldtype": "Section Break",
+   "label": "System Updates",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "os_updates_supported",
+   "fieldtype": "Check",
+   "label": "OS Updates Supported",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os_pending_updates",
+   "fieldtype": "Int",
+   "label": "Pending Updates",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os_security_updates",
+   "fieldtype": "Int",
+   "label": "Security Updates",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os_reboot_required",
+   "fieldtype": "Check",
+   "label": "Reboot Required",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os_running_kernel",
+   "fieldtype": "Data",
+   "label": "Running Kernel",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os_newest_kernel",
+   "fieldtype": "Data",
+   "label": "Newest Kernel",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os_boot_time",
+   "fieldtype": "Datetime",
+   "label": "Boot Time",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os_updates_checked_at",
+   "fieldtype": "Datetime",
+   "label": "Updates Checked At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "unattended_security",
+   "fieldtype": "Check",
+   "label": "Automatic Security Updates",
+   "read_only": 1,
+   "description": "Reported by the agent (20auto-upgrades)."
+  },
+  {
+   "fieldname": "column_break_os",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "os_update_status",
+   "fieldtype": "Select",
+   "label": "OS Update Status",
+   "options": "\nIn Progress\nRebooting\nSucceeded\nFailed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os_update_job",
+   "fieldtype": "Link",
+   "label": "OS Update Job",
+   "options": "Agent Job",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os_update_started_at",
+   "fieldtype": "Datetime",
+   "label": "OS Update Started At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os_update_error",
+   "fieldtype": "Small Text",
+   "label": "OS Update Error",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_os_update_at",
+   "fieldtype": "Datetime",
+   "label": "Last OS Update At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_maintenance",
+   "fieldtype": "Section Break",
+   "label": "Maintenance Window",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "maintenance_enabled",
+   "fieldtype": "Check",
+   "label": "Maintenance Window Enabled",
+   "default": "0",
+   "description": "Install updates automatically in the window below (UTC)."
+  },
+  {
+   "fieldname": "maintenance_day",
+   "fieldtype": "Select",
+   "label": "Maintenance Day",
+   "options": "Every day\nMonday\nTuesday\nWednesday\nThursday\nFriday\nSaturday\nSunday",
+   "default": "Sunday"
+  },
+  {
+   "fieldname": "maintenance_hour",
+   "fieldtype": "Int",
+   "label": "Maintenance Hour (UTC)",
+   "default": "3"
+  },
+  {
+   "fieldname": "column_break_maintenance",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "maintenance_mode",
+   "fieldtype": "Select",
+   "label": "Maintenance Updates",
+   "options": "security\nall",
+   "default": "security"
+  },
+  {
+   "fieldname": "maintenance_reboot",
+   "fieldtype": "Select",
+   "label": "Maintenance Reboot",
+   "options": "never\nif_required\nalways",
+   "default": "if_required"
+  },
+  {
+   "fieldname": "last_maintenance_at",
+   "fieldtype": "Datetime",
+   "label": "Last Maintenance At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "auto_cleanup_enabled",
+   "fieldtype": "Check",
+   "label": "Automatic Cleanup",
+   "default": "1",
+   "description": "Off: the platform cleanup policy skips this server."
+  },
+  {
+   "fieldname": "section_break_health",
+   "fieldtype": "Section Break",
+   "label": "Health",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "health_status",
+   "fieldtype": "Select",
+   "label": "Health Status",
+   "options": "\nOK\nWarning\nCritical\nUnknown\nOffline",
+   "read_only": 1
+  },
+  {
+   "fieldname": "health_checked_at",
+   "fieldtype": "Datetime",
+   "label": "Health Checked At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "health_diagnosed_at",
+   "fieldtype": "Datetime",
+   "label": "Last Full Check At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_health",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "health_issues",
+   "fieldtype": "JSON",
+   "label": "Health Issues",
+   "read_only": 1
+  },
+  {
+   "fieldname": "health_diagnose",
+   "fieldtype": "JSON",
+   "label": "Last Full Check",
+   "read_only": 1
+  },
+  {
+   "fieldname": "health_alert_state",
+   "fieldtype": "JSON",
+   "label": "Health Alert State",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_cleanup",
+   "fieldtype": "Section Break",
+   "label": "Cleanup",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "last_cleanup_at",
+   "fieldtype": "Datetime",
+   "label": "Last Cleanup At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_cleanup_freed",
+   "fieldtype": "Float",
+   "label": "Last Cleanup Freed (bytes)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_cleanup_job",
+   "fieldtype": "Link",
+   "label": "Last Cleanup Job",
+   "options": "Agent Job",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_cleanup",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_auto_cleanup_at",
+   "fieldtype": "Datetime",
+   "label": "Last Automatic Cleanup (disk critical)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_scheduled_cleanup_at",
+   "fieldtype": "Datetime",
+   "label": "Last Scheduled Cleanup",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-12-05 00:00:00.000000",
+ "modified": "2026-12-10 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Server",

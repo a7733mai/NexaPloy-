@@ -13,7 +13,7 @@
    "fieldname": "event",
    "fieldtype": "Select",
    "label": "Event",
-   "options": "server_down\nserver_recovered\ndisk_high\ncontainer_unhealthy\nsite_down\nsite_recovered\nbackup_failed\njob_failed\ninvoice_issued\npayment_failed\nsuspension\nssl_expiring\nsupport_reply\nmonitor_down\nmonitor_up",
+   "options": "server_down\nserver_recovered\ndisk_high\ncontainer_unhealthy\nsite_down\nsite_recovered\nbackup_failed\njob_failed\ninvoice_issued\npayment_failed\nsuspension\nssl_expiring\nsupport_reply\nmonitor_down\nmonitor_up\nserver_health_critical\nserver_health_ok",
    "reqd": 1,
    "in_list_view": 1
   }
@@ -21,7 +21,7 @@
  "index_web_pages_for_search": 0,
  "istable": 1,
  "links": [],
- "modified": "2026-12-07 00:00:00.000000",
+ "modified": "2026-12-10 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Notification Channel Event",

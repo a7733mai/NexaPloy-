@@ -2072,3 +2072,98 @@ uptime,نسبة التشغيل
 {0} h,{0} ساعة
 {0} min,{0} دقيقة
 {0} s,{0} ث
+Server health critical,صحة الخادم حرجة
+Server health back to OK,عادت صحة الخادم إلى الوضع السليم
+The server must be Active (online) for this action,يجب أن يكون الخادم نشطًا (متصلًا) لتنفيذ هذا الإجراء
+You are not allowed to run maintenance on this server,غير مسموح لك بإجراء الصيانة على هذا الخادم
+A system update or reboot is already in progress on this server,يجري بالفعل تحديث للنظام أو إعادة تشغيل على هذا الخادم
+Invalid maintenance day,يوم صيانة غير صالح
+Maintenance hour must be between 0 and 23 (UTC),يجب أن تكون ساعة الصيانة بين 0 و23 (UTC)
+Update mode must be all or security,يجب أن يكون نوع التحديث: الكل أو الأمنية
+"Reboot must be never, if_required or always",يجب أن تكون إعادة التشغيل: أبدًا أو عند الحاجة أو دائمًا
+A cleanup is already running on this server,يجري تنظيف بالفعل على هذا الخادم
+Job not found,المهمة غير موجودة
+The server did not report back within 2 hours after the update / reboot.,لم يرسل الخادم أي تقرير خلال ساعتين بعد التحديث أو إعادة التشغيل.
+System updates,تحديثات النظام
+Update now,حدّث الآن
+Reboot now,أعد التشغيل الآن
+Maintenance window,نافذة الصيانة
+Automatic security updates,التحديثات الأمنية التلقائية
+Reboot required,إعادة التشغيل مطلوبة
+Health,الصحة
+Run full check,تشغيل فحص كامل
+Clean up,تنظيف
+Pending updates,تحديثات معلقة
+Security updates,تحديثات أمنية
+Running kernel,النواة العاملة
+Newest kernel,أحدث نواة
+Last boot,آخر إقلاع
+Last checked,آخر فحص
+Security updates only,التحديثات الأمنية فقط
+All updates,كل التحديثات
+Reboot,إعادة التشغيل
+If required,عند الحاجة
+Always,دائمًا
+Day,اليوم
+Hour (UTC),الساعة (UTC)
+Every day,كل يوم
+Monday,الاثنين
+Tuesday,الثلاثاء
+Wednesday,الأربعاء
+Thursday,الخميس
+Friday,الجمعة
+Saturday,السبت
+Sunday,الأحد
+Automatic cleanup,التنظيف التلقائي
+System updates are only available on Ubuntu and Debian servers.,تحديثات النظام متاحة فقط على خوادم Ubuntu وDebian.
+No issues found.,لم يتم العثور على مشكلات.
+Last full check,آخر فحص كامل
+Last cleanup,آخر تنظيف
+Freed,تم تحرير
+Estimate space (dry run),تقدير المساحة (تجربة دون تنفيذ)
+Clean up now,نظّف الآن
+Estimated space to free,المساحة المقدّرة للتحرير
+Space freed,المساحة المحررة
+Items,العناصر
+Waiting for the server agent…,في انتظار وكيل الخادم…
+"Choose what to clean. Site files, databases, certificates and configuration are never touched.",اختر ما تريد تنظيفه. لا يتم المساس أبدًا بملفات المواقع وقواعد البيانات والشهادات والإعدادات.
+Install updates on this server now?,تثبيت التحديثات على هذا الخادم الآن؟
+Reboot this server? Sites are unavailable for a few minutes.,إعادة تشغيل هذا الخادم؟ ستكون المواقع غير متاحة لبضع دقائق.
+System update started,بدأ تحديث النظام
+Reboot scheduled,تمت جدولة إعادة التشغيل
+Full check started,بدأ الفحص الكامل
+Cleanup started,بدأ التنظيف
+Unused Docker images,صور Docker غير المستخدمة
+Docker build cache,ذاكرة بناء Docker المؤقتة
+Exited one-off containers,الحاويات المؤقتة المتوقفة
+Oversized container logs,سجلات الحاويات كبيرة الحجم
+Old bench and site logs,سجلات البنش والمواقع القديمة
+Uploaded local backups,النسخ الاحتياطية المحلية المرفوعة
+Agent job history and build logs,سجل مهام الوكيل وسجلات البناء
+System journal,سجل النظام
+Package cache,ذاكرة الحزم المؤقتة
+Temporary files,الملفات المؤقتة
+Warning,تحذير
+Critical,حرج
+Rebooting,يعاد التشغيل
+Update all servers,حدّث كل الخوادم
+Clean up all servers,نظّف كل الخوادم
+Install security updates (no reboot) on every server with pending updates?,تثبيت التحديثات الأمنية (دون إعادة تشغيل) على كل خادم لديه تحديثات معلقة؟
+Run the cleanup policy on every active server now?,تشغيل سياسة التنظيف على كل الخوادم النشطة الآن؟
+Jobs created: {0},المهام المنشأة: {0}
+Maintenance & cleanup policy,سياسة الصيانة والتنظيف
+Customers may run updates and cleanup on their own servers,يمكن للعملاء تشغيل التحديثات والتنظيف على خوادمهم الخاصة
+Disk warning (%),تحذير القرص (%)
+Disk critical (%),القرص حرج (%)
+Inodes warning (%),تحذير inodes (%)
+Memory warning (%),تحذير الذاكرة (%)
+Load per CPU,الحمل لكل معالج
+Weekly automatic cleanup,تنظيف تلقائي أسبوعي
+Clean up automatically when a disk is critical,التنظيف تلقائيًا عندما يكون القرص في حالة حرجة
+"Cleanup targets (one per line, empty = all)",أهداف التنظيف (واحد في كل سطر، فارغ = الكل)
+Log retention (days),مدة الاحتفاظ بالسجلات (أيام)
+"Local backups kept (days, 0 = agent default)",مدة الاحتفاظ بالنسخ المحلية (أيام، 0 = افتراضي الوكيل)
+No servers yet.,لا توجد خوادم بعد.
+Issues,المشكلات
+Checked,تم الفحص
+Unknown cleanup target: {0},هدف تنظيف غير معروف: {0}
