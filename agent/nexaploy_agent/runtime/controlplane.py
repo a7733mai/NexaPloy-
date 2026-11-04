@@ -272,7 +272,13 @@ def source_kind(source: str) -> str:
     """``https://…`` -> url, ``remote:path`` / ``:backend,opt=…:path`` -> rclone, else a local path."""
     if re.match(r"^https?://", source):
         return "url"
-    if Path(source).exists() or source.startswith(("/", "./", "../", "~")):
+    if source.startswith(("/", "./", "../", "~")):
+        return "path"
+    try:
+        exists = Path(source).exists()
+    except OSError:  # e.g. PermissionError on an unreadable parent: not decidable, keep going
+        exists = False
+    if exists:
         return "path"
     if re.match(r"^:?[A-Za-z0-9_][A-Za-z0-9_.,=@+-]*:", source):
         return "rclone"

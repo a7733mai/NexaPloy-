@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install pytest
+      - run: pip install pytest jinja2 pyyaml
       - run: python -m compileall -q control-plane/nexaploy
       - run: python -m pytest control-plane/tests -q
 
