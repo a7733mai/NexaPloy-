@@ -94,3 +94,22 @@ The `nexaploy` app installed and migrated on Frappe 16.55.1; all 18 scheduler jo
 cleanly; agent registration/heartbeat, `bench.create`, `site.create` and `site.backup` from
 the v16 control plane; all 15 portal pages in Chromium without JS errors; cross-team
 isolation (portal API and `frappe.client`) holds. New Release Groups default to v16.
+
+## Round 3 (Frappe v16): new features verified on Docker
+
+| Feature | Verified | Bug found & fixed |
+|---|---|---|
+| All-in-one install (`--with-control-plane`) | install, register, heartbeat, HTTPS, self-backup, idempotent re-run, interactive prompt | `exec 3</dev/tty` aborted the script without a terminal |
+| Notification channels | channel CRUD, auto Email channel, failed send recorded (Telegram unreachable here) | — |
+| DNS verification / per-host TLS routers | Pending DNS, admin skip, route per host, TLS status (default cert flagged) | — |
+| Version-aware marketplace | v16 → 12 apps, v14 → 6, requirements shown | — |
+| Email relay | Email Account created in a v16 site; password absent from jobs/logs | — |
+| Backup restore modes | database-only and files-only restores | — |
+| Safe update | clone on a new build, smoke checks, apply (move), route + data preserved | — |
+| PITR | backup with binlog position, rows A/B around T, restore to T → A only | `--database` must name the source DB (filter runs before `--rewrite-db`) |
+| Admin area | 7 tabs in Chromium; customers get 403 | `count(name)` string fields rejected by Frappe v16 |
+| Uptime monitors / status page | default monitor, 2 failures → Down + incident, guest status page without internal data | NULL status code on DNS failure aborted the state update |
+
+Needs real infrastructure: OAuth (Drive/OneDrive/Dropbox), S3 buckets + FUSE mounts (offsite
+attachments, replica, trash), Let's Encrypt, SMTP delivery, Telegram/WhatsApp, agent upgrade
+under systemd, Packer images, GHCR release workflow.
