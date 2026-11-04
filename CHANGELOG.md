@@ -49,6 +49,12 @@ First release.
 - **Agent upgrades from the control plane.** Agent Releases (stable/beta channels).
   Upgrade or roll back one server, or all outdated servers at once. The agent keeps
   the previous version and rolls back by itself if the new one does not start.
+- **Control plane in 5 minutes.** `install.sh --with-control-plane DOMAIN` needs no other flag:
+  it checks DNS first (and says which A record to create), uses the published control plane image or
+  builds one from the official ERPNext image, and can restore an existing control plane onto a new
+  server (`--restore-control-plane`). The control plane updates itself from Administration >
+  Overview (backup, migrate, health check, automatic rollback) or `nexaploy controlplane update`;
+  `nexaploy controlplane backup` writes one tarball. A first-run setup checklist guides the operator.
 - **Release tooling.** `scripts/release.sh`, a GitHub Actions release workflow (tests,
   control plane image on ghcr.io, GitHub Release), Packer templates for Hetzner Cloud and
   DigitalOcean server images, and the documentation site (English and Arabic).

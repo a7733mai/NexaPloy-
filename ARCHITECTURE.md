@@ -386,9 +386,15 @@ new control plane here (all-in-one), join an existing one (URL + token), or stan
 The control plane runs on the server it manages, as an ordinary bench created by the local
 agent — the same image contract and compose template as every other bench:
 
-1. Pull the control plane image (`--control-plane-image`, default
-   `ghcr.io/a7733mai/nexaploy-control-plane:16`; built by `control-plane/docker/build.sh`
-   = a contract bench image + the `nexaploy` app).
+0. DNS preflight (before the system upgrade): the domain's A/AAAA records (`dig @1.1.1.1`, else
+   `getent ahosts`) must be this server's addresses (`ip route get` source, `api.ipify.org` behind
+   NAT); otherwise it prints the record to create and asks (wait / re-check / continue / abort), or
+   fails with `--yes` unless `--skip-dns-check`.
+1. Control plane image: `--control-plane-image` forces one; by default the first of
+   `ghcr.io/a7733mai/nexaploy-control-plane:<agent version>`, `:16`, `:latest` that is local or can
+   be pulled, else `nexaploy/control-plane:<version>-local` built on the server with
+   `control-plane/docker/build.sh --from-official <image-builder/versions.json["16"].official_image>`
+   (= a contract bench image + the `nexaploy` app). Recorded in `config/control-plane.env` (`IMAGE`).
 2. `nexaploy bench create nexaploy-cp`, then write `benches/nexaploy-cp/docker-compose.override.yml`
    publishing the frontend on `127.0.0.1:<--control-plane-port, 8090>` (compose merges the
    override on every `up`; the agent never renders it).
@@ -401,6 +407,13 @@ agent — the same image contract and compose template as every other bench:
    be archived; the control plane bench/site are not Bench/Site documents, so the control plane
    can never drop or move itself. `backup_control_plane` (daily) backs up its own site through
    the agent (uploaded when backup storage is configured).
+
+`--restore-control-plane SRC` (tarball of `nexaploy controlplane backup`, a backup dir, an `https://`
+URL or an rclone `remote:path`) replaces step 3: `nexaploy controlplane import-backup` stages it under
+`backups/<bench>/<domain>/<ts>/` (manifest verified/generated) and `site.restore` restores database,
+files and `encryption_key`. The restored database keeps every Server and its token, so other servers
+reconnect once DNS points to the new host; `mark_host` clears the flag of the previous host, whose
+agent is pointed at the public URL with `nexaploy controlplane repoint --url https://<domain>`.
 
 The hosted mode (control plane elsewhere, `--control-plane URL --token T`) is unchanged.
 Trade-off of all-in-one: when the server is down, so is its control plane (and its alerts) —
@@ -425,6 +438,34 @@ are never touched. Control plane: DocType **Agent Release** (`version`, `git_ref
 stable/beta, `published`, `release_notes`), Server `agent_channel` + `agent_upgrade_*`; the
 heartbeat with the target `agent_version` marks the upgrade Succeeded, none within
 `Nexaploy Settings.agent_upgrade_timeout_minutes` marks it Failed.
+
+### 5.9 Control plane self-update (`controlplane.update`)
+
+The control plane restarts while it is updated, so the whole sequence is ONE agent job on the server
+hosting it (all-in-one): `controlplane.update {bench, site, image, previous_image?, backup=true,
+upload=true, port?, health_timeout=300}`, steps `prepare` (running image from the bench `.env`, pinned
+as `nexaploy-cp-rollback:<job>` since `:16`/`:latest` move) → `backup` (like `site.backup`) → `pull`
+(same name + same image id = up to date: switch/migrate skipped) → `switch` (IMAGE, render,
+configurator, `up -d`) → `migrate` (`bench --site <site> migrate`) → `health` (`GET
+http://127.0.0.1:<PORT>/api/method/ping` with `X-Frappe-Site-Name` until `pong`) → `finalize`
+(`control-plane.env` IMAGE). A failure in switch/migrate/health rolls back inside the job
+(`runtime/controlplane.rollback_plan`): previous image back (`switch_back`), `restore_database` from the
+pre-update backup when migrate had started (database only, with the previous image), `health` again;
+result `rollback {failed_step, actions, done, errors}`, `rolled_back`. API `POST /v1/controlplane/update`.
+
+CLI (works while the panel is down): `nexaploy controlplane status | update [--image IMG |
+--version V] [--no-backup] | backup --to DIR | import-backup SRC | repoint --url URL`.
+
+Control plane: `/dashboard/admin` Overview card (`nexaploy.api.controlplane`, logic
+`controlplane_utils.py`): version (`nexaploy.__version__`) + image (host's `benches_report`) vs the newest
+GitHub release of `Nexaploy Settings.control_plane_release_repo` (default `a7733mai/NexaPloy-`) on
+`control_plane_release_channel` (stable/beta), cached 1 h; target `<control_plane_image_repo>:<version>`
+or a typed version/image; progress polled from the Agent Job (errors while it restarts are expected).
+A hosted control plane (no Server with `hosts_control_plane`) shows the button disabled: update it where
+it runs (backup, `docker compose pull`, `docker compose up -d`, `bench --site <site> migrate`).
+The same card area shows the first-run **setup checklist** (platform name + root domain, currency,
+payment gateway, backup storage, outgoing e-mail, plans, external uptime probe, an Active site),
+computed from settings on every load; *Dismiss* sets `Nexaploy Settings.setup_checklist_dismissed`.
 
 ## 6. Non-goals for Phase 1
 
