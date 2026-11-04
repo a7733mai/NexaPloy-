@@ -1,0 +1,1815 @@
+diff --git a/agent/install/install.sh b/agent/install/install.sh
+index e156146..50a6dc8 100755
+--- a/agent/install/install.sh
++++ b/agent/install/install.sh
+@@ -36,10 +36,17 @@ OS_UPGRADE=1
+ HWE_KERNEL=0
+ REBOOT=auto        # auto: reboot at the end when the OS upgrade needs it; no: never
+ CP_DOMAIN=""
+-CP_IMAGE="${NEXAPLOY_CONTROL_PLANE_IMAGE:-ghcr.io/a7733mai/nexaploy-control-plane:16}"
++# Empty = automatic: <repo>:<agent version>, then :16, then :latest, else built locally from the
++# official frappe/erpnext image (resolve_cp_image). --control-plane-image IMG forces one image.
++CP_IMAGE="${NEXAPLOY_CONTROL_PLANE_IMAGE:-}"
++CP_IMAGE_REPO="${NEXAPLOY_CONTROL_PLANE_REPO:-ghcr.io/a7733mai/nexaploy-control-plane}"
++CP_FRAPPE_MAJOR=16
++CP_OFFICIAL_FALLBACK="frappe/erpnext:v16.53.0"   # when image-builder/versions.json has no official_image
+ CP_BENCH="nexaploy-cp"
+ CP_PORT=8090
+ CP_ADMIN_PASSWORD=""
++CP_RESTORE=""
++SKIP_DNS_CHECK=0
+ ASSUME_YES=0
+ 
+ usage() {
+@@ -70,10 +77,17 @@ Usage: install.sh [options]
+  All-in-one (control plane on this server):
+   --with-control-plane DOMAIN  also install the control plane at https://DOMAIN (a bench +
+                            site managed by this server's agent) and register this server to it
+-  --control-plane-image IMG  control plane image (default: ghcr.io/a7733mai/nexaploy-control-plane:16)
++  --control-plane-image IMG  control plane image (default: automatic - the published image
++                           ghcr.io/a7733mai/nexaploy-control-plane:<agent version>, :16 or :latest,
++                           else built on this server from the official frappe/erpnext image)
+   --control-plane-port PORT  127.0.0.1 port the agent uses to reach it (default: 8090)
+   --admin-password PASS    Administrator password of the control plane (default: random,
+                            saved in <root>/config/control-plane.env)
++  --restore-control-plane SRC  create the control plane site from a backup instead of a new one:
++                           a tarball from 'nexaploy controlplane backup', a backup directory,
++                           an https:// URL of a tarball or an rclone remote:path (moving the
++                           control plane to a new server; the other servers keep their tokens)
++  --skip-dns-check         do not check that DOMAIN points to this server
+   -y, --yes                never ask questions (no interactive setup)
+   -h, --help               show this help
+ EOF
+@@ -108,6 +122,8 @@ while [[ $# -gt 0 ]]; do
+         --control-plane-image) need_val "$@"; CP_IMAGE="$2"; shift 2 ;;
+         --control-plane-port) need_val "$@"; CP_PORT="$2"; shift 2 ;;
+         --admin-password)    need_val "$@"; CP_ADMIN_PASSWORD="$2"; shift 2 ;;
++        --restore-control-plane) need_val "$@"; CP_RESTORE="$2"; shift 2 ;;
++        --skip-dns-check)    SKIP_DNS_CHECK=1; shift ;;
+         -y|--yes)            ASSUME_YES=1; shift ;;
+         -h|--help)           usage; exit 0 ;;
+         *)                   usage >&2; die "unknown option: $1" ;;
+@@ -129,7 +145,9 @@ if [[ $ORIG_ARGC -eq 0 && $ASSUME_YES -eq 0 ]] && ( : </dev/tty ) 2>/dev/null; t
+     case "$REPLY" in
+         1) ask "Control plane domain (DNS A record must point here), e.g. cp.example.com: " ""
+            CP_DOMAIN="${REPLY,,}"
+-           ask "E-mail for Let's Encrypt certificates: " ""; ACME_EMAIL="$REPLY" ;;
++           ask "E-mail for Let's Encrypt certificates: " ""; ACME_EMAIL="$REPLY"
++           ask "Restore a control plane backup (tarball, https URL or remote:path; empty = new): " ""
++           CP_RESTORE="$REPLY" ;;
+         2) ask "Control plane URL (https://...): " ""; CONTROL_PLANE="${REPLY%/}"
+            ask "Registration token (Servers > Add server): " ""; TOKEN="$REPLY"
+            ask "E-mail for Let's Encrypt certificates: " ""; ACME_EMAIL="$REPLY" ;;
+@@ -143,6 +161,7 @@ fi
+ 
+ [[ -z "$CP_DOMAIN" || "$CP_DOMAIN" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]] || die "invalid --with-control-plane domain: $CP_DOMAIN"
+ [[ -z "$CP_DOMAIN" || -z "$CONTROL_PLANE" ]] || die "--with-control-plane and --control-plane are mutually exclusive"
++[[ -z "$CP_RESTORE" || -n "$CP_DOMAIN" ]] || die "--restore-control-plane needs --with-control-plane DOMAIN"
+ [[ "$CP_PORT" =~ ^[0-9]{2,5}$ ]] || die "invalid --control-plane-port"
+ [[ -z "$SERVER_ID" || "$SERVER_ID" =~ ^[a-z0-9][a-z0-9-]{1,62}$ ]] || die "invalid --server-id: $SERVER_ID"
+ [[ -z "$ACME_EMAIL" || "$ACME_EMAIL" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]] || die "invalid --acme-email"
+@@ -239,6 +258,137 @@ finish_reboot() {
+         || warn "could not schedule the reboot; run 'sudo reboot'"
+ }
+ 
++# --------------------------------------------------------------------------- 2b. DNS (all-in-one)
++# Checked before the long system upgrade so a missing A record is fixed while the install runs.
++DNS_WAIT_INTERVAL="${NEXAPLOY_DNS_WAIT_INTERVAL:-20}"
++DNS_WAIT_TRIES="${NEXAPLOY_DNS_WAIT_TRIES:-30}"
++
++can_ask() { [[ $ASSUME_YES -eq 0 ]] && ( : </dev/tty ) 2>/dev/null; }
++
++tty_ask() {  # prompt default -> REPLY
++    local answer
++    printf '%s' "$1" >/dev/tty
++    IFS= read -r answer </dev/tty || answer=""
++    REPLY="${answer:-$2}"
++}
++
++is_public_ip() {  # 0 when globally routable (not private, CGNAT, loopback, link-local or ULA)
++    case "$1" in
++        ""|0.*|10.*|127.*|169.254.*|192.168.*) return 1 ;;
++        172.1[6-9].*|172.2[0-9].*|172.3[01].*) return 1 ;;
++        100.6[4-9].*|100.[7-9][0-9].*|100.1[01][0-9].*|100.12[0-7].*) return 1 ;;
++        ::1|[fF][eE]80:*|[fF][cCdD]*) return 1 ;;
++    esac
++    return 0
++}
++
++route_src() {  # destination -> source address the kernel would use
++    ip route get "$1" 2>/dev/null | awk '{for (i = 1; i < NF; i++) if ($i == "src") {print $(i + 1); exit}}'
++}
++
++server_public_ips() {  # this server's addresses, one per line (ipify when behind NAT)
++    local ips=() ip public=0
++    ip="$(route_src 1.1.1.1)"; [[ -n "$ip" ]] && ips+=("$ip")
++    ip="$(route_src 2606:4700:4700::1111)"; [[ -n "$ip" ]] && ips+=("$ip")
++    for ip in "${ips[@]}"; do is_public_ip "$ip" && public=1; done
++    if [[ $public -eq 0 ]] && command -v curl >/dev/null; then
++        ip="$(curl -fsS -4 --max-time 5 https://api.ipify.org 2>/dev/null || true)"
++        [[ "$ip" =~ ^[0-9]+(\.[0-9]+){3}$ ]] && ips+=("$ip")
++        ip="$(curl -fsS -6 --max-time 5 https://api6.ipify.org 2>/dev/null || true)"
++        [[ "$ip" == *:* ]] && ips+=("$ip")
++    fi
++    [[ ${#ips[@]} -gt 0 ]] && printf '%s\n' "${ips[@]}" | awk 'NF && !seen[$0]++'
++    return 0
++}
++
++domain_ips() {  # domain -> A/AAAA records, one per line (public resolver 1.1.1.1 when dig exists)
++    local out=""
++    if command -v dig >/dev/null; then
++        out="$( { dig +short +time=3 +tries=1 A "$1" @1.1.1.1; dig +short +time=3 +tries=1 AAAA "$1" @1.1.1.1; } 2>/dev/null \
++            | grep -E '^([0-9]+(\.[0-9]+){3}|[0-9a-fA-F:]*:[0-9a-fA-F:]*)$' || true)"
++    fi
++    [[ -n "$out" ]] || out="$(getent ahosts "$1" 2>/dev/null | awk '{print $1}' || true)"
++    [[ -n "$out" ]] && printf '%s\n' "$out" | awk 'NF && !seen[$0]++'
++    return 0
++}
++
++dns_verdict() {  # "resolved" "mine" (newline lists) -> ok | missing | elsewhere | partial
++    local resolved=$1 mine=$2 ip hit=0 miss=0
++    [[ -n "${resolved//[[:space:]]/}" ]] || { echo missing; return 0; }
++    while read -r ip; do
++        [[ -n "$ip" ]] || continue
++        if grep -qxF -- "$ip" <<<"$mine"; then hit=$((hit + 1)); else miss=$((miss + 1)); fi
++    done <<<"$resolved"
++    if (( hit > 0 && miss == 0 )); then echo ok
++    elif (( hit > 0 )); then echo partial
++    else echo elsewhere; fi
++}
++
++dns_explain() {  # verdict resolved mine
++    local verdict=$1 resolved=$2 mine=$3 ip v4="" v6=""
++    while read -r ip; do
++        [[ -n "$ip" ]] && is_public_ip "$ip" || continue
++        if [[ "$ip" == *:* ]]; then v6="${v6:-$ip}"; else v4="${v4:-$ip}"; fi
++    done <<<"$mine"
++    echo >&2
++    case "$verdict" in
++        missing)   warn "$CP_DOMAIN does not resolve (no DNS record yet)" ;;
++        elsewhere) warn "$CP_DOMAIN points to $(echo $resolved), not to this server" ;;
++        partial)   warn "$CP_DOMAIN has records pointing elsewhere too: $(echo $resolved)" ;;
++    esac
++    {
++        echo "  this server:  $(echo $mine)"
++        echo "  Create this record at your DNS provider (TTL 300 is fine):"
++        echo "    $CP_DOMAIN.   A      ${v4:-<public IPv4 of this server>}"
++        [[ -n "$v6" ]] && echo "    $CP_DOMAIN.   AAAA   $v6   (optional)"
++        [[ "$verdict" != missing ]] && echo "  and delete the A/AAAA records of $CP_DOMAIN that point to other addresses."
++        echo "  Behind Cloudflare: use 'DNS only' (grey cloud) so Let's Encrypt can reach this server."
++        echo "  Ports 80 and 443 must be open to the internet (firewall / cloud security group)."
++    } >&2
++}
++
++dns_wait() {  # mine -> 0 once DOMAIN points here
++    local i
++    log "waiting for $CP_DOMAIN to point to this server (every ${DNS_WAIT_INTERVAL}s, up to $((DNS_WAIT_INTERVAL * DNS_WAIT_TRIES / 60)) min; Ctrl-C to stop)"
++    for ((i = 1; i <= DNS_WAIT_TRIES; i++)); do
++        sleep "$DNS_WAIT_INTERVAL"
++        [[ "$(dns_verdict "$(domain_ips "$CP_DOMAIN")" "$1")" == ok ]] && return 0
++    done
++    warn "$CP_DOMAIN still does not point to this server"
++    return 1
++}
++
++dns_check() {
++    [[ -n "$CP_DOMAIN" ]] || return 0
++    if [[ $SKIP_DNS_CHECK -eq 1 ]]; then
++        warn "skipping the DNS check (--skip-dns-check): $CP_DOMAIN must point to this server for its certificate"
++        return 0
++    fi
++    local mine resolved verdict
++    mine="$(server_public_ips)"
++    if [[ -z "$mine" ]]; then
++        warn "cannot find this server's public IP; skipping the DNS check ($CP_DOMAIN must point here)"
++        return 0
++    fi
++    while true; do
++        resolved="$(domain_ips "$CP_DOMAIN")"
++        verdict="$(dns_verdict "$resolved" "$mine")"
++        if [[ "$verdict" == ok ]]; then
++            log "DNS: $CP_DOMAIN -> $(echo $resolved) (this server). Ports 80 and 443 must be open to the internet."
++            return 0
++        fi
++        dns_explain "$verdict" "$resolved" "$mine"
++        can_ask || die "DNS of $CP_DOMAIN does not point to this server: create the record above and run again, or pass --skip-dns-check"
++        tty_ask "[w]ait until it points here, [r]e-check now, [c]ontinue anyway, [a]bort? [w]: " w
++        case "${REPLY,,}" in
++            w*) dns_wait "$mine" && { log "DNS: $CP_DOMAIN now points to this server"; return 0; } ;;
++            r*) ;;
++            c*) warn "continuing: the TLS certificate of $CP_DOMAIN is issued once DNS points here"; return 0 ;;
++            *)  die "aborted" ;;
++        esac
++    done
++}
++
+ # --------------------------------------------------------------------------- 3. packages
+ install_packages() {
+     export DEBIAN_FRONTEND=noninteractive
+@@ -559,30 +709,117 @@ cp_exec() {  # bench command inside the control plane backend container
+     docker exec "$CP_BENCH-backend" bench --site "$CP_DOMAIN" "$@"
+ }
+ 
++agent_version() {
++    "$VENV/bin/nexaploy-agent" version 2>/dev/null \
++        || sed -n 's/^__version__ = "\(.*\)"/\1/p' "${PKG_DIR:-.}/nexaploy_agent/__init__.py" 2>/dev/null || true
++}
++
++cp_image_candidates() {  # agent-version -> published control plane images, in the order tried
++    [[ -n "${1:-}" ]] && echo "$CP_IMAGE_REPO:$1"
++    echo "$CP_IMAGE_REPO:$CP_FRAPPE_MAJOR"
++    echo "$CP_IMAGE_REPO:latest"
++}
++
++cp_local_tag() { echo "nexaploy/control-plane:${1:-0}-local"; }
++
++official_image() {  # pinned frappe/erpnext image the control plane is built from
++    local f="${REPO_DIR:-}/image-builder/versions.json" img=""
++    if [[ -f "$f" ]]; then
++        img="$("${PYTHON:-python3}" -c 'import json, sys; print(json.load(open(sys.argv[1])).get(sys.argv[2], {}).get("official_image", ""))' \
++            "$f" "$CP_FRAPPE_MAJOR" 2>/dev/null || true)"
++    fi
++    echo "${img:-$CP_OFFICIAL_FALLBACK}"
++}
++
++resolve_cp_image() {  # -> CP_IMAGE (zero flags: published image, else built on this server)
++    if [[ -n "$CP_IMAGE" ]]; then
++        docker image inspect "$CP_IMAGE" >/dev/null 2>&1 && return 0
++        log "pulling control plane image $CP_IMAGE"
++        docker pull "$CP_IMAGE" && return 0
++        die "cannot pull $CP_IMAGE (check the name and registry access, or leave out --control-plane-image to use the published image or build one here)"
++    fi
++    local ver img
++    ver="$(agent_version)"
++    for img in $(cp_image_candidates "$ver") "$(cp_local_tag "$ver")"; do
++        if docker image inspect "$img" >/dev/null 2>&1; then
++            CP_IMAGE="$img"; log "control plane image $img (already on this server)"; return 0
++        fi
++    done
++    for img in $(cp_image_candidates "$ver"); do
++        log "pulling control plane image $img"
++        if docker pull "$img" 2>/dev/null; then
++            CP_IMAGE="$img"; log "control plane image $img"; return 0
++        fi
++        echo "  $img is not available"
++    done
++    build_cp_image "$ver"
++}
++
++build_cp_image() {  # agent-version: control-plane/docker/build.sh --from-official <pinned erpnext>
++    local tag official start build="$REPO_DIR/control-plane/docker/build.sh"
++    tag="$(cp_local_tag "$1")"
++    [[ -f "$build" && -f "$REPO_DIR/e2e/build-test-image.sh" ]] \
++        || die "no published control plane image ($CP_IMAGE_REPO) and no build script in $REPO_DIR; pass --control-plane-image"
++    official="$(official_image)"
++    warn "no published control plane image could be pulled; building $tag on this server instead"
++    echo "  This takes about 5-15 minutes (about 2 GB to download), once. Later updates use"
++    echo "  published images: Administration > Overview > Update control plane."
++    start=$SECONDS
++    log "step 1/2: pulling the official ERPNext image $official"
++    if ! docker pull "$official"; then
++        warn "cannot pull $official; trying frappe/erpnext:v$CP_FRAPPE_MAJOR"
++        official="frappe/erpnext:v$CP_FRAPPE_MAJOR"
++        docker pull "$official" || die "cannot pull $official (network or Docker Hub rate limit?); pass --control-plane-image"
++    fi
++    log "step 2/2: building $tag from $official (adds the nexaploy app; a few minutes)"
++    bash "$build" --from-official "$official" --tag "$tag" >/dev/null \
++        || die "building the control plane image failed; re-run install.sh, or pass --control-plane-image"
++    log "built $tag in $(( (SECONDS - start) / 60 )) min $(( (SECONDS - start) % 60 )) s"
++    CP_IMAGE="$tag"
++}
++
++restore_control_plane() {  # admin-password-or-empty: the control plane site from a backup
++    local out ts
++    log "restoring the control plane $CP_DOMAIN from $CP_RESTORE"
++    out="$(nexaploy controlplane import-backup "$CP_RESTORE" --bench "$CP_BENCH" --site "$CP_DOMAIN")" \
++        || die "cannot read the control plane backup $CP_RESTORE"
++    ts="$(printf '%s\n' "$out" | tail -n 1)"
++    [[ "$ts" =~ ^[0-9]{8}T[0-9]{6}Z$ ]] || die "unexpected result of the backup import: $out"
++    nexaploy site restore "$CP_DOMAIN" --backup-id "$ts" --bench "$CP_BENCH" --wait \
++        || die "restoring $CP_DOMAIN failed (nexaploy jobs; nexaploy retry <job>)"
++    if [[ -n "${1:-}" ]]; then
++        cp_exec set-admin-password "$1" >/dev/null || warn "could not set the Administrator password"
++    fi
++    CP_RESTORED=1
++}
++
+ install_control_plane() {
+     [[ -n "$CP_DOMAIN" ]] || return 0
+     local api_ok=0 i
+     for i in $(seq 1 30); do nexaploy ping >/dev/null 2>&1 && { api_ok=1; break; }; sleep 1; done
+     [[ $api_ok -eq 1 ]] || die "agent API is not running (with --no-systemd start 'nexaploy-agent api' and 'worker' first)"
+ 
+-    local env_file="$ROOT/config/control-plane.env"
++    local env_file="$ROOT/config/control-plane.env" pw_arg="$CP_ADMIN_PASSWORD" restored="" site_exists=0
+     if [[ -f "$env_file" ]]; then
+         # shellcheck disable=SC1090
+         . "$env_file"
+         CP_ADMIN_PASSWORD="${CP_ADMIN_PASSWORD:-${ADMIN_PASSWORD:-}}"
++        CP_IMAGE="${CP_IMAGE:-${IMAGE:-}}"   # a re-run keeps the image the control plane runs
++        restored="${RESTORED:-}"
+     fi
+-    CP_ADMIN_PASSWORD="${CP_ADMIN_PASSWORD:-$(openssl rand -base64 18 | tr -d '/+=')}"
+-    ( umask 077; printf 'DOMAIN=%s\nBENCH=%s\nIMAGE=%s\nPORT=%s\nADMIN_PASSWORD=%s\n' \
+-        "$CP_DOMAIN" "$CP_BENCH" "$CP_IMAGE" "$CP_PORT" "$CP_ADMIN_PASSWORD" > "$env_file" )
+-
+-    if ! docker image inspect "$CP_IMAGE" >/dev/null 2>&1; then
+-        log "pulling control plane image $CP_IMAGE"
+-        if ! docker pull "$CP_IMAGE"; then
+-            [[ -x "$REPO_DIR/control-plane/docker/build.sh" ]] \
+-                || die "cannot pull $CP_IMAGE (pass --control-plane-image, or build one with control-plane/docker/build.sh)"
+-            die "cannot pull $CP_IMAGE; build it with: $REPO_DIR/control-plane/docker/build.sh --from-official frappe/erpnext:v16 --tag $CP_IMAGE"
+-        fi
++    if nexaploy --json site list 2>/dev/null | grep -q "\"name\": *\"$CP_DOMAIN\""; then
++        site_exists=1
++    elif [[ -n "$CP_RESTORE" ]]; then
++        restored=1
++    fi
++    if [[ -n "$restored" && -z "$pw_arg" ]]; then
++        CP_ADMIN_PASSWORD=""   # the restored database keeps its own Administrator password
++    else
++        CP_ADMIN_PASSWORD="${CP_ADMIN_PASSWORD:-$(openssl rand -base64 18 | tr -d '/+=')}"
+     fi
++    resolve_cp_image
++    ( umask 077; printf 'DOMAIN=%s\nBENCH=%s\nIMAGE=%s\nPORT=%s\nADMIN_PASSWORD=%s\nRESTORED=%s\n' \
++        "$CP_DOMAIN" "$CP_BENCH" "$CP_IMAGE" "$CP_PORT" "$CP_ADMIN_PASSWORD" "$restored" > "$env_file" )
+ 
+     if ! nexaploy --json bench list 2>/dev/null | grep -q "\"name\": *\"$CP_BENCH\""; then
+         log "creating control plane bench $CP_BENCH"
+@@ -599,10 +836,14 @@ services:
+ YAML
+     nexaploy bench start "$CP_BENCH" --wait >/dev/null || die "bench $CP_BENCH did not start"
+ 
+-    if ! nexaploy --json site list --bench "$CP_BENCH" 2>/dev/null | grep -q "\"name\": *\"$CP_DOMAIN\""; then
++    if [[ $site_exists -eq 0 && -n "$CP_RESTORE" ]]; then
++        restore_control_plane "$pw_arg"
++    elif [[ $site_exists -eq 0 ]]; then
+         log "creating control plane site $CP_DOMAIN"
+         NEXAPLOY_ADMIN_PASSWORD="$CP_ADMIN_PASSWORD" nexaploy site create "$CP_DOMAIN" --bench "$CP_BENCH" \
+             --app nexaploy --wait || die "site $CP_DOMAIN could not be created"
++    elif [[ -n "$CP_RESTORE" ]]; then
++        warn "site $CP_DOMAIN already exists; --restore-control-plane ignored (to replace it: nexaploy controlplane import-backup SRC, then nexaploy site restore $CP_DOMAIN --backup-id <id>)"
+     fi
+     cp_exec set-config host_name "https://$CP_DOMAIN" >/dev/null
+     cp_exec enable-scheduler >/dev/null || true
+@@ -662,13 +903,29 @@ summary() {
+         echo
+         log "Control plane: https://$CP_DOMAIN"
+         echo "  login:    Administrator"
+-        echo "  password: stored in $ROOT/config/control-plane.env (ADMIN_PASSWORD)"
++        if [[ "${CP_RESTORED:-0}" -eq 1 && -z "$CP_ADMIN_PASSWORD" ]]; then
++            echo "  password: unchanged (the one of the restored control plane)"
++        else
++            echo "  password: stored in $ROOT/config/control-plane.env (ADMIN_PASSWORD)"
++        fi
++        echo "  image:    $CP_IMAGE"
+         echo "  DNS:      $CP_DOMAIN must point to this server for the TLS certificate"
++        echo "  next:     open https://$CP_DOMAIN/dashboard/admin and follow the setup checklist"
++        if [[ "${CP_RESTORED:-0}" -eq 1 ]]; then
++            echo
++            log "Restored from $CP_RESTORE"
++            echo "  1. Point the DNS record of $CP_DOMAIN to this server (other servers' agents talk to"
++            echo "     https://$CP_DOMAIN; their tokens are in the restored database and keep working)."
++            echo "  2. If the old control plane server still runs: stop its control plane bench"
++            echo "     (nexaploy bench stop $CP_BENCH) and point its agent here:"
++            echo "     nexaploy controlplane repoint --url https://$CP_DOMAIN && systemctl restart nexaploy-agent-worker"
++        fi
+     fi
+ }
+ 
+ main() {
+     preflight
++    dns_check
+     if [[ $SKIP_PACKAGES -eq 1 ]]; then
+         log "skipping OS packages (--skip-packages)"
+         command -v docker >/dev/null || die "docker not found"
+diff --git a/agent/install/tests/test_control_plane_install.sh b/agent/install/tests/test_control_plane_install.sh
+new file mode 100644
+index 0000000..cb03884
+--- /dev/null
++++ b/agent/install/tests/test_control_plane_install.sh
+@@ -0,0 +1,174 @@
++#!/usr/bin/env bash
++# install.sh all-in-one: control plane image resolution (published -> local build), DNS preflight,
++# --restore-control-plane parsing (stubbed docker/dig/getent/ip/curl).
++set -euo pipefail
++HERE="$(cd "$(dirname "$0")" && pwd)"
++SCRIPT="$HERE/../install.sh"
++fail() { echo "FAIL: $*" >&2; [[ -f "${T:-}/out" ]] && sed 's/^/  | /' "$T/out" >&2; exit 1; }
++REPO=ghcr.io/a7733mai/nexaploy-control-plane
++
++setup() {
++    T="$(mktemp -d)"; mkdir -p "$T/bin" "$T/venv/bin" "$T/repo/control-plane/docker" "$T/repo/e2e" "$T/repo/image-builder"
++    : > "$T/calls"; : > "$T/local"; : > "$T/pullable"
++    cat > "$T/bin/docker" <<STUB
++#!/bin/bash
++echo "docker \$*" >> "$T/calls"
++case "\$1 \$2" in
++    "image inspect") grep -qxF -- "\${@: -1}" "$T/local" ;;
++    "pull "*) grep -qxF -- "\$2" "$T/pullable" && echo "\$2" >> "$T/local" ;;
++    *) exit 0 ;;
++esac
++STUB
++    printf '#!/bin/bash\necho 0.3.0\n' > "$T/venv/bin/nexaploy-agent"
++    cat > "$T/repo/control-plane/docker/build.sh" <<STUB
++#!/bin/bash
++echo "build.sh \$*" >> "$T/calls"
++STUB
++    touch "$T/repo/e2e/build-test-image.sh"
++    printf '{"16": {"python": "3.14", "official_image": "frappe/erpnext:v16.99.0"}}\n' > "$T/repo/image-builder/versions.json"
++    # DNS: this server is 203.0.113.10 unless $T/route says otherwise
++    echo 203.0.113.10 > "$T/route"
++    cat > "$T/bin/ip" <<STUB
++#!/bin/bash
++[[ "\$*" == "route get 1.1.1.1" ]] && echo "1.1.1.1 via 203.0.113.1 dev eth0 src \$(cat $T/route) uid 0"
++exit 0
++STUB
++    cat > "$T/bin/dig" <<STUB
++#!/bin/bash
++echo "dig \$*" >> "$T/calls"
++n=\$(cat "$T/dig_n" 2>/dev/null || echo 0); echo \$((n + 1)) > "$T/dig_n"
++[[ " \$* " == *" A "* ]] || exit 0
++if [[ -f "$T/dig_after" && \$n -ge 2 ]]; then cat "$T/dig_after"; else cat "$T/dig" 2>/dev/null; fi
++exit 0
++STUB
++    printf '#!/bin/bash\necho "curl $*" >> %s/calls\ncat %s/ipify 2>/dev/null\n' "$T" "$T" > "$T/bin/curl"
++    printf '#!/bin/bash\n[[ -f %s/getent ]] && cat %s/getent\nexit 0\n' "$T" "$T" > "$T/bin/getent"
++    chmod +x "$T/bin/"* "$T/venv/bin/"* "$T/repo/control-plane/docker/build.sh"
++}
++
++run() {  # args, statements -> exit status in $RC
++    set +e
++    PATH="$T/bin:$PATH" NEXAPLOY_INSTALL_SOURCE_ONLY=1 NEXAPLOY_DNS_WAIT_INTERVAL=0 NEXAPLOY_DNS_WAIT_TRIES=3 \
++        bash -c "set -euo pipefail; source '$SCRIPT' $1 </dev/null; VENV='$T/venv'; REPO_DIR='$T/repo'; PYTHON=python3; $2" \
++        > "$T/out" 2>&1
++    RC=$?
++    set -e
++}
++
++# ---- image resolution -------------------------------------------------------------------------
++# 1. candidates: <agent version>, :16, :latest
++setup; run "" 'cp_image_candidates 0.3.0'
++[[ "$(cat "$T/out")" == "$REPO:0.3.0"$'\n'"$REPO:16"$'\n'"$REPO:latest" ]] || fail "candidate order"
++run "" 'cp_image_candidates ""'
++[[ "$(head -1 "$T/out")" == "$REPO:16" ]] || fail "no version -> :16 first"
++
++# 2. zero flags: the versioned image is missing, :16 is published -> :16, nothing built
++setup; echo "$REPO:16" > "$T/pullable"
++run "--with-control-plane cp.example.com" 'resolve_cp_image; echo "IMAGE=$CP_IMAGE"'
++[[ $RC -eq 0 ]] || fail "resolve with :16 published"
++grep -q "IMAGE=$REPO:16" "$T/out" || fail "expected $REPO:16"
++grep -n "docker pull" "$T/calls" | head -1 | grep -q "$REPO:0.3.0" || fail "versioned tag must be tried first"
++grep -q "build.sh" "$T/calls" && fail "built although an image was published"
++
++# 3. nothing published -> built locally from the pinned official image (progress + estimate)
++setup; echo "frappe/erpnext:v16.99.0" > "$T/pullable"
++run "--with-control-plane cp.example.com" 'resolve_cp_image; echo "IMAGE=$CP_IMAGE"'
++[[ $RC -eq 0 ]] || fail "local build path"
++grep -q "IMAGE=nexaploy/control-plane:0.3.0-local" "$T/out" || fail "local tag"
++grep -q "build.sh --from-official frappe/erpnext:v16.99.0 --tag nexaploy/control-plane:0.3.0-local" "$T/calls" || fail "build.sh args"
++grep -q "5-15 minutes" "$T/out" || fail "time estimate"
++grep -q "step 2/2" "$T/out" || fail "progress"
++for tag in 0.3.0 16 latest; do grep -q "docker pull $REPO:$tag" "$T/calls" || fail "did not try :$tag"; done
++
++# 4. pinned official tag missing -> frappe/erpnext:v16
++setup; echo "frappe/erpnext:v16" > "$T/pullable"
++run "--with-control-plane cp.example.com" 'resolve_cp_image; echo "IMAGE=$CP_IMAGE"'
++[[ $RC -eq 0 ]] || fail "official fallback"
++grep -q "build.sh --from-official frappe/erpnext:v16 " "$T/calls" || fail "fallback official image"
++
++# 5. a re-run finds the locally built image (no pull at all)
++setup; echo "nexaploy/control-plane:0.3.0-local" > "$T/local"
++run "--with-control-plane cp.example.com" 'resolve_cp_image; echo "IMAGE=$CP_IMAGE"'
++grep -q "IMAGE=nexaploy/control-plane:0.3.0-local" "$T/out" || fail "local image reused"
++grep -q "docker pull" "$T/calls" && fail "pulled although present"
++
++# 6. --control-plane-image is an override: used as is, never replaced by a build
++setup; echo "registry.example.com/cp:9" > "$T/pullable"
++run "--with-control-plane cp.example.com --control-plane-image registry.example.com/cp:9" 'resolve_cp_image; echo "IMAGE=$CP_IMAGE"'
++grep -q "IMAGE=registry.example.com/cp:9" "$T/out" || fail "override"
++setup
++run "--with-control-plane cp.example.com --control-plane-image registry.example.com/cp:9" 'resolve_cp_image'
++[[ $RC -ne 0 ]] || fail "unpullable override must fail"
++grep -q "build.sh" "$T/calls" && fail "override must not build"
++
++# 7. no versions.json -> the constant
++setup; rm "$T/repo/image-builder/versions.json"
++run "" 'official_image'
++grep -qx "frappe/erpnext:v16.53.0" "$T/out" || fail "official image constant"
++
++# ---- DNS preflight -----------------------------------------------------------------------------
++# 8. verdicts
++setup
++run "" '[[ $(dns_verdict "1.2.3.4" "1.2.3.4") == ok ]] && [[ $(dns_verdict "" "1.2.3.4") == missing ]] &&
++        [[ $(dns_verdict "5.6.7.8" "1.2.3.4") == elsewhere ]] && [[ $(dns_verdict $'"'"'1.2.3.4\n5.6.7.8'"'"' "1.2.3.4") == partial ]]'
++[[ $RC -eq 0 ]] || fail "dns_verdict"
++run "" 'is_public_ip 10.1.2.3 || is_public_ip 172.20.0.1 || is_public_ip 100.64.0.1 || is_public_ip fd00::1 || ! is_public_ip 203.0.113.10'
++[[ $RC -ne 0 ]] || fail "is_public_ip"
++
++# 9. domain points here (public resolver) -> ok, ports warning shown
++setup; echo 203.0.113.10 > "$T/dig"
++run "--with-control-plane cp.example.com --yes" 'dns_check'
++[[ $RC -eq 0 ]] || fail "dns ok"
++grep -q "dig +short +time=3 +tries=1 A cp.example.com @1.1.1.1" "$T/calls" || fail "dig @1.1.1.1 not used"
++grep -q "80 and 443 must be open" "$T/out" || fail "ports reminder"
++
++# 10. points elsewhere + --yes -> fail fast with the exact record to create
++setup; echo 198.51.100.7 > "$T/dig"
++run "--with-control-plane cp.example.com --yes" 'dns_check'
++[[ $RC -ne 0 ]] || fail "--yes must fail on wrong DNS"
++grep -q "points to 198.51.100.7" "$T/out" || fail "resolved address not shown"
++grep -Eq "cp\.example\.com\. +A +203\.0\.113\.10" "$T/out" || fail "A record instruction"
++grep -q -- "--skip-dns-check" "$T/out" || fail "skip hint"
++
++# 11. --skip-dns-check
++run "--with-control-plane cp.example.com --yes --skip-dns-check" 'dns_check'
++[[ $RC -eq 0 ]] || fail "--skip-dns-check"
++
++# 12. no record at all, dig absent -> getent fallback, "does not resolve"
++setup; rm "$T/bin/dig"
++run "--with-control-plane cp.example.com --yes" 'dns_check'
++[[ $RC -ne 0 ]] && grep -q "does not resolve" "$T/out" || fail "missing record"
++echo "203.0.113.10    STREAM cp.example.com" > "$T/getent"
++run "--with-control-plane cp.example.com --yes" 'dns_check'
++[[ $RC -eq 0 ]] || fail "getent fallback"
++
++# 13. behind NAT (private route source) -> ipify
++setup; echo 10.0.0.5 > "$T/route"; echo 203.0.113.10 > "$T/ipify"; echo 203.0.113.10 > "$T/dig"
++run "--with-control-plane cp.example.com --yes" 'dns_check'
++[[ $RC -eq 0 ]] || fail "NAT: ipify fallback"
++grep -q "curl -fsS -4 --max-time 5 https://api.ipify.org" "$T/calls" || fail "ipify not queried"
++
++# 14. interactive: continue anyway / wait until it points here
++setup; echo 198.51.100.7 > "$T/dig"
++run "--with-control-plane cp.example.com" 'can_ask() { return 0; }; tty_ask() { REPLY=c; }; dns_check'
++[[ $RC -eq 0 ]] && grep -q "continuing" "$T/out" || fail "interactive continue"
++setup; echo 198.51.100.7 > "$T/dig"; echo 203.0.113.10 > "$T/dig_after"
++run "--with-control-plane cp.example.com" 'can_ask() { return 0; }; tty_ask() { REPLY=w; }; dns_check'
++[[ $RC -eq 0 ]] && grep -q "now points to this server" "$T/out" || fail "interactive wait"
++setup; echo 198.51.100.7 > "$T/dig"
++run "--with-control-plane cp.example.com" 'can_ask() { return 0; }; tty_ask() { REPLY=a; }; dns_check'
++[[ $RC -ne 0 ]] || fail "interactive abort"
++
++# 15. only with --with-control-plane; dns_check runs right after preflight
++setup; run "" 'dns_check'
++[[ $RC -eq 0 && ! -s "$T/calls" ]] || fail "dns check without a control plane domain"
++grep -A2 "^main() {" "$SCRIPT" | grep -q "dns_check" || fail "dns_check must run first in main()"
++
++# ---- restore flags ------------------------------------------------------------------------------
++setup
++run "--with-control-plane cp.example.com --restore-control-plane /root/cp.tar" '[[ $CP_RESTORE == /root/cp.tar ]]'
++[[ $RC -eq 0 ]] || fail "--restore-control-plane parse"
++run "--restore-control-plane /root/cp.tar" 'true'
++[[ $RC -ne 0 ]] && grep -q "needs --with-control-plane" "$T/out" || fail "restore without domain"
++
++echo "all control-plane install tests passed"
+diff --git a/agent/nexaploy_agent/api.py b/agent/nexaploy_agent/api.py
+index 167efb2..f27f72a 100644
+--- a/agent/nexaploy_agent/api.py
++++ b/agent/nexaploy_agent/api.py
+@@ -354,6 +354,11 @@ def create_app(ctx: AgentContext | None = None, settings: Settings | None = None
+     def storage_prune_trash(body: dict[str, Any] = Body(...)):
+         return accepted("server.storage_prune_trash", body)
+ 
++    # ---- the control plane as a bench of this server (all-in-one, §5.9) -------------------
++    @app.post("/v1/controlplane/update", dependencies=auth, status_code=202)
++    def controlplane_update(body: dict[str, Any] = Body(...)):
++        return accepted("controlplane.update", body)
++
+     return app
+ 
+ 
+diff --git a/agent/nexaploy_agent/cli.py b/agent/nexaploy_agent/cli.py
+index 4cf2936..c618d6c 100644
+--- a/agent/nexaploy_agent/cli.py
++++ b/agent/nexaploy_agent/cli.py
+@@ -21,6 +21,10 @@ site_app = typer.Typer(no_args_is_help=True, help="Manage sites.")
+ app.add_typer(bench_app, name="bench")
+ app.add_typer(site_app, name="site")
+ 
++from .controlplane_cli import cp_app  # noqa: E402
++
++app.add_typer(cp_app, name="controlplane")
++
+ FINAL = {"success", "failure", "cancelled"}
+ 
+ 
+diff --git a/agent/nexaploy_agent/controlplane_cli.py b/agent/nexaploy_agent/controlplane_cli.py
+new file mode 100644
+index 0000000..f453d71
+--- /dev/null
++++ b/agent/nexaploy_agent/controlplane_cli.py
+@@ -0,0 +1,227 @@
++"""``nexaploy controlplane ...``: the control plane running as a bench of this server.
++
++Works without the control plane (that is the point: recovery when the panel is down). The
++bench, site, image and port come from ``<root>/config/control-plane.env`` (written by
++``install.sh --with-control-plane``), overridable with options.
++
++* ``status``                       - what runs, and the last ``controlplane.update`` job
++* ``update [--image IMG]``         - job ``controlplane.update`` (backup, pull, switch, migrate,
++                                     health check, automatic rollback); without ``--image`` the
++                                     newest GitHub release's image (``<repo>:<version>``)
++* ``backup --to DIR``              - one tarball with database + files + site_config (encryption key)
++* ``import-backup SOURCE``         - stage a backup (tarball, dir, https URL, rclone remote) so
++                                     ``site.restore`` can restore it (used by install.sh
++                                     ``--restore-control-plane``); prints the backup id last
++* ``repoint --url https://DOMAIN`` - point this agent at the control plane's public URL (after the
++                                     control plane moved to another server)
++"""
++
++from __future__ import annotations
++
++import os
++import shutil
++import subprocess
++import tempfile
++from pathlib import Path
++from typing import Any, Optional
++
++import httpx
++import typer
++
++from .runtime import controlplane as rc
++from .runtime.backup import BackupError
++
++cp_app = typer.Typer(no_args_is_help=True, help="The control plane hosted on this server (all-in-one).")
++
++
++def _cli():
++    from . import cli
++
++    return cli
++
++
++def _settings():
++    from .config import load_settings
++
++    try:
++        return load_settings(_cli().state.config)
++    except Exception as exc:  # noqa: BLE001
++        _cli()._die(f"cannot load config: {exc}")
++
++
++def _target(bench: Optional[str], site: Optional[str]) -> tuple[Any, dict[str, str], str, str]:
++    settings = _settings()
++    env = rc.read_cp_env(settings.config_dir)
++    bench = bench or env.get("BENCH")
++    site = site or env.get("DOMAIN")
++    if not bench or not site:
++        _cli()._die(
++            f"no control plane on this server ({rc.cp_env_path(settings.config_dir)} not found); "
++            "pass --bench and --site, or see ARCHITECTURE.md §5.9 for a control plane hosted elsewhere"
++        )
++    return settings, env, bench, site
++
++
++def latest_release_image(repo: str = rc.DEFAULT_IMAGE_REPO, release_repo: str = rc.DEFAULT_RELEASE_REPO,
++                         channel: str = "stable") -> tuple[str, str | None]:
++    """(image, version) of the newest GitHub release; (``<repo>:latest``, None) when unknown."""
++    try:
++        resp = httpx.get(rc.RELEASES_API.format(repo=release_repo), timeout=10,
++                         headers={"Accept": "application/vnd.github+json"})
++        resp.raise_for_status()
++        rel = rc.pick_release(resp.json(), channel)
++    except (httpx.HTTPError, ValueError):
++        rel = None
++    if not rel:
++        return f"{repo}:latest", None
++    version = rel["tag_name"].lstrip("v")
++    return rc.image_for_version(version, repo), version
++
++
++@cp_app.command("status")
++def cp_status(bench: Optional[str] = typer.Option(None), site: Optional[str] = typer.Option(None)) -> None:
++    """Control plane bench, site, image and the last update job."""
++    cli = _cli()
++    _, env, bench, site = _target(bench, site)
++    info = cli.call("GET", f"/benches/{bench}")
++    jobs = cli.call("GET", "/jobs", params={"kind": "controlplane.update", "limit": 1})
++    data = {
++        "site": site, "bench": bench, "image": info.get("image"), "status": info.get("status"),
++        "port": rc.cp_port(env), "last_update": (jobs or [None])[0],
++    }
++    if cli.state.as_json:
++        cli.show(data)
++        return
++    typer.echo(f"control plane: https://{site}  (bench {bench}, {data['status']})")
++    typer.echo(f"image:         {data['image']}")
++    typer.echo(f"local port:    127.0.0.1:{data['port']}")
++    last = data["last_update"]
++    if last:
++        res = last.get("result") or {}
++        typer.echo(f"last update:   {last['id']} {last['status']} {res.get('previous_image', '?')} -> {res.get('image', '?')}"
++                   + (f" ({last['error']})" if last.get("error") else ""))
++
++
++@cp_app.command("update")
++def cp_update(
++    image: Optional[str] = typer.Option(None, "--image", help="image to run (default: newest release)"),
++    version: Optional[str] = typer.Option(None, "--version", help="release version, e.g. 0.2.0 (image <repo>:<version>)"),
++    repo: str = typer.Option(rc.DEFAULT_IMAGE_REPO, "--repo", help="image repository"),
++    channel: str = typer.Option("stable", "--channel", help="stable or beta (when resolving the newest release)"),
++    backup: bool = typer.Option(True, "--backup/--no-backup", help="back up the control plane site first"),
++    bench: Optional[str] = typer.Option(None),
++    site: Optional[str] = typer.Option(None),
++    wait: bool = typer.Option(True, "--wait/--no-wait"),
++) -> None:
++    """Update the control plane: backup -> pull -> switch -> migrate -> health check (rolls back on failure)."""
++    cli = _cli()
++    _, env, bench, site = _target(bench, site)
++    if not image:
++        if version:
++            image = rc.image_for_version(version, repo)
++        else:
++            image, found = latest_release_image(repo, channel=channel)
++            typer.echo(f"newest release: {found or 'unknown (GitHub not reachable)'} -> {image}")
++    body = {"bench": bench, "site": site, "image": image, "previous_image": env.get("IMAGE") or None,
++            "backup": backup, "port": rc.cp_port(env)}
++    cli.submit("POST", "/controlplane/update", body, wait)
++
++
++@cp_app.command("backup")
++def cp_backup(
++    to: Path = typer.Option(..., "--to", help="directory for the tarball"),
++    upload: bool = typer.Option(False, "--upload/--no-upload", help="also upload to the backup storage"),
++    bench: Optional[str] = typer.Option(None),
++    site: Optional[str] = typer.Option(None),
++) -> None:
++    """One tarball (database + public/private files + site_config with the encryption key)."""
++    cli = _cli()
++    _, _, bench, site = _target(bench, site)
++    res = cli.call("POST", f"/sites/{site}/backup", {"with_files": True, "upload": upload})
++    typer.echo(f"job {res['job_id']} queued")
++    job = cli.follow(res["job_id"])
++    if job["status"] != "success":
++        raise typer.Exit(1)
++    path = Path(job["result"]["path"])
++    try:
++        out = rc.export_tarball(path, to, site)
++    except BackupError as exc:
++        cli._die(str(exc))
++    typer.secho(f"control plane backup: {out}", fg=typer.colors.GREEN, bold=True)
++    typer.echo("keep it private: it holds the whole database and the site encryption key.")
++    typer.echo(f"restore on a new server: install.sh --with-control-plane {site} --restore-control-plane {out}")
++    typer.echo(str(out))
++
++
++def fetch_source(source: str, work: Path, rclone_conf: Path | None = None) -> Path:
++    """Download an https URL / copy an rclone path into ``work``; a local path is returned as is."""
++    kind = rc.source_kind(source)
++    if kind == "path":
++        return Path(os.path.expanduser(source))
++    work.mkdir(parents=True, exist_ok=True)
++    if kind == "url":
++        name = source.rstrip("/").rsplit("/", 1)[-1].split("?", 1)[0] or "backup.tar"
++        dest = work / name
++        with httpx.stream("GET", source, follow_redirects=True, timeout=httpx.Timeout(60, read=600)) as resp:
++            if resp.status_code >= 400:
++                raise BackupError(f"download failed: HTTP {resp.status_code} for {source}")
++            with open(dest, "wb") as fh:
++                for chunk in resp.iter_bytes(1024 * 1024):
++                    fh.write(chunk)
++        return dest
++    argv = ["rclone"]
++    if rclone_conf and not os.environ.get("RCLONE_CONFIG"):
++        argv += ["--config", str(rclone_conf)]
++    argv += ["copy", source, str(work)]
++    proc = subprocess.run(argv, capture_output=True, text=True)
++    if proc.returncode != 0:
++        raise BackupError(f"rclone copy {source} failed: {proc.stderr.strip()[-500:]}")
++    tars = sorted(p for p in work.iterdir() if p.is_file() and p.name.endswith((".tar", ".tar.gz", ".tgz")))
++    if tars and not any(p.name.endswith("manifest.json") for p in work.rglob("manifest.json")):
++        return tars[-1]
++    return work
++
++
++@cp_app.command("import-backup")
++def cp_import_backup(
++    source: str = typer.Argument(..., help="tarball, backup dir, https URL or rclone remote:path"),
++    bench: Optional[str] = typer.Option(None),
++    site: Optional[str] = typer.Option(None),
++) -> None:
++    """Stage a control plane backup under backups/<bench>/<site>/<id> (prints the id last)."""
++    settings = _settings()
++    env = rc.read_cp_env(settings.config_dir)
++    bench = bench or env.get("BENCH")
++    site = site or env.get("DOMAIN")
++    if not bench or not site:
++        _cli()._die("pass --bench and --site (no control-plane.env yet)")
++    dest_root = settings.backups_dir / bench / site
++    dest_root.mkdir(parents=True, exist_ok=True)
++    work = Path(tempfile.mkdtemp(prefix=".fetch-", dir=dest_root))
++    try:
++        src = fetch_source(source, work, settings.rclone_conf)
++        ts, path = rc.import_backup(src, dest_root, site=site, bench=bench, image=env.get("IMAGE"))
++    except (BackupError, httpx.HTTPError, OSError) as exc:
++        _cli()._die(f"cannot import {source}: {exc}")
++    finally:
++        shutil.rmtree(work, ignore_errors=True)
++    from .config import FRAPPE_UID
++    from .fsutil import chown
++
++    for p in (dest_root, path, *path.iterdir()):
++        chown(p, FRAPPE_UID, FRAPPE_UID)
++    typer.echo(f"backup staged in {path}")
++    typer.echo(ts)
++
++
++@cp_app.command("repoint")
++def cp_repoint(url: str = typer.Option(..., "--url", help="public control plane URL, e.g. https://cp.example.com")) -> None:
++    """Talk to the control plane at its public URL (after it moved to another server)."""
++    from .config import config_path, update_config_file
++
++    if not url.startswith(("https://", "http://")):
++        _cli()._die("--url must be an http(s) URL")
++    path = config_path(_cli().state.config)
++    update_config_file(path, {"control_plane": {"url": url.rstrip("/"), "site_name": ""}})
++    typer.echo(f"{path}: control_plane.url = {url.rstrip('/')} (server token kept)")
++    typer.echo("restart the worker: systemctl restart nexaploy-agent-worker")
+diff --git a/agent/nexaploy_agent/jobs/controlplane_jobs.py b/agent/nexaploy_agent/jobs/controlplane_jobs.py
+new file mode 100644
+index 0000000..b1d1dd9
+--- /dev/null
++++ b/agent/nexaploy_agent/jobs/controlplane_jobs.py
+@@ -0,0 +1,287 @@
++"""``controlplane.update``: update the control plane that runs as a bench of this server.
++
++The control plane restarts during its own update, so the whole sequence runs here, in the agent
++(ARCHITECTURE.md §5.9), and the result reaches the new control plane once it answers again (job
++updates are retried):
++
++``{bench, site, image, previous_image?, backup=true, upload=true, port?, health_timeout=300}``
++
++1. ``prepare``  - bench + site exist; the running image (bench .env) is the rollback target and is
++   pinned under a local tag (``nexaploy-cp-rollback:<job>``) since a floating tag (``:16``,
++   ``:latest``) moves when the new one is pulled;
++2. ``backup``   - ``bench backup --with-files`` of the control plane site, staged + uploaded like
++   ``site.backup`` (kept locally when no backup storage is configured);
++3. ``pull``     - ``docker pull <image>`` (a local-only image is used as is); same name and same
++   image id as before -> already up to date, the next three steps are skipped;
++4. ``switch``   - IMAGE in the bench .env, compose re-rendered, configurator, ``up -d``;
++5. ``migrate``  - ``bench --site <site> migrate``;
++6. ``health``   - ``GET http://127.0.0.1:<port>/api/method/ping`` with ``X-Frappe-Site-Name``
++   until it answers ``pong`` (port from ``config/control-plane.env``, default 8090);
++7. ``finalize`` - IMAGE in control-plane.env, rollback tag removed.
++
++When ``switch``, ``migrate`` or ``health`` fails the job rolls back by itself before failing
++(:func:`runtime.controlplane.rollback_plan`): previous image back up, and the database restored
++from the backup of step 2 when ``migrate`` had started; then the health check again. The result
++carries ``rollback: {failed_step, actions, done, errors}`` and ``rolled_back``.
++"""
++
++from __future__ import annotations
++
++import shutil
++import time
++from pathlib import Path
++from typing import Any
++
++import httpx
++from pydantic import Field, field_validator
++
++from .. import validation as v
++from ..config import FRAPPE_UID
++from ..fsutil import chown, ensure_dir
++from ..runtime import controlplane as rc
++from ..runtime.backup import BackupError, classify
++from ..runtime.registry import Registry, docker_login
++from .base import Conflict, NotFound, SiteParams, StepFailed
++from .site_jobs import RESTORE_STAGING, _SiteJob
++
++
++def probe_http(url: str, site: str, timeout: float = 10.0) -> tuple[int | None, str, str | None]:
++    """``(status, body, error)`` of one GET with ``X-Frappe-Site-Name: site``."""
++    try:
++        resp = httpx.get(url, headers={"X-Frappe-Site-Name": site, "Host": site}, timeout=timeout)
++        return resp.status_code, resp.text[:2000], None
++    except httpx.HTTPError as exc:
++        return None, "", f"{type(exc).__name__}: {exc}"[:300]
++
++
++class ControlPlaneUpdateParams(SiteParams):
++    bench: str
++    image: str
++    previous_image: str | None = None
++    backup: bool = True
++    upload: bool = True
++    port: int | None = Field(default=None, ge=1, le=65535)
++    health_timeout: int = Field(default=300, ge=10, le=3600)
++    registry: Registry | None = None
++
++    @field_validator("bench")
++    @classmethod
++    def _bench(cls, value: str) -> str:
++        return v.bench_name(value)
++
++    @field_validator("image", "previous_image")
++    @classmethod
++    def _image(cls, value: str | None) -> str | None:
++        return v.image_ref(value) if value else None
++
++
++class ControlPlaneUpdate(_SiteJob):
++    kind = "controlplane.update"
++    steps = rc.UPDATE_STEPS
++    Params = ControlPlaneUpdateParams
++    HEALTH_INTERVAL = 5.0
++    probe = staticmethod(probe_http)
++
++    @classmethod
++    def precheck(cls, ctx, params: dict[str, Any]) -> None:
++        if not ctx.benches.exists(params["bench"]):
++            raise NotFound(f"bench {params['bench']!r} not found")
++        if not ctx.sites.exists(params["bench"], params["site"]):
++            raise NotFound(f"site {params['site']!r} not found on bench {params['bench']}")
++        if any(ctx.store.list(status=st, kind=cls.kind, limit=1) for st in ("queued", "running")):
++            raise Conflict("a control plane update is already queued or running")
++
++    # ---- helpers -------------------------------------------------------------------------
++    @property
++    def bench(self) -> str:
++        return self.p.bench
++
++    def image_id(self, image: str) -> str | None:
++        res = self.ctx.docker.run(["image", "inspect", "--format", "{{.Id}}", image])
++        return (res.stdout.strip() or None) if res.ok else None
++
++    def switch_to(self, image: str) -> None:
++        b = self.ctx.benches
++        env = b.read_env(self.bench)
++        if env.get("IMAGE") != image:
++            env["IMAGE"] = image
++            b.write_env(self.bench, env)
++        self.log(f"IMAGE={image}")
++        if b.render(self.bench):
++            self.log("docker-compose.yml re-rendered")
++        self.check(b.run_configurator(self.bench), "configurator")
++        self.check(b.up(self.bench), "docker compose up")
++
++    def port(self) -> int:
++        return rc.cp_port(rc.read_cp_env(self.settings.config_dir), self.p.port)
++
++    def wait_healthy(self, timeout: float | None = None) -> tuple[bool, str]:
++        url = rc.ping_url(self.port())
++        deadline = time.monotonic() + (timeout if timeout is not None else self.p.health_timeout)
++        last = ""
++        tries = 0
++        while True:
++            tries += 1
++            status, body, err = self.probe(url, self.site)
++            if rc.is_pong(status, body):
++                return True, f"{url} answered pong (try {tries})"
++            last = err or f"HTTP {status}: {body[:200]}"
++            if time.monotonic() >= deadline:
++                return False, f"{url} did not answer pong after {tries} tries: {last}"
++            time.sleep(self.HEALTH_INTERVAL)
++
++    # ---- steps -------------------------------------------------------------------------------
++    def step_prepare(self) -> None:
++        if not self.ctx.benches.exists(self.bench):
++            self.fail(f"bench {self.bench} does not exist")
++        if not self.ctx.sites.exists(self.bench, self.site):
++            self.fail(f"site {self.site} not found on bench {self.bench}")
++        self.result["bench"] = self.bench
++        self.result["image"] = self.p.image
++        current = self.ctx.benches.image(self.bench)
++        if "previous_image" not in self.result:
++            if self.p.previous_image and current and self.p.previous_image != current:
++                self.log(f"warning: the bench runs {current}, not {self.p.previous_image}; rolling back would use {current}")
++            self.result["previous_image"] = current or self.p.previous_image
++        previous = self.result["previous_image"]
++        self.log(f"control plane {self.site} on bench {self.bench}: {previous} -> {self.p.image}")
++        if previous and "rollback_image" not in self.result:
++            prev_id = self.image_id(previous)
++            if prev_id:
++                tag = rc.rollback_tag(self.id)
++                self.check(self.ctx.docker.run(["tag", previous, tag]), "docker tag (rollback image)")
++                self.result.update({"rollback_image": tag, "previous_id": prev_id})
++                self.log(f"previous image pinned as {tag}")
++            else:
++                self.log(f"warning: {previous} is not present locally; a rollback would have to pull it")
++                self.result["previous_id"] = None
++
++    def step_backup(self) -> None:
++        if not self.p.backup:
++            self.skip("backup not requested")
++            return
++        self.take_backup(self.bench, True)
++        if "manifest" not in self.result:
++            self.stage_backup(self.bench)
++        self.upload_backup(self.bench, self.p.upload)
++        self.log(f"pre-update backup {self.result.get('backup_id')} in {self.result.get('path')}")
++
++    def step_pull(self) -> None:
++        image = self.p.image
++        reg = self.p.registry
++        if reg and reg.has_credentials:
++            self.secret(reg.password)
++            self.check(docker_login(self.ctx.docker, reg), "docker login")
++        res = self.ctx.docker.pull(image)
++        if not res.ok:
++            if self.ctx.docker.image_exists(image):
++                self.log(f"warning: docker pull {image} failed; using the local image")
++            else:
++                self.fail(f"cannot pull {image}: {(res.stderr or res.stdout).strip()[-500:]}")
++        new_id = self.image_id(image)
++        self.result["image_id"] = new_id
++        same = rc.up_to_date(self.result.get("previous_image"), image, self.result.get("previous_id"), new_id)
++        self.result["up_to_date"] = same
++        if same:
++            self.log(f"{image} is unchanged ({new_id}): the control plane is already up to date")
++
++    def step_switch(self) -> None:
++        if self.result.get("up_to_date"):
++            self.skip("already up to date")
++            return
++        self.result["switched"] = True
++        self.save()
++        try:
++            self.switch_to(self.p.image)
++        except StepFailed as exc:
++            self.rollback("switch", str(exc))
++
++    def step_migrate(self) -> None:
++        if self.result.get("up_to_date"):
++            self.skip("already up to date")
++            return
++        self.result["migrate_started"] = True
++        self.save()
++        res = self.ctx.sites.migrate(self.bench, self.site)
++        if not res.ok:
++            self.rollback("migrate", f"bench migrate failed (exit {res.returncode}): {(res.stderr or res.stdout).strip()[-800:]}")
++        self.log(f"{self.site} migrated")
++
++    def step_health(self) -> None:
++        ok, detail = self.wait_healthy()
++        self.log(detail)
++        if not ok:
++            self.rollback("health", detail)
++        self.result["healthy"] = True
++
++    def step_finalize(self) -> None:
++        if rc.set_cp_env(self.settings.config_dir, IMAGE=self.p.image):
++            self.log(f"{rc.CP_ENV_NAME}: IMAGE={self.p.image}")
++        tag = self.result.get("rollback_image")
++        if tag:
++            self.ctx.docker.run(["image", "rm", tag])  # untag only; the old image may be pruned later
++        self.result["updated"] = not self.result.get("up_to_date")
++
++    # ---- rollback ----------------------------------------------------------------------------
++    def rollback(self, step: str, error: str) -> None:
++        backup_id = self.result.get("backup_id") if self.result.get("path") else None
++        actions = rc.rollback_plan(step, switched=bool(self.result.get("switched")),
++                                   migrate_started=bool(self.result.get("migrate_started")), backup_id=backup_id)
++        done: list[str] = []
++        errors: list[str] = []
++        if actions:
++            self.log(f"{step} failed; rolling back: {', '.join(actions)}")
++        for action in actions:
++            try:
++                getattr(self, f"_rb_{action}")()
++                done.append(action)
++            except Exception as exc:  # noqa: BLE001 - keep going: the health check tells the truth
++                errors.append(f"{action}: {exc}")
++                self.log(f"rollback {action} failed: {exc}")
++        self.result["rollback"] = {"failed_step": step, "actions": actions, "done": done, "errors": errors}
++        self.result["rolled_back"] = bool(actions) and not errors
++        self.save()
++        msg = f"control plane update to {self.p.image} failed at {step}: {error}"
++        if actions and not errors:
++            msg += f"; rolled back to {self.result.get('previous_image')}"
++            if "restore_database" in done:
++                msg += f" and restored the database from backup {backup_id}"
++        elif actions:
++            msg += "; ROLLBACK INCOMPLETE (" + "; ".join(errors) + "). See `nexaploy controlplane status`"
++        self.fail(msg)
++
++    def _rb_switch_back(self) -> None:
++        previous = self.result.get("previous_image")
++        if not previous:
++            raise StepFailed("previous image unknown")
++        pinned = self.result.get("rollback_image")
++        if pinned:
++            # the floating tag may point at the new image now: put it back on the old content
++            self.check(self.ctx.docker.run(["tag", pinned, previous]), "docker tag (restore previous)")
++        self.switch_to(previous)
++
++    def _rb_restore_database(self) -> None:
++        d = Path(self.result["path"])
++        try:
++            manifest = self.ctx.backups.verify(d)
++        except BackupError as exc:
++            raise StepFailed(str(exc)) from exc
++        db = next((f["name"] for f in manifest.get("files", []) if (f.get("type") or classify(f["name"])) == "database"), None)
++        if not db:
++            raise StepFailed("pre-update backup has no database dump")
++        staging = self.ctx.benches.sites_dir(self.bench) / RESTORE_STAGING / self.id
++        ensure_dir(staging, FRAPPE_UID, FRAPPE_UID, 0o750)
++        try:
++            shutil.copy2(d / db, staging / db)
++            chown(staging / db, FRAPPE_UID, FRAPPE_UID)
++            args = ["--site", self.site, "restore", self.ctx.sites.container_path(self.bench, staging / db),
++                    "--db-root-username", "root", "--db-root-password", self.db_root_password(), "--force"]
++            self.check(self.ctx.sites.bench(self.bench, args, timeout=6 * 3600), "bench restore (rollback)")
++        finally:
++            shutil.rmtree(staging, ignore_errors=True)
++
++    def _rb_health(self) -> None:
++        ok, detail = self.wait_healthy(timeout=min(self.p.health_timeout, 300))
++        self.log(detail)
++        if not ok:
++            raise StepFailed(detail)
+diff --git a/agent/nexaploy_agent/jobs/registry.py b/agent/nexaploy_agent/jobs/registry.py
+index 3236375..b5858dc 100644
+--- a/agent/nexaploy_agent/jobs/registry.py
++++ b/agent/nexaploy_agent/jobs/registry.py
+@@ -21,6 +21,7 @@ from .smoke_jobs import SiteSmokeCheck
+ from .pitr_jobs import ServerArchiveBinlogs, SiteRestorePitr
+ from .agent_jobs import AgentRollback, AgentUpgrade
+ from .storage_jobs import STORAGE_JOB_CLASSES
++from .controlplane_jobs import ControlPlaneUpdate
+ 
+ JOB_CLASSES: tuple[type[Job], ...] = (
+     ImageBuild,
+@@ -37,6 +38,7 @@ JOB_CLASSES: tuple[type[Job], ...] = (
+     SiteRestorePitr, ServerArchiveBinlogs,
+     AgentUpgrade, AgentRollback,
+     *STORAGE_JOB_CLASSES,
++    ControlPlaneUpdate,
+ )
+ REGISTRY: dict[str, type[Job]] = {cls.kind: cls for cls in JOB_CLASSES}
+ 
+diff --git a/agent/nexaploy_agent/runtime/controlplane.py b/agent/nexaploy_agent/runtime/controlplane.py
+new file mode 100644
+index 0000000..f325a20
+--- /dev/null
++++ b/agent/nexaploy_agent/runtime/controlplane.py
+@@ -0,0 +1,308 @@
++"""The control plane as a bench of this server (all-in-one, ARCHITECTURE.md §5.7.1, §5.9).
++
++Pure helpers for ``controlplane.update`` (step planning and rollback decisions), the
++``config/control-plane.env`` file written by ``install.sh``, and the single-file control plane
++backup (``nexaploy controlplane backup --to DIR`` / ``install.sh --restore-control-plane``):
++
++* :func:`export_tarball` packs one staged backup dir (``manifest.json`` + database dump +
++  public/private files + ``site_config_backup.json`` with the encryption key) into one ``.tar``;
++* :func:`import_backup` takes a tarball, a staged dir, a dir of staged dirs (newest wins) or a
++  plain Frappe backup dir (manifest generated) and stages it under
++  ``backups/<bench>/<site>/<ts>/`` so ``site.restore {backup_id}`` can restore it.
++"""
++
++from __future__ import annotations
++
++import json
++import re
++import shutil
++import tarfile
++from datetime import datetime, timezone
++from pathlib import Path
++from typing import Any, Iterable
++
++from ..config import read_env_file
++from ..fsutil import atomic_write, sha256_file
++from .backup import MANIFEST, BackupError, classify, new_ts, parse_ts
++
++CP_ENV_NAME = "control-plane.env"
++DEFAULT_PORT = 8090
++DEFAULT_IMAGE_REPO = "ghcr.io/a7733mai/nexaploy-control-plane"
++ROLLBACK_REPO = "nexaploy-cp-rollback"
++TARBALL_PREFIX = "nexaploy-control-plane"
++
++# Steps of controlplane.update, in order. Only these can trigger a rollback.
++UPDATE_STEPS = ("prepare", "backup", "pull", "switch", "migrate", "health", "finalize")
++ROLLBACK_STEPS = frozenset({"switch", "migrate", "health"})
++
++
++class ControlPlaneError(RuntimeError):
++    pass
++
++
++# --------------------------------------------------------------------------- control-plane.env
++def cp_env_path(config_dir: Path) -> Path:
++    return Path(config_dir) / CP_ENV_NAME
++
++
++def read_cp_env(config_dir: Path) -> dict[str, str]:
++    """``DOMAIN``, ``BENCH``, ``IMAGE``, ``PORT``, ``ADMIN_PASSWORD`` (install.sh); {} when absent."""
++    return read_env_file(cp_env_path(config_dir))
++
++
++def set_cp_env(config_dir: Path, **values: str) -> bool:
++    """Rewrite keys of control-plane.env in place (mode 600). False when the file is absent."""
++    path = cp_env_path(config_dir)
++    if not path.is_file():
++        return False
++    lines = path.read_text().splitlines()
++    seen: set[str] = set()
++    out = []
++    for line in lines:
++        key = line.split("=", 1)[0].strip()
++        if key in values:
++            out.append(f"{key}={values[key]}")
++            seen.add(key)
++        else:
++            out.append(line)
++    out += [f"{k}={v}" for k, v in values.items() if k not in seen]
++    atomic_write(path, "\n".join(out) + "\n", mode=0o600)
++    return True
++
++
++def cp_port(env: dict[str, str], explicit: int | None = None) -> int:
++    if explicit:
++        return int(explicit)
++    try:
++        return int(env.get("PORT") or DEFAULT_PORT)
++    except ValueError:
++        return DEFAULT_PORT
++
++
++# --------------------------------------------------------------------------- update planning
++def rollback_tag(job_id: str) -> str:
++    """Local tag pinning the image the control plane ran before the update (a floating tag
++    such as ``:16`` is moved by the pull, so the old name alone cannot bring it back)."""
++    return f"{ROLLBACK_REPO}:{re.sub(r'[^a-z0-9_.-]', '', job_id.lower())[:120] or 'previous'}"
++
++
++def up_to_date(previous_image: str | None, image: str, previous_id: str | None, new_id: str | None) -> bool:
++    """Same image name and the pull did not change its content: nothing to switch or migrate."""
++    return bool(previous_image == image and previous_id and new_id and previous_id == new_id)
++
++
++def rollback_plan(failed_step: str, *, switched: bool, migrate_started: bool,
++                  backup_id: str | None) -> list[str]:
++    """What to undo after ``failed_step`` failed.
++
++    * before ``switch`` nothing changed on the running control plane -> nothing to do;
++    * once the image was switched -> ``switch_back`` (previous image, compose up);
++    * once ``migrate`` started the schema may be half-migrated -> ``restore_database`` from the
++      pre-update backup (only when one was taken), run with the previous image, i.e. the code the
++      backup was taken with;
++    * always finish with ``health`` (is the old control plane answering again?).
++    """
++    if failed_step not in ROLLBACK_STEPS or not switched:
++        return []
++    actions = ["switch_back"]
++    if migrate_started and backup_id:
++        actions.append("restore_database")
++    actions.append("health")
++    return actions
++
++
++def is_pong(status: int | None, body: str | None) -> bool:
++    if status != 200:
++        return False
++    try:
++        return json.loads(body or "{}").get("message") == "pong"
++    except (ValueError, AttributeError):
++        return False
++
++
++def ping_url(port: int) -> str:
++    return f"http://127.0.0.1:{int(port)}/api/method/ping"
++
++
++def image_for_version(version: str, repo: str = DEFAULT_IMAGE_REPO) -> str:
++    return f"{repo.rstrip('/')}:{version.lstrip('v')}"
++
++
++# --------------------------------------------------------------------------- backup tarball
++def export_tarball(backup_dir: Path, dest_dir: Path, site: str) -> Path:
++    """Pack a staged backup dir (manifest + files) into ``<dest>/nexaploy-control-plane-<site>-<ts>.tar``.
++
++    The files are already compressed (sql.gz, tar), so the outer archive is a plain tar. Mode 600:
++    it holds the whole database and the encryption key.
++    """
++    backup_dir = Path(backup_dir)
++    if not (backup_dir / MANIFEST).is_file():
++        raise BackupError(f"no {MANIFEST} in {backup_dir}")
++    dest_dir = Path(dest_dir)
++    dest_dir.mkdir(parents=True, exist_ok=True)
++    out = dest_dir / f"{TARBALL_PREFIX}-{site}-{backup_dir.name}.tar"
++    tmp = out.with_suffix(".tar.part")
++    with tarfile.open(tmp, "w") as tar:
++        for p in sorted(backup_dir.iterdir()):
++            if p.is_file() and not p.name.startswith("."):
++                tar.add(p, arcname=f"{backup_dir.name}/{p.name}")
++    tmp.chmod(0o600)
++    tmp.replace(out)
++    return out
++
++
++def _safe_extract(tar_path: Path, dest: Path) -> None:
++    dest = Path(dest).resolve()
++    with tarfile.open(tar_path) as tar:
++        for m in tar.getmembers():
++            target = (dest / m.name).resolve()
++            inside = target == dest or str(target).startswith(str(dest) + "/")
++            if not (m.isfile() or m.isdir()) or not inside:
++                raise BackupError(f"unsafe entry in {tar_path.name}: {m.name!r}")
++        for m in tar.getmembers():
++            if m.isdir():
++                (dest / m.name).mkdir(parents=True, exist_ok=True)
++                continue
++            (dest / m.name).parent.mkdir(parents=True, exist_ok=True)
++            src = tar.extractfile(m)
++            assert src is not None
++            with src, open(dest / m.name, "wb") as fh:
++                shutil.copyfileobj(src, fh)
++
++
++def _backup_files(d: Path) -> list[Path]:
++    return [p for p in sorted(d.iterdir()) if p.is_file() and classify(p.name)]
++
++
++def find_backup_dir(root: Path) -> Path:
++    """The dir holding the backup: ``root`` itself (manifest or Frappe files), else the newest
++    sub dir (by name: ``YYYYmmddTHHMMSSZ`` sorts by time) that has one."""
++    root = Path(root)
++    if (root / MANIFEST).is_file() or any(classify(p.name) == "database" for p in _backup_files(root)):
++        return root
++    candidates = []
++    for p in root.rglob(MANIFEST):
++        candidates.append(p.parent)
++    if not candidates:
++        for p in root.rglob("*"):
++            if p.is_file() and classify(p.name) == "database":
++                candidates.append(p.parent)
++    if not candidates:
++        raise BackupError(f"no control plane backup found in {root} (expected manifest.json or *-database.sql.gz)")
++    return sorted(set(candidates), key=lambda c: (c.name, str(c)))[-1]
++
++
++def _choose_latest(files: Iterable[Path]) -> dict[str, Path]:
++    """One file per kind (database/public/private/config): the newest name wins (Frappe names
++    start with ``YYYYmmdd_HHMMSS``)."""
++    out: dict[str, Path] = {}
++    for p in sorted(files, key=lambda f: f.name):
++        kind = classify(p.name)
++        if kind:
++            out[kind] = p
++    return out
++
++
++def import_backup(source: Path, dest_root: Path, *, site: str, bench: str, image: str | None = None,
++                  now: datetime | None = None) -> tuple[str, Path]:
++    """Stage ``source`` (tarball or dir) as ``<dest_root>/<ts>/`` (dest_root =
++    ``backups/<bench>/<site>``) with a verified manifest. Returns ``(ts, dir)``."""
++    source = Path(source)
++    dest_root = Path(dest_root)
++    if not source.exists():
++        raise BackupError(f"{source} does not exist")
++    work: Path | None = None
++    try:
++        if source.is_file():
++            if not tarfile.is_tarfile(source):
++                raise BackupError(f"{source} is not a tar archive")
++            work = dest_root.parent / f".import-{new_ts(now)}"
++            shutil.rmtree(work, ignore_errors=True)
++            work.mkdir(parents=True)
++            _safe_extract(source, work)
++            source = work
++        src = find_backup_dir(source)
++        manifest: dict[str, Any] | None = None
++        if (src / MANIFEST).is_file():
++            try:
++                manifest = json.loads((src / MANIFEST).read_text())
++            except (OSError, ValueError) as exc:
++                raise BackupError(f"cannot read {src / MANIFEST}: {exc}") from exc
++            names = [f.get("name", "") for f in manifest.get("files", [])]
++            for n in names:
++                if "/" in n or n.startswith(".") or not (src / n).is_file():
++                    raise BackupError(f"backup file {n!r} listed in the manifest is missing")
++            files = [src / n for n in names]
++        else:
++            files = list(_choose_latest(_backup_files(src)).values())
++        if not any(classify(p.name) == "database" for p in files):
++            raise BackupError(f"no database dump in {src}")
++        ts = src.name if parse_ts(src.name) else new_ts(now)
++        dest = dest_root / ts
++        if dest.exists():
++            shutil.rmtree(dest)
++        dest.mkdir(parents=True)
++        for p in files:
++            shutil.copy2(p, dest / p.name)
++            (dest / p.name).chmod(0o640)
++        created = (manifest or {}).get("created_at") or (parse_ts(ts) or datetime.now(timezone.utc)).isoformat().replace("+00:00", "Z")
++        out = {
++            "site": site, "bench": bench, "image": (manifest or {}).get("image") or image,
++            "created_at": created, "imported_from": (manifest or {}).get("site") or None,
++            "files": [{"name": p.name, "size": (dest / p.name).stat().st_size,
++                       "sha256": sha256_file(dest / p.name), "type": classify(p.name)} for p in files],
++        }
++        if manifest:
++            for f in manifest.get("files", []):
++                mine = next((x for x in out["files"] if x["name"] == f.get("name")), None)
++                if mine and f.get("sha256") and f["sha256"] != mine["sha256"]:
++                    shutil.rmtree(dest, ignore_errors=True)
++                    raise BackupError(f"sha256 mismatch for {f['name']} (corrupted download?)")
++        atomic_write(dest / MANIFEST, json.dumps(out, indent=2) + "\n", mode=0o640)
++        return ts, dest
++    finally:
++        if work is not None:
++            shutil.rmtree(work, ignore_errors=True)
++
++
++SOURCE_KINDS = ("url", "rclone", "path")
++
++
++def source_kind(source: str) -> str:
++    """``https://…`` -> url, ``remote:path`` / ``:backend,opt=…:path`` -> rclone, else a local path."""
++    if re.match(r"^https?://", source):
++        return "url"
++    if Path(source).exists() or source.startswith(("/", "./", "../", "~")):
++        return "path"
++    if re.match(r"^:?[A-Za-z0-9_][A-Za-z0-9_.,=@+-]*:", source):
++        return "rclone"
++    return "path"
++
++
++# --------------------------------------------------------------------------- releases
++RELEASES_API = "https://api.github.com/repos/{repo}/releases"
++DEFAULT_RELEASE_REPO = "a7733mai/NexaPloy-"
++
++
++def version_key(tag: str) -> tuple:
++    m = re.match(r"^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$", tag or "")
++    if not m:
++        return (-1,)
++    major, minor, patch, pre = m.groups()
++    # a final release sorts after its pre-releases
++    return (int(major), int(minor), int(patch), 1 if pre is None else 0, pre or "")
++
++
++def pick_release(releases: list[dict[str, Any]], channel: str = "stable") -> dict[str, Any] | None:
++    """Newest release of a GitHub releases API list; ``stable`` skips pre-releases, ``beta``
++    includes them; drafts and tags that are not ``vX.Y.Z[-pre]`` are ignored."""
++    best = None
++    for r in releases or []:
++        if r.get("draft") or (r.get("prerelease") and channel != "beta"):
++            continue
++        tag = r.get("tag_name") or ""
++        if version_key(tag) == (-1,):
++            continue
++        if best is None or version_key(tag) > version_key(best["tag_name"]):
++            best = r
++    return best
+diff --git a/agent/tests/test_controlplane.py b/agent/tests/test_controlplane.py
+new file mode 100644
+index 0000000..0c2cd70
+--- /dev/null
++++ b/agent/tests/test_controlplane.py
+@@ -0,0 +1,341 @@
++"""controlplane.update (backup -> pull -> switch -> migrate -> health, rollback) and the control plane
++backup tarball / import (install.sh --restore-control-plane)."""
++
++from __future__ import annotations
++
++import json
++import tarfile
++from pathlib import Path
++
++import pytest
++from fastapi.testclient import TestClient
++from typer.testing import CliRunner
++
++from nexaploy_agent.api import create_app
++from nexaploy_agent.jobs.base import Conflict, NotFound
++from nexaploy_agent.jobs.controlplane_jobs import ControlPlaneUpdate
++from nexaploy_agent.jobs.registry import REGISTRY
++from nexaploy_agent.runtime import controlplane as rc
++from nexaploy_agent.runtime.backup import BackupError
++
++from .conftest import DB_PW, TOKEN, bench_running, make_bench, make_site, run_job, side_effect
++
++CP = "cp.example.com"
++BENCH = "nexaploy-cp"
++OLD = "ghcr.io/a7733mai/nexaploy-control-plane:0.1.0"
++NEW = "ghcr.io/a7733mai/nexaploy-control-plane:0.2.0"
++KEY = "enc-key-SECRET-789"
++
++
++# --------------------------------------------------------------------------- pure
++def test_rollback_plan():
++    assert rc.rollback_plan("pull", switched=False, migrate_started=False, backup_id="b") == []
++    assert rc.rollback_plan("backup", switched=True, migrate_started=True, backup_id="b") == []
++    assert rc.rollback_plan("switch", switched=True, migrate_started=False, backup_id="b") == ["switch_back", "health"]
++    assert rc.rollback_plan("migrate", switched=True, migrate_started=True, backup_id="b") == [
++        "switch_back", "restore_database", "health"]
++    # no backup taken: the image goes back, the database cannot
++    assert rc.rollback_plan("migrate", switched=True, migrate_started=True, backup_id=None) == ["switch_back", "health"]
++    assert rc.rollback_plan("health", switched=True, migrate_started=True, backup_id="b")[1] == "restore_database"
++    # up to date (never switched): a failed health check changes nothing
++    assert rc.rollback_plan("health", switched=False, migrate_started=False, backup_id="b") == []
++
++
++def test_up_to_date_and_pong_and_tags():
++    assert rc.up_to_date("img:16", "img:16", "sha256:a", "sha256:a")
++    assert not rc.up_to_date("img:16", "img:16", "sha256:a", "sha256:b")  # floating tag moved
++    assert not rc.up_to_date("img:0.1.0", "img:0.2.0", "sha256:a", "sha256:a")
++    assert not rc.up_to_date("img:16", "img:16", None, None)
++    assert rc.is_pong(200, '{"message": "pong"}')
++    assert not rc.is_pong(200, "<html>")
++    assert not rc.is_pong(502, '{"message": "pong"}')
++    assert rc.rollback_tag("01JABCDEF") == "nexaploy-cp-rollback:01jabcdef"
++    assert rc.image_for_version("v0.2.0") == "ghcr.io/a7733mai/nexaploy-control-plane:0.2.0"
++    assert rc.ping_url(8090) == "http://127.0.0.1:8090/api/method/ping"
++
++
++def test_pick_release():
++    rels = [
++        {"tag_name": "v0.1.0", "prerelease": False},
++        {"tag_name": "v0.3.0-beta.1", "prerelease": True},
++        {"tag_name": "v0.2.0", "prerelease": False},
++        {"tag_name": "v0.9.0", "draft": True},
++        {"tag_name": "nightly", "prerelease": False},
++    ]
++    assert rc.pick_release(rels)["tag_name"] == "v0.2.0"
++    assert rc.pick_release(rels, "beta")["tag_name"] == "v0.3.0-beta.1"
++    assert rc.pick_release([{"tag_name": "v1.0.0-rc.1", "prerelease": True}, {"tag_name": "v1.0.0"}], "beta")["tag_name"] == "v1.0.0"
++    assert rc.pick_release([]) is None
++
++
++def test_source_kind(tmp_path):
++    assert rc.source_kind("https://example.com/b.tar") == "url"
++    assert rc.source_kind("/root/backup.tar") == "path"
++    assert rc.source_kind(str(tmp_path)) == "path"
++    assert rc.source_kind("nexaploy-backups:srv-1/nexaploy-cp/cp.example.com/20261104T120000Z") == "rclone"
++    assert rc.source_kind(":s3,provider=AWS,env_auth=true:bucket/path") == "rclone"
++
++
++def test_cp_env_roundtrip(tmp_path):
++    assert rc.read_cp_env(tmp_path) == {}
++    assert rc.set_cp_env(tmp_path, IMAGE="x") is False
++    (tmp_path / "control-plane.env").write_text("DOMAIN=cp.example.com\nIMAGE=old\nPORT=8099\nADMIN_PASSWORD=pw\n")
++    assert rc.set_cp_env(tmp_path, IMAGE=NEW)
++    env = rc.read_cp_env(tmp_path)
++    assert env["IMAGE"] == NEW and env["ADMIN_PASSWORD"] == "pw" and rc.cp_port(env) == 8099
++    assert (tmp_path / "control-plane.env").stat().st_mode & 0o777 == 0o600
++    assert rc.cp_port({}) == 8090 and rc.cp_port({"PORT": "x"}) == 8090 and rc.cp_port({}, 9000) == 9000
++
++
++# --------------------------------------------------------------------------- job
++def _frappe_backup(site_dir: Path, stamp="20261104_120000"):
++    d = site_dir / "private" / "backups"
++    d.mkdir(parents=True, exist_ok=True)
++    (d / f"{stamp}-cp_example_com-database.sql.gz").write_bytes(b"SQL")
++    (d / f"{stamp}-cp_example_com-files.tar").write_bytes(b"PUB")
++    (d / f"{stamp}-cp_example_com-private-files.tar").write_bytes(b"PRIV")
++    (d / f"{stamp}-cp_example_com-site_config_backup.json").write_text(json.dumps({"encryption_key": KEY}))
++
++
++@pytest.fixture
++def cp(ctx, runner, settings, monkeypatch):
++    make_bench(ctx, BENCH, image=OLD)
++    site_dir = make_site(ctx, BENCH, CP, extra={"encryption_key": KEY})
++    (settings.config_dir / "control-plane.env").write_text(
++        f"DOMAIN={CP}\nBENCH={BENCH}\nIMAGE={OLD}\nPORT=8091\nADMIN_PASSWORD=pw\n")
++    runner.on(["backup", "--with-files"], result=side_effect(lambda c: _frappe_backup(site_dir)))
++    runner.on(["image", "inspect", "--format", "{{.Id}}", OLD], stdout="sha256:old\n")
++    runner.on(["image", "inspect", "--format", "{{.Id}}", NEW], stdout="sha256:new\n")
++    bench_running(runner)
++    monkeypatch.setattr(ControlPlaneUpdate, "HEALTH_INTERVAL", 0)
++    probes = []
++
++    def probe(url, site, timeout=10.0):
++        probes.append((url, site))
++        return 200, '{"message": "pong"}', None
++
++    monkeypatch.setattr(ControlPlaneUpdate, "probe", staticmethod(probe))
++    return probes
++
++
++def _idx(runner, needle, start=0):
++    for i, line in enumerate(runner.cmdlines()):
++        if i >= start and needle in line:
++            return i
++    raise AssertionError(f"{needle!r} not called:\n" + "\n".join(runner.cmdlines()))
++
++
++def test_kind_registered():
++    assert REGISTRY["controlplane.update"] is ControlPlaneUpdate
++    assert ControlPlaneUpdate.steps == ("prepare", "backup", "pull", "switch", "migrate", "health", "finalize")
++
++
++def test_update_success(ctx, worker, runner, settings, cp):
++    job = run_job(ctx, worker, "controlplane.update", {"bench": BENCH, "site": CP, "image": NEW, "previous_image": OLD})
++    assert job["status"] == "success", job
++    r = job["result"]
++    assert r["previous_image"] == OLD and r["image"] == NEW and r["updated"] is True
++    assert r["rollback_image"].startswith("nexaploy-cp-rollback:")
++    assert ctx.benches.image(BENCH) == NEW
++    assert rc.read_cp_env(settings.config_dir)["IMAGE"] == NEW
++    # order: pin old image -> backup -> pull -> configurator -> up -> migrate
++    tag = _idx(runner, f"docker tag {OLD} nexaploy-cp-rollback:")
++    backup = _idx(runner, f"--site {CP} backup --with-files")
++    pull = _idx(runner, f"docker pull {NEW}")
++    up = _idx(runner, "up -d", pull)
++    mig = _idx(runner, f"--site {CP} migrate")
++    assert tag < backup < pull < up < mig
++    assert runner.called(f"docker image rm {r['rollback_image']}")
++    assert cp == [("http://127.0.0.1:8091/api/method/ping", CP)]
++    # the backup is staged like site.backup (kept locally: no backup storage configured)
++    assert (Path(r["path"]) / "manifest.json").is_file() and r["uploaded"] is False
++    blob = json.dumps(job)
++    assert KEY not in blob and DB_PW not in blob
++
++
++def test_update_up_to_date_skips_switch(ctx, worker, runner, cp):
++    runner.on(["image", "inspect", "--format", "{{.Id}}", OLD], stdout="sha256:same\n")
++    job = run_job(ctx, worker, "controlplane.update", {"bench": BENCH, "site": CP, "image": OLD, "backup": False})
++    assert job["status"] == "success", job
++    steps = {s["name"]: s["status"] for s in job["steps"]}
++    assert job["result"]["up_to_date"] is True and job["result"]["updated"] is False
++    assert not runner.called(f"--site {CP} migrate") and not runner.called("backup --with-files")
++    assert "already up to date" in next(s["output"] for s in job["steps"] if s["name"] == "switch")
++    assert steps["health"] == "success"
++
++
++def test_update_pull_failure_changes_nothing(ctx, worker, runner, cp):
++    runner.on(["pull", NEW], returncode=1, stderr="manifest unknown")
++    runner.on(["image", "inspect", "--format", "{{.Id}}", NEW], returncode=1)
++    job = run_job(ctx, worker, "controlplane.update", {"bench": BENCH, "site": CP, "image": NEW})
++    assert job["status"] == "failure" and "cannot pull" in job["error"]
++    assert ctx.benches.image(BENCH) == OLD
++    assert not runner.called("up -d") and "rollback" not in job["result"]
++
++
++def test_migrate_failure_rolls_back_and_restores(ctx, worker, runner, settings, cp):
++    runner.on(["--site", CP, "migrate"], returncode=1, stderr="Traceback: boom", times=1)
++    job = run_job(ctx, worker, "controlplane.update", {"bench": BENCH, "site": CP, "image": NEW})
++    assert job["status"] == "failure", job
++    r = job["result"]
++    assert r["rollback"]["failed_step"] == "migrate"
++    assert r["rollback"]["done"] == ["switch_back", "restore_database", "health"] and r["rolled_back"] is True
++    assert "rolled back to " + OLD in job["error"] and "restored the database" in job["error"]
++    assert ctx.benches.image(BENCH) == OLD
++    assert rc.read_cp_env(settings.config_dir)["IMAGE"] == OLD  # finalize never ran
++    # floating tag restored to the pinned content, old image up, then the DB-only restore
++    back = _idx(runner, f"docker tag {r['rollback_image']} {OLD}")
++    up = _idx(runner, "up -d", back)
++    restore = _idx(runner, f"--site {CP} restore", up)
++    args = runner.calls[restore].args
++    assert args[args.index("restore") + 1].endswith("-database.sql.gz")
++    assert "--with-public-files" not in args and args[args.index("--db-root-password") + 1] == DB_PW
++    assert [s["status"] for s in job["steps"]][-3:] == ["failure", "skipped", "skipped"]
++    assert DB_PW not in json.dumps(job)
++
++
++def test_health_timeout_rolls_back(ctx, worker, runner, monkeypatch, cp):
++    calls = {"n": 0}
++
++    def probe(url, site, timeout=10.0):
++        calls["n"] += 1
++        # new image never answers; after the switch back the old one does
++        return (200, '{"message": "pong"}', None) if ctx.benches.image(BENCH) == OLD else (None, "", "ConnectError")
++
++    monkeypatch.setattr(ControlPlaneUpdate, "probe", staticmethod(probe))
++    monkeypatch.setattr(ControlPlaneUpdate, "wait_healthy", _fast_wait(ControlPlaneUpdate.wait_healthy))
++    job = run_job(ctx, worker, "controlplane.update", {"bench": BENCH, "site": CP, "image": NEW})
++    assert job["status"] == "failure"
++    assert job["result"]["rollback"]["failed_step"] == "health"
++    assert job["result"]["rollback"]["done"] == ["switch_back", "restore_database", "health"]
++    assert ctx.benches.image(BENCH) == OLD
++
++
++def _fast_wait(orig):
++    def wait(self, timeout=None):
++        return orig(self, timeout=0)
++    return wait
++
++
++def test_switch_failure_rolls_back_without_restore(ctx, worker, runner, cp):
++    runner.on(["up", "-d"], returncode=1, stderr="pull access denied", times=1)  # the new image only
++    job = run_job(ctx, worker, "controlplane.update", {"bench": BENCH, "site": CP, "image": NEW})
++    assert job["status"] == "failure", job
++    assert job["result"]["rollback"]["done"] == ["switch_back", "health"]
++    assert not runner.called(f"--site {CP} migrate") and not runner.called(f"--site {CP} restore")
++    assert ctx.benches.image(BENCH) == OLD
++
++
++def test_incomplete_rollback_is_reported(ctx, worker, runner, monkeypatch, cp):
++    runner.on(["--site", CP, "migrate"], returncode=1, stderr="boom")
++    monkeypatch.setattr(ControlPlaneUpdate, "probe", staticmethod(lambda url, site, timeout=10.0: (None, "", "down")))
++    monkeypatch.setattr(ControlPlaneUpdate, "wait_healthy", _fast_wait(ControlPlaneUpdate.wait_healthy))
++    job = run_job(ctx, worker, "controlplane.update", {"bench": BENCH, "site": CP, "image": NEW})
++    assert job["status"] == "failure" and "ROLLBACK INCOMPLETE" in job["error"]
++    assert job["result"]["rolled_back"] is False
++
++
++def test_prechecks_and_api(ctx, settings, cp):
++    with pytest.raises(NotFound):
++        ctx.enqueue("controlplane.update", {"bench": "nope-bench", "site": CP, "image": NEW}, precheck=True)
++    with pytest.raises(NotFound):
++        ctx.enqueue("controlplane.update", {"bench": BENCH, "site": "other.example.com", "image": NEW}, precheck=True)
++    client = TestClient(create_app(ctx=ctx))
++    res = client.post("/v1/controlplane/update", json={"bench": BENCH, "site": CP, "image": NEW},
++                      headers={"Authorization": f"Bearer {TOKEN}"})
++    assert res.status_code == 202 and res.json()["kind"] == "controlplane.update"
++    with pytest.raises(Conflict):
++        ctx.enqueue("controlplane.update", {"bench": BENCH, "site": CP, "image": NEW}, precheck=True)
++    bad = client.post("/v1/controlplane/update", json={"bench": BENCH, "site": CP, "image": "no tag!"},
++                      headers={"Authorization": f"Bearer {TOKEN}"})
++    assert bad.status_code == 422
++
++
++# --------------------------------------------------------------------------- backup tarball / import
++def _staged(ctx, site_dir):
++    _frappe_backup(site_dir)
++    src = site_dir / "private" / "backups"
++    names = [p.name for p in src.iterdir()]
++    ctx.backups.stage(BENCH, CP, "20261104T120000Z", src, names, OLD)
++    return ctx.backups.backup_dir(BENCH, CP, "20261104T120000Z")
++
++
++def test_export_and_import_roundtrip(ctx, tmp_path):
++    make_bench(ctx, BENCH, image=OLD)
++    d = _staged(ctx, make_site(ctx, BENCH, CP))
++    tar = rc.export_tarball(d, tmp_path / "out", CP)
++    assert tar.name == f"nexaploy-control-plane-{CP}-20261104T120000Z.tar"
++    assert tar.stat().st_mode & 0o777 == 0o600
++    # restore on a "new server" (another backups root), same domain
++    dest_root = tmp_path / "new" / BENCH / CP
++    ts, path = rc.import_backup(tar, dest_root, site=CP, bench=BENCH)
++    assert ts == "20261104T120000Z" and path == dest_root / ts
++    m = ctx.backups.verify(path)
++    assert {f["type"] for f in m["files"]} == {"database", "public", "private", "config"}
++    assert not any(p.name.startswith(".import") for p in dest_root.parent.iterdir())
++    # a staged dir and a dir of staged dirs work too (newest wins)
++    ts2, _ = rc.import_backup(d.parent, tmp_path / "n2" / BENCH / CP, site=CP, bench=BENCH)
++    assert ts2 == "20261104T120000Z"
++
++
++def test_import_plain_frappe_dir_and_rejects(ctx, tmp_path):
++    raw = tmp_path / "raw"
++    _frappe_backup(raw, stamp="20261101_010000")
++    _frappe_backup(raw, stamp="20261103_010000")
++    ts, path = rc.import_backup(raw / "private" / "backups", tmp_path / "dst" / BENCH / CP, site=CP, bench=BENCH)
++    names = sorted(p.name for p in path.iterdir())
++    assert all("20261103_010000" in n for n in names if n != "manifest.json")  # newest of each kind
++    ctx.backups.verify(path)
++    (tmp_path / "empty").mkdir()
++    with pytest.raises(BackupError, match="no control plane backup"):
++        rc.import_backup(tmp_path / "empty", tmp_path / "x", site=CP, bench=BENCH)
++    evil = tmp_path / "evil.tar"
++    with tarfile.open(evil, "w") as t:
++        f = tmp_path / "payload"
++        f.write_text("x")
++        t.add(f, arcname="../escape-database.sql.gz")
++    with pytest.raises(BackupError, match="unsafe"):
++        rc.import_backup(evil, tmp_path / "y" / BENCH / CP, site=CP, bench=BENCH)
++
++
++def test_import_detects_corruption(ctx, tmp_path):
++    make_bench(ctx, BENCH, image=OLD)
++    d = _staged(ctx, make_site(ctx, BENCH, CP))
++    next(d.glob("*-database.sql.gz")).write_bytes(b"truncated")
++    with pytest.raises(BackupError, match="sha256 mismatch"):
++        rc.import_backup(d, tmp_path / "z" / BENCH / CP, site=CP, bench=BENCH)
++
++
++# --------------------------------------------------------------------------- CLI
++def test_cli_import_and_repoint(ctx, settings, tmp_path, monkeypatch):
++    from nexaploy_agent import cli as cli_mod
++    from nexaploy_agent.config import dump_toml
++
++    make_bench(ctx, BENCH, image=OLD)
++    d = _staged(ctx, make_site(ctx, BENCH, CP))
++    tar = rc.export_tarball(d, tmp_path / "out", CP)
++    cfg = tmp_path / "agent.toml"
++    cfg.write_text(dump_toml({"agent": {"root": str(tmp_path / "newroot"), "token": "t"},
++                              "control_plane": {"url": "http://127.0.0.1:8090", "token": "srv", "site_name": CP}}))
++    monkeypatch.setattr("nexaploy_agent.fsutil.chown", lambda *a, **k: None)
++    res = CliRunner().invoke(cli_mod.app, ["--config", str(cfg), "controlplane", "import-backup", str(tar),
++                                           "--bench", BENCH, "--site", CP])
++    assert res.exit_code == 0, res.output
++    assert res.output.strip().splitlines()[-1] == "20261104T120000Z"
++    assert (tmp_path / "newroot" / "backups" / BENCH / CP / "20261104T120000Z" / "manifest.json").is_file()
++
++    res = CliRunner().invoke(cli_mod.app, ["--config", str(cfg), "controlplane", "repoint", "--url", "https://cp.example.com/"])
++    assert res.exit_code == 0, res.output
++    import tomllib
++    data = tomllib.loads(cfg.read_text())
++    assert data["control_plane"] == {"url": "https://cp.example.com", "token": "srv", "site_name": ""}
++
++
++def test_cli_update_without_cp_env_explains(tmp_path):
++    from nexaploy_agent import cli as cli_mod
++    from nexaploy_agent.config import dump_toml
++
++    cfg = tmp_path / "agent.toml"
++    cfg.write_text(dump_toml({"agent": {"root": str(tmp_path), "token": "t"}}))
++    res = CliRunner().invoke(cli_mod.app, ["--config", str(cfg), "controlplane", "update", "--image", NEW])
++    assert res.exit_code == 1 and "no control plane on this server" in res.output
+diff --git a/image-builder/versions.json b/image-builder/versions.json
+index 09f3397..d3cf0f4 100644
+--- a/image-builder/versions.json
++++ b/image-builder/versions.json
+@@ -1,5 +1,6 @@
+ {
+   "14": {"python": "3.10.13", "node": "16.20.2", "frappe_branch": "version-14", "debian": "bookworm"},
+   "15": {"python": "3.11.6",  "node": "18.20.2", "frappe_branch": "version-15", "debian": "bookworm"},
+-  "16": {"python": "3.14.10", "node": "24.22.2", "frappe_branch": "version-16", "debian": "trixie"}
++  "16": {"python": "3.14.10", "node": "24.22.2", "frappe_branch": "version-16", "debian": "trixie",
++         "official_image": "frappe/erpnext:v16.53.0"}
+ }

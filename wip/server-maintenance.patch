@@ -1,0 +1,2236 @@
+diff --git a/agent/nexaploy_agent/context.py b/agent/nexaploy_agent/context.py
+index ec41ed7..6f5243d 100644
+--- a/agent/nexaploy_agent/context.py
++++ b/agent/nexaploy_agent/context.py
+@@ -11,7 +11,9 @@ from .jobs.store import JobStore
+ from .runtime.backup import BackupManager
+ from .runtime.bench import BenchManager
+ from .runtime.docker import Docker, LoggingRunner, Runner, SubprocessRunner
++from .runtime.health import HealthCollector
+ from .runtime.image import ImageBuilder
++from .runtime.os_updates import OsUpdates
+ from .runtime.proxy import ProxyManager
+ from .runtime.site import SiteManager
+ from .runtime.tls import TlsChecker
+@@ -35,6 +37,9 @@ class AgentContext:
+         self.usage = UsageCollector(settings, self.runner, self.benches, self.sites)
+         self.tls = TlsChecker(settings, self.sites)
+         self.store = store or JobStore(settings.jobs_db)
++        # server maintenance (§17): OS update status (cached 6 h) and light health facts
++        self.os_updates = OsUpdates(settings.data_dir, self.runner)
++        self.health = HealthCollector(settings, self.runner)
+         # Set when a job is enqueued in this process so the worker wakes early.
+         self.wake = threading.Event()
+ 
+diff --git a/agent/nexaploy_agent/control_plane.py b/agent/nexaploy_agent/control_plane.py
+index ece7274..c73a99f 100644
+--- a/agent/nexaploy_agent/control_plane.py
++++ b/agent/nexaploy_agent/control_plane.py
+@@ -209,6 +209,9 @@ class ControlPlaneService:
+         from .runtime.server import host_facts
+ 
+         facts = host_facts(self.ctx.docker, self.ctx.settings.root)
++        # server maintenance (§17): never raise, the heartbeat must go out
++        facts["os_updates"] = self.ctx.os_updates.status()
++        facts["health"] = self.ctx.health.light()
+         benches = self.ctx.benches.list(with_status=True)
+         for b in benches:
+             b["sites"] = [self.ctx.sites.info(b["name"], s) for s in b.get("sites", [])]
+diff --git a/agent/nexaploy_agent/jobs/maintenance_jobs.py b/agent/nexaploy_agent/jobs/maintenance_jobs.py
+new file mode 100644
+index 0000000..789142e
+--- /dev/null
++++ b/agent/nexaploy_agent/jobs/maintenance_jobs.py
+@@ -0,0 +1,247 @@
++"""Server maintenance jobs pushed by the control plane (ARCHITECTURE.md §17).
++
++* ``server.os_update``    ``{mode: all|security, reboot: never|if_required|always, reboot_delay_seconds}``
++  update_lists -> upgrade -> cleanup -> status -> reboot (scheduled with ``systemd-run`` *after*
++  the job reported success; fallback ``shutdown -r +1``)
++* ``server.os_reboot``    ``{delay_seconds}``
++* ``server.os_configure`` ``{unattended_security}``: 20auto-upgrades + 52nexaploy-unattended
++  (security origins only, ``Automatic-Reboot "false"``)
++* ``server.diagnose``     full health facts (runtime/health.py ``full_health``)
++* ``server.cleanup``      ``{targets, dry_run, log_retention_days, backup_local_keep_days, ...}``:
++  one step per target (runtime/cleanup.py), then ``summary``
++"""
++
++from __future__ import annotations
++
++from typing import Any, Literal
++
++from pydantic import Field, field_validator
++
++from ..fsutil import atomic_write
++from ..runtime.cleanup import TARGETS, Cleaner, CleanupOptions, fmt_bytes, summarize
++from ..runtime.health import full_health
++from ..runtime.os_updates import (
++    APT_ENV, AUTO_UPGRADES_FILE, NEXAPLOY_UNATTENDED_FILE, SHUTDOWN_FALLBACK, apt_get,
++    auto_upgrades_content, reboot_command, unattended_content, upgrade_command,
++)
++from ..runtime.server import server_info
++from ..runtime.upgrade import systemd_available
++from .base import BaseParams, Job
++
++APT_TIMEOUT = 60 * 60
++
++
++def _tail(text: str, n: int = 3000) -> str:
++    return (text or "")[-n:]
++
++
++class _OsJob(Job):
++    @property
++    def osu(self):
++        return self.ctx.os_updates
++
++    def _require_apt(self) -> None:
++        if not self.osu.supported():
++            self.fail("system updates need an apt based distribution (Ubuntu / Debian); this server "
++                      "reports another one: update it with its own tools")
++
++    def _schedule_reboot(self, delay: int) -> None:
++        run = self.ctx.runner
++        if systemd_available():
++            self.check(run.run(reboot_command(self.id, delay), timeout=30), "scheduling the reboot")
++            self.result.update({"reboot_scheduled": True, "reboot_delay_seconds": delay})
++            self.log(f"reboot scheduled in {delay}s (after this job is reported)")
++            return
++        res = run.run(SHUTDOWN_FALLBACK, timeout=30)
++        self.check(res, "shutdown -r +1")
++        self.result.update({"reboot_scheduled": True, "reboot_delay_seconds": 60})
++        self.log("systemd-run not available: reboot scheduled with shutdown -r +1")
++
++
++# --------------------------------------------------------------------------- server.os_update
++class OsUpdateParams(BaseParams):
++    mode: Literal["all", "security"] = "all"
++    reboot: Literal["never", "if_required", "always"] = "if_required"
++    reboot_delay_seconds: int = Field(default=60, ge=10, le=3600)
++
++
++class ServerOsUpdate(_OsJob):
++    kind = "server.os_update"
++    steps = ("update_lists", "upgrade", "cleanup", "status", "reboot")
++    Params = OsUpdateParams
++
++    def step_update_lists(self) -> None:
++        self._require_apt()
++        res = self.ctx.runner.run(apt_get("update"), env=APT_ENV, timeout=APT_TIMEOUT)
++        self.log(_tail(res.stdout))
++        self.check(res, "apt-get update")
++        before = self.osu.status(force=True)
++        self.result["before"] = {k: before.get(k) for k in ("pending", "security", "running_kernel")}
++        self.log(f"{before.get('pending', 0)} upgradable package(s), {before.get('security', 0)} security")
++
++    def step_upgrade(self) -> None:
++        if self.p.mode == "security":
++            probe = self.ctx.runner.run(["which", "unattended-upgrade"], timeout=30)
++            if not probe.ok or not probe.stdout.strip():
++                self.fail("unattended-upgrades is not installed: install it (apt-get install unattended-upgrades) "
++                          "or enable Automatic security updates, or update all packages instead")
++        res = self.ctx.runner.run(upgrade_command(self.p.mode), env=APT_ENV, timeout=APT_TIMEOUT)
++        self.log(_tail(res.stdout, 8000))
++        self.check(res, "unattended-upgrade" if self.p.mode == "security" else "apt-get full-upgrade")
++
++    def step_cleanup(self) -> None:
++        res = self.ctx.runner.run(apt_get("-y", "autoremove", "--purge"), env=APT_ENV, timeout=APT_TIMEOUT)
++        self.log(_tail(res.stdout))
++        if not res.ok:
++            self.log(f"warning: apt-get autoremove failed: {_tail(res.stderr, 300)}")
++        res = self.ctx.runner.run(apt_get("clean"), env=APT_ENV, timeout=600)
++        if not res.ok:
++            self.log(f"warning: apt-get clean failed: {_tail(res.stderr, 300)}")
++
++    def step_status(self) -> None:
++        self.osu.invalidate()
++        status = self.osu.status(force=True)
++        self.result["os_updates"] = status
++        self.log(f"remaining: {status.get('pending', 0)} package(s); reboot required: "
++                 f"{bool(status.get('reboot_required'))}")
++
++    def step_reboot(self) -> None:
++        if self.result.get("reboot_scheduled"):
++            self.skip("reboot already scheduled")
++            return
++        policy = self.p.reboot
++        required = bool((self.result.get("os_updates") or {}).get("reboot_required"))
++        if policy == "never" or (policy == "if_required" and not required):
++            self.result["reboot_scheduled"] = False
++            self.log("no reboot" + (" (a reboot is required: schedule one)" if required else ""))
++            return
++        self._schedule_reboot(self.p.reboot_delay_seconds)
++
++
++# --------------------------------------------------------------------------- server.os_reboot
++class OsRebootParams(BaseParams):
++    delay_seconds: int = Field(default=60, ge=10, le=3600)
++
++
++class ServerOsReboot(_OsJob):
++    kind = "server.os_reboot"
++    steps = ("reboot",)
++    Params = OsRebootParams
++
++    def step_reboot(self) -> None:
++        if self.result.get("reboot_scheduled"):
++            self.skip("reboot already scheduled")
++            return
++        self.osu.invalidate()
++        self._schedule_reboot(self.p.delay_seconds)
++
++
++# --------------------------------------------------------------------------- server.os_configure
++class OsConfigureParams(BaseParams):
++    unattended_security: bool
++
++
++class ServerOsConfigure(_OsJob):
++    kind = "server.os_configure"
++    steps = ("configure", "status")
++    Params = OsConfigureParams
++
++    def step_configure(self) -> None:
++        self._require_apt()
++        conf = self.osu.paths.apt_conf_dir
++        enable = self.p.unattended_security
++        if enable:
++            probe = self.ctx.runner.run(["which", "unattended-upgrade"], timeout=30)
++            if not probe.ok or not probe.stdout.strip():
++                res = self.ctx.runner.run(apt_get("install", "-y", "unattended-upgrades"), env=APT_ENV,
++                                          timeout=APT_TIMEOUT)
++                self.log(_tail(res.stdout))
++                self.check(res, "apt-get install unattended-upgrades")
++        conf.mkdir(parents=True, exist_ok=True)
++        atomic_write(conf / AUTO_UPGRADES_FILE, auto_upgrades_content(enable), mode=0o644)
++        atomic_write(conf / NEXAPLOY_UNATTENDED_FILE, unattended_content(), mode=0o644)
++        self.log(f"automatic security updates {'enabled' if enable else 'disabled'} "
++                 f"({conf / AUTO_UPGRADES_FILE}); automatic reboots stay off")
++
++    def step_status(self) -> None:
++        self.osu.invalidate()
++        self.result["os_updates"] = self.osu.status(force=True)
++
++
++# --------------------------------------------------------------------------- server.diagnose
++class ServerDiagnose(Job):
++    kind = "server.diagnose"
++    steps = ("collect",)
++    Params = BaseParams
++
++    def step_collect(self) -> None:
++        facts = server_info(self.ctx.docker, self.ctx.benches, self.settings.agent.server_id)
++        facts.pop("benches", None)
++        facts["os_updates"] = self.ctx.os_updates.status()
++        facts["health"] = full_health(self.ctx)
++        self.result.update(facts)
++        h = facts["health"]
++        self.log(f"filesystems: {[(f['path'], f['used_percent']) for f in h.get('filesystems') or []]}")
++        self.log(f"failed units: {h.get('failed_units')}, OOM kills since boot: {h.get('oom_kills')}, "
++                 f"NTP synchronized: {h.get('ntp_synchronized')}")
++
++
++# --------------------------------------------------------------------------- server.cleanup
++class CleanupParams(BaseParams):
++    targets: list[Literal[TARGETS]] = Field(default_factory=lambda: list(TARGETS), min_length=1)  # type: ignore[valid-type]
++    dry_run: bool = True
++    log_retention_days: int = Field(default=14, ge=1, le=3650)
++    backup_local_keep_days: int | None = Field(default=None, ge=0, le=3650)
++    docker_log_max_mb: int = Field(default=100, ge=10, le=100_000)
++    bench_log_max_mb: int = Field(default=200, ge=10, le=100_000)
++    image_min_age_hours: int = Field(default=72, ge=1, le=24 * 365)
++    job_retention_days: int = Field(default=30, ge=7, le=3650)
++
++    @field_validator("targets")
++    @classmethod
++    def _dedupe(cls, value: list[str]) -> list[str]:
++        # run in the canonical order (cheap, safe targets first does not matter: each is independent)
++        return [t for t in TARGETS if t in set(value)]
++
++
++class ServerCleanup(Job):
++    kind = "server.cleanup"
++    Params = CleanupParams
++
++    @classmethod
++    def step_names(cls, params: dict[str, Any]) -> list[str]:
++        return [*params.get("targets", TARGETS), "summary"]
++
++    def _cleaner(self) -> Cleaner:
++        p = self.p
++        opts = CleanupOptions(
++            dry_run=p.dry_run, log_retention_days=p.log_retention_days,
++            backup_local_keep_days=p.backup_local_keep_days, docker_log_max_mb=p.docker_log_max_mb,
++            bench_log_max_mb=p.bench_log_max_mb, image_min_age_hours=p.image_min_age_hours,
++            job_retention_days=p.job_retention_days,
++        )
++        return Cleaner(self.ctx, opts, log=self.log)
++
++    def _target(self, name: str) -> None:
++        done = self.result.setdefault("targets", {})
++        if name in done:
++            self.skip(f"{name} already cleaned")
++            return
++        done[name] = self._cleaner().run(name)
++
++    def __getattr__(self, item: str):
++        if item.startswith("step_") and item[5:] in TARGETS:
++            return lambda: self._target(item[5:])
++        raise AttributeError(item)
++
++    def step_summary(self) -> None:
++        total = summarize((self.result.get("targets") or {}).values())
++        self.result.update({"dry_run": self.p.dry_run, **total})
++        verb = "would free" if self.p.dry_run else "freed"
++        self.log(f"{verb} {fmt_bytes(total['freed_bytes'])} in total ({total['items']} item(s), "
++                 f"{total['errors']} error(s))")
++        if not self.p.dry_run:
++            self.ctx.os_updates.invalidate()  # apt cache / autoremove change the package state
++
++
++MAINTENANCE_JOB_CLASSES = (ServerOsUpdate, ServerOsReboot, ServerOsConfigure, ServerDiagnose, ServerCleanup)
+diff --git a/agent/nexaploy_agent/jobs/registry.py b/agent/nexaploy_agent/jobs/registry.py
+index 3236375..6dabd63 100644
+--- a/agent/nexaploy_agent/jobs/registry.py
++++ b/agent/nexaploy_agent/jobs/registry.py
+@@ -21,6 +21,7 @@ from .smoke_jobs import SiteSmokeCheck
+ from .pitr_jobs import ServerArchiveBinlogs, SiteRestorePitr
+ from .agent_jobs import AgentRollback, AgentUpgrade
+ from .storage_jobs import STORAGE_JOB_CLASSES
++from .maintenance_jobs import MAINTENANCE_JOB_CLASSES
+ 
+ JOB_CLASSES: tuple[type[Job], ...] = (
+     ImageBuild,
+@@ -37,6 +38,7 @@ JOB_CLASSES: tuple[type[Job], ...] = (
+     SiteRestorePitr, ServerArchiveBinlogs,
+     AgentUpgrade, AgentRollback,
+     *STORAGE_JOB_CLASSES,
++    *MAINTENANCE_JOB_CLASSES,
+ )
+ REGISTRY: dict[str, type[Job]] = {cls.kind: cls for cls in JOB_CLASSES}
+ 
+diff --git a/agent/nexaploy_agent/jobs/server_jobs.py b/agent/nexaploy_agent/jobs/server_jobs.py
+index ab3a373..06555f3 100644
+--- a/agent/nexaploy_agent/jobs/server_jobs.py
++++ b/agent/nexaploy_agent/jobs/server_jobs.py
+@@ -329,6 +329,8 @@ class ServerHealth(Job):
+ 
+     def step_collect(self) -> None:
+         facts = server_info(self.ctx.docker, self.ctx.benches, self.settings.agent.server_id)
++        facts["os_updates"] = self.ctx.os_updates.status()
++        facts["health"] = self.ctx.health.light(force=True)
+         self.result.update(facts)
+         self.log(
+             f"load {facts.get('load_avg')}, unhealthy containers: {facts.get('unhealthy_containers', 0)}"
+diff --git a/agent/nexaploy_agent/jobs/store.py b/agent/nexaploy_agent/jobs/store.py
+index 563ae96..d5f9742 100644
+--- a/agent/nexaploy_agent/jobs/store.py
++++ b/agent/nexaploy_agent/jobs/store.py
+@@ -257,6 +257,19 @@ class JobStore:
+         )
+         return cur.rowcount
+ 
++    def count_finished_before(self, iso_ts: str) -> int:
++        row = self._conn().execute(
++            "SELECT COUNT(*) FROM jobs WHERE status IN ('success','failure','cancelled') AND ended_at < ?",
++            (iso_ts,),
++        ).fetchone()
++        return int(row[0] or 0)
++
++    def vacuum(self) -> None:
++        """Give the space of deleted rows back to the filesystem (server.cleanup)."""
++        conn = self._conn()
++        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
++        conn.execute("VACUUM")
++
+     # ---- steps ---------------------------------------------------------------------
+     def steps(self, job_id: str) -> list[dict[str, Any]]:
+         rows = self._conn().execute(
+diff --git a/agent/nexaploy_agent/runtime/cleanup.py b/agent/nexaploy_agent/runtime/cleanup.py
+new file mode 100644
+index 0000000..3a91cf1
+--- /dev/null
++++ b/agent/nexaploy_agent/runtime/cleanup.py
+@@ -0,0 +1,753 @@
++"""Server cleanup (``server.cleanup`` job): free disk space without touching anything that matters.
++
++Every target returns ``{target, dry_run, freed_bytes, items, notes, errors}``; with
++``dry_run`` nothing is changed and ``freed_bytes`` is what the run would free (an estimate for
++docker images: shared layers are counted once per image).
++
++Safety rules (enforced here, covered by tests):
++
++* files are only ever deleted / truncated through :class:`PathGuard`, which accepts nothing
++  but the exact shapes each target needs under the Nexaploy root (bench / site ``logs`` dirs,
++  proxy and storage logs, staged backup dirs ``backups/<bench>/<site>/<ts>``, PITR work dirs
++  ``backups/.pitr/<job>``, image build logs, agent upgrade leftovers) plus docker's
++  ``containers/<id>/<id>-json.log`` - never ``sites/<site>/private|public``, ``site_config.json``,
++  ``db/`` (MariaDB data), ``config/``, ``proxy/data`` (certificates) or a symlink;
++* system space is only freed with fixed commands: ``docker image rm`` (never ``-f``: docker
++  refuses images a container uses), ``docker rm`` (exited one-off containers only),
++  ``docker builder prune -af``, ``journalctl --vacuum-*``, ``apt-get clean`` /
++  ``autoremove --purge``;
++* docker images: never one a container (any state) uses, never one named in a bench ``.env``
++  (``IMAGE``) or in the proxy / db stacks, never mariadb / traefik / redis / socket-proxy
++  images, never one younger than ``image_min_age_hours``, and the newest unused image of each
++  repository + tag family is kept (rollback target);
++* local backups: only dirs with the ``.uploaded`` marker (a copy exists in the remote), older
++  than the retention, and never the newest backup of a site;
++* ``/etc/docker/daemon.json`` gets ``log-opts`` (max-size 50m, max-file 3) only when it has
++  none, is valid JSON and docker is not started with ``--log-*`` flags; docker is never
++  restarted (the setting applies to containers created after the next docker restart / reboot).
++"""
++
++from __future__ import annotations
++
++import json
++import re
++import shutil
++import time
++from dataclasses import dataclass, field
++from datetime import datetime, timezone
++from pathlib import Path
++from typing import Any, Callable, Iterable
++
++from .. import validation as v
++from ..fsutil import atomic_write
++from .backup import UPLOADED_MARKER
++from .docker import parse_json_lines
++from .health import dir_size, parse_size
++from .server import ONE_SHOT_SERVICES, _parse_labels
++
++TARGETS = (
++    "docker_images",
++    "docker_build_cache",
++    "docker_containers",
++    "docker_logs",
++    "bench_logs",
++    "backups_local",
++    "agent_data",
++    "journal",
++    "apt",
++    "tmp",
++)
++# never removed, whatever their use (shared stacks re-pull them only when online)
++PROTECTED_IMAGE_RE = re.compile(r"(^|/)(mariadb|mysql|traefik|redis|docker-socket-proxy|socket-proxy)(:|$)", re.I)
++BUILD_SUFFIX_RE = re.compile(r"-\d{8}T\d{4,6}Z?$")
++CONTAINER_ID_RE = re.compile(r"^[0-9a-f]{64}$")
++ROTATED_LOG_RE = re.compile(r"\.log(\.\d+|[.-]\d{4}-?\d{2}-?\d{2}.*|\.old)?(\.gz|\.xz|\.bz2|\.zst)?$|\.gz$")
++LOG_ACTIVE_RE = re.compile(r"\.log$")
++DAEMON_JSON = Path("/etc/docker/daemon.json")
++DOCKER_LOG_OPTS = {"max-size": "50m", "max-file": "3"}
++JOURNAL_MAX = "500M"
++APT_ARCHIVES = Path("/var/cache/apt/archives")
++DAY = 86400
++
++
++class UnsafePath(ValueError):
++    pass
++
++
++def _ts_now() -> float:
++    return time.time()
++
++
++def fmt_bytes(n: int | float | None) -> str:
++    n = float(n or 0)
++    for unit in ("B", "KB", "MB", "GB", "TB"):
++        if abs(n) < 1024 or unit == "TB":
++            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
++        n /= 1024
++    return f"{n:.1f} TB"  # pragma: no cover
++
++
++def parse_systemd_size(text: str) -> int:
++    """'1.2G', '512.0M', '8.0K', '120B' (binary units, as journalctl prints them) -> bytes."""
++    m = re.match(r"^\s*([\d.]+)\s*([KMGT]?)i?B?\s*$", text or "", re.I)
++    if not m:
++        return 0
++    mult = {"": 1, "K": 1024, "M": 1024 ** 2, "G": 1024 ** 3, "T": 1024 ** 4}[m.group(2).upper()]
++    return int(float(m.group(1)) * mult)
++
++
++def file_size(path: Path) -> int:
++    try:
++        st = path.lstat()
++    except OSError:
++        return 0
++    return st.st_size
++
++
++def mtime(path: Path) -> float:
++    try:
++        return path.lstat().st_mtime
++    except OSError:
++        return 0.0
++
++
++# --------------------------------------------------------------------------- path guard
++class PathGuard:
++    """Accepts only the path shapes the cleanup targets may delete or truncate."""
++
++    def __init__(self, root: Path, docker_root: Path = Path("/var/lib/docker")):
++        self.root = Path(root).resolve()
++        self.docker_root = Path(docker_root)
++        self.denied = [self.root / d for d in ("db", "config")] + [self.root / "proxy" / "data"]
++
++    def _rel(self, path: Path, base: Path) -> tuple[str, ...] | None:
++        try:
++            return path.relative_to(base).parts
++        except ValueError:
++            return None
++
++    def _resolved(self, path: Path) -> Path:
++        """The real path (shapes are checked on it, so a symlinked dir pointing elsewhere is
++        rejected by the shape check); the path itself must not be a symlink."""
++        path = Path(path)
++        if path.is_symlink():
++            raise UnsafePath(f"refusing symlink {path}")
++        resolved = path.resolve()
++        for d in self.denied:
++            if resolved == d or self._rel(resolved, d) is not None:
++                raise UnsafePath(f"refusing protected path {path}")
++        return resolved
++
++    def log_file(self, path: Path) -> Path:
++        """A regular file directly inside an allowed logs dir."""
++        p = self._resolved(path)
++        if not p.is_file():
++            raise UnsafePath(f"not a regular file: {path}")
++        parts = self._rel(p, self.root)
++        ok = False
++        if parts and len(parts) == 4 and parts[0] == "benches" and parts[2] == "logs":
++            ok = v.BENCH_RE.match(parts[1]) is not None
++        elif parts and len(parts) == 6 and parts[0] == "benches" and parts[2] == "sites" and parts[4] == "logs":
++            ok = v.BENCH_RE.match(parts[1]) is not None and parts[3] not in ("assets",)
++        elif parts and len(parts) == 3 and parts[0] in ("proxy", "storage") and parts[1] == "logs":
++            ok = True
++        if not ok or p.name == "site_config.json":
++            raise UnsafePath(f"not a Nexaploy log file: {path}")
++        return p
++
++    def backup_dir(self, path: Path) -> Path:
++        p = self._resolved(path)
++        parts = self._rel(p, self.root)
++        if not (parts and len(parts) == 4 and parts[0] == "backups" and v.BENCH_RE.match(parts[1])
++                and v.BACKUP_ID_RE.match(parts[3]) and p.is_dir()):
++            raise UnsafePath(f"not a staged backup dir: {path}")
++        return p
++
++    def pitr_dir(self, path: Path) -> Path:
++        p = self._resolved(path)
++        parts = self._rel(p, self.root)
++        if not (parts and len(parts) == 3 and parts[:2] == ("backups", ".pitr")
++                and re.match(r"^[0-9A-Za-z]{10,40}$", parts[2]) and p.is_dir()):
++            raise UnsafePath(f"not a PITR work dir: {path}")
++        return p
++
++    def build_dir(self, path: Path) -> Path:
++        p = self._resolved(path)
++        parts = self._rel(p, self.root)
++        if not (parts and len(parts) == 3 and parts[:2] == ("images", "builds") and p.is_dir()):
++            raise UnsafePath(f"not an image build dir: {path}")
++        return p
++
++    def agent_leftover(self, path: Path) -> Path:
++        p = self._resolved(path)
++        parts = self._rel(p, self.root)
++        if not (parts and len(parts) == 2 and parts[0] == "agent"
++                and parts[1] in (".venv.prev", "src.prev", ".venv.failed", "src.failed",
++                                 ".venv.new", "src.new", "dist.new")):
++            raise UnsafePath(f"not an agent upgrade leftover: {path}")
++        return p
++
++    def docker_log(self, path: Path, container_id: str) -> Path:
++        p = Path(path)
++        if p.is_symlink() or not CONTAINER_ID_RE.match(container_id or ""):
++            raise UnsafePath(f"refusing docker log {path}")
++        expected = self.docker_root / "containers" / container_id / f"{container_id}-json.log"
++        if p != expected or not p.is_file():
++            raise UnsafePath(f"not a docker json-file log: {path}")
++        return p
++
++
++# --------------------------------------------------------------------------- options / results
++@dataclass
++class CleanupOptions:
++    dry_run: bool = True
++    log_retention_days: int = 14
++    backup_local_keep_days: int | None = None
++    docker_log_max_mb: int = 100
++    bench_log_max_mb: int = 200
++    image_min_age_hours: int = 72
++    job_retention_days: int = 30
++    build_logs_keep: int = 5
++
++
++@dataclass
++class TargetResult:
++    target: str
++    dry_run: bool
++    freed_bytes: int = 0
++    items: int = 0
++    notes: list[str] = field(default_factory=list)
++    errors: list[str] = field(default_factory=list)
++
++    def as_dict(self) -> dict[str, Any]:
++        return {"target": self.target, "dry_run": self.dry_run, "freed_bytes": int(self.freed_bytes),
++                "items": self.items, "notes": self.notes[:50], "errors": self.errors[:50]}
++
++
++# --------------------------------------------------------------------------- docker helpers (pure)
++def parse_created(text: str | None) -> float | None:
++    """'2026-11-03 21:30:00 +0000 UTC' -> unix time."""
++    m = re.match(r"^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}) ([+-]\d{4})", str(text or ""))
++    if not m:
++        return None
++    try:
++        return datetime.strptime(" ".join(m.groups()), "%Y-%m-%d %H:%M:%S %z").timestamp()
++    except ValueError:
++        return None
++
++
++def image_ref(repo: str, tag: str) -> str | None:
++    if not repo or repo == "<none>" or not tag or tag == "<none>":
++        return None
++    return f"{repo}:{tag}"
++
++
++def normalize_ref(ref: str) -> str:
++    ref = (ref or "").strip()
++    last = ref.rsplit("/", 1)[-1]
++    if ref and ":" not in last and "@" not in ref:
++        ref += ":latest"
++    return ref
++
++
++def tag_family(repo: str, tag: str) -> str:
++    return f"{repo}:{BUILD_SUFFIX_RE.sub('', tag or '')}"
++
++
++def select_images(images: list[dict[str, Any]], used_ids: set[str], protected_refs: set[str],
++                  now: float, min_age_hours: int) -> tuple[list[dict[str, Any]], list[str]]:
++    """Images to remove and notes on what was kept.
++
++    `images`: rows of ``docker image ls --no-trunc --format '{{json .}}'`` (ID, Repository,
++    Tag, CreatedAt, Size). Returns rows with an extra ``ref`` (repo:tag, or the ID when
++    dangling) - see the module doc for the rules.
++    """
++    protected = {normalize_ref(r) for r in protected_refs if r}
++    min_age = max(0, int(min_age_hours)) * 3600
++    candidates: list[dict[str, Any]] = []
++    notes: list[str] = []
++    families: dict[str, list[dict[str, Any]]] = {}
++    for row in images:
++        image_id = str(row.get("ID") or "")
++        repo, tag = str(row.get("Repository") or ""), str(row.get("Tag") or "")
++        ref = image_ref(repo, tag)
++        created = parse_created(row.get("CreatedAt"))
++        age = now - created if created else 0
++        if image_id in used_ids:
++            continue
++        if ref and (normalize_ref(ref) in protected or PROTECTED_IMAGE_RE.search(repo + ":")):
++            continue
++        dangling = ref is None
++        if dangling:
++            if age < 3600:
++                continue
++            candidates.append({**row, "ref": image_id, "dangling": True})
++            continue
++        if age < min_age:
++            notes.append(f"kept {ref}: younger than {min_age_hours} h")
++            continue
++        families.setdefault(tag_family(repo, tag), []).append({**row, "ref": ref, "dangling": False,
++                                                                "_created": created or 0})
++    for family, rows in sorted(families.items()):
++        rows.sort(key=lambda r: r["_created"], reverse=True)
++        notes.append(f"kept {rows[0]['ref']}: newest unused image of {family} (rollback target)")
++        candidates.extend(rows[1:])
++    for row in candidates:
++        row.pop("_created", None)
++    return candidates, notes
++
++
++def select_oneoff_containers(rows: list[dict[str, Any]], projects: set[str], now: float,
++                             min_age: float = 3600) -> list[dict[str, Any]]:
++    """Exited/created/dead one-off containers (compose ``run --rm`` leftovers, configurator...)
++    of Nexaploy projects."""
++    out = []
++    for row in rows:
++        state = str(row.get("State") or "").lower()
++        if state not in ("exited", "created", "dead"):
++            continue
++        labels = _parse_labels(row.get("Labels"))
++        project = labels.get("com.docker.compose.project", "")
++        name = str(row.get("Names") or "").split(",")[0].lstrip("/")
++        ours = project in projects or project.startswith("nexaploy") or name.startswith("nexaploy-")
++        oneoff = labels.get("com.docker.compose.oneoff", "").lower() == "true" or \
++            labels.get("com.docker.compose.service", "") in ONE_SHOT_SERVICES
++        created = parse_created(row.get("CreatedAt"))
++        if ours and oneoff and (created is None or now - created >= min_age):
++            out.append({"id": str(row.get("ID") or ""), "name": name,
++                        "size": parse_size(str(row.get("Size") or "").split("(")[0])})
++    return out
++
++
++def merge_daemon_json(text: str | None) -> tuple[dict[str, Any] | None, str]:
++    """New daemon.json content (or None) and why."""
++    if text is None or not text.strip():
++        return {"log-opts": dict(DOCKER_LOG_OPTS)}, "created with log rotation"
++    try:
++        data = json.loads(text)
++    except ValueError:
++        return None, "daemon.json is not valid JSON: left untouched"
++    if not isinstance(data, dict):
++        return None, "daemon.json is not a JSON object: left untouched"
++    driver = data.get("log-driver")
++    if driver not in (None, "json-file", "local"):
++        return None, f"log driver {driver!r}: left untouched"
++    opts = data.get("log-opts")
++    if isinstance(opts, dict) and opts.get("max-size"):
++        return None, "log rotation already configured"
++    new = dict(data)
++    new["log-opts"] = {**(opts if isinstance(opts, dict) else {}), **DOCKER_LOG_OPTS}
++    return new, "log rotation added"
++
++
++def select_backups(stamps: list[str], uploaded: set[str], keep_days: int, now: datetime) -> list[str]:
++    """Uploaded local backups older than keep_days; never the newest one of the site."""
++    from .backup import parse_ts
++
++    stamps = sorted(stamps)
++    if not stamps:
++        return []
++    newest = stamps[-1]
++    out = []
++    for ts in stamps:
++        if ts == newest or ts not in uploaded:
++            continue
++        dt = parse_ts(ts)
++        if dt is not None and (now - dt).total_seconds() >= keep_days * DAY:
++            out.append(ts)
++    return out
++
++
++# --------------------------------------------------------------------------- cleaner
++class Cleaner:
++    def __init__(self, ctx, opts: CleanupOptions, log: Callable[[str], None] = lambda m: None,
++                 clock: Callable[[], float] = _ts_now, daemon_json: Path = DAEMON_JSON,
++                 docker_root: Path = Path("/var/lib/docker"), apt_archives: Path = APT_ARCHIVES,
++                 which=shutil.which):
++        self.ctx = ctx
++        self.settings = ctx.settings
++        self.runner = ctx.runner
++        self.opts = opts
++        self.log = log
++        self.clock = clock
++        self.daemon_json = daemon_json
++        self.apt_archives = apt_archives
++        self.which = which
++        self.guard = PathGuard(self.settings.root, docker_root)
++
++    @property
++    def root(self) -> Path:
++        return self.settings.root
++
++    def run(self, target: str) -> dict[str, Any]:
++        if target not in TARGETS:
++            raise ValueError(f"unknown cleanup target {target!r}")
++        res = TargetResult(target, self.opts.dry_run)
++        try:
++            getattr(self, f"_{target}")(res)
++        except Exception as exc:  # one target never breaks the others
++            res.errors.append(f"{type(exc).__name__}: {exc}"[:500])
++        verb = "would free" if res.dry_run else "freed"
++        self.log(f"{target}: {verb} {fmt_bytes(res.freed_bytes)} ({res.items} item(s))")
++        for n in res.notes[:20]:
++            self.log(f"  {n}")
++        for e in res.errors[:20]:
++            self.log(f"  error: {e}")
++        return res.as_dict()
++
++    # ---- file helpers -------------------------------------------------------------------------
++    def _delete_file(self, res: TargetResult, path: Path, check: Callable[[Path], Path]) -> None:
++        try:
++            p = check(path)
++        except UnsafePath as exc:
++            res.errors.append(str(exc))
++            return
++        size = file_size(p)
++        if not res.dry_run:
++            try:
++                p.unlink()
++            except OSError as exc:
++                res.errors.append(f"{p}: {exc}")
++                return
++        res.freed_bytes += size
++        res.items += 1
++
++    def _truncate_file(self, res: TargetResult, path: Path, check: Callable[[Path], Path]) -> None:
++        try:
++            p = check(path)
++        except UnsafePath as exc:
++            res.errors.append(str(exc))
++            return
++        size = file_size(p)
++        if not res.dry_run:
++            try:
++                with open(p, "r+b") as fh:
++                    fh.truncate(0)
++            except OSError as exc:
++                res.errors.append(f"{p}: {exc}")
++                return
++        res.freed_bytes += size
++        res.items += 1
++        res.notes.append(f"truncated {p.name} ({fmt_bytes(size)})")
++
++    def _delete_dir(self, res: TargetResult, path: Path, check: Callable[[Path], Path], note: str = "") -> None:
++        try:
++            p = check(path)
++        except UnsafePath as exc:
++            res.errors.append(str(exc))
++            return
++        size = dir_size(p)
++        if not res.dry_run:
++            shutil.rmtree(p, ignore_errors=True)
++            if p.exists():
++                res.errors.append(f"could not remove {p}")
++                return
++        res.freed_bytes += size
++        res.items += 1
++        if note:
++            res.notes.append(note)
++
++    def _docker(self, *args: str, timeout: float = 300):
++        return self.runner.run(["docker", *args], timeout=timeout)
++
++    def _bench_names(self) -> list[str]:
++        return self.ctx.benches.names()
++
++    # ---- docker -------------------------------------------------------------------------------
++    def _protected_refs(self) -> set[str]:
++        from ..config import read_env_file
++
++        refs: set[str] = set()
++        for bench in self._bench_names():
++            image = self.ctx.benches.image(bench)
++            if image:
++                refs.add(image)
++        for env in (self.root / "proxy" / ".env", self.root / "db" / ".env"):
++            for key, val in (read_env_file(env).items() if env.is_file() else []):
++                if "IMAGE" in key.upper() and val:
++                    refs.add(val)
++        return refs
++
++    def _used_image_ids(self) -> set[str] | None:
++        res = self._docker("ps", "-aq", "--no-trunc", timeout=60)
++        if not res.ok:
++            return None
++        ids = [line.strip() for line in res.stdout.splitlines() if line.strip()]
++        if not ids:
++            return set()
++        res = self._docker("inspect", "--format", "{{.Image}}", *ids, timeout=120)
++        if not res.ok:
++            return None
++        return {line.strip() for line in res.stdout.splitlines() if line.strip()}
++
++    def _docker_images(self, res: TargetResult) -> None:
++        used = self._used_image_ids()
++        if used is None:
++            res.errors.append("cannot list containers: no image removed")
++            return
++        listing = self._docker("image", "ls", "--no-trunc", "--format", "{{json .}}", timeout=120)
++        if not listing.ok:
++            res.errors.append("docker image ls failed")
++            return
++        chosen, notes = select_images(parse_json_lines(listing.stdout), used, self._protected_refs(),
++                                      self.clock(), self.opts.image_min_age_hours)
++        res.notes.extend(notes)
++        for row in chosen:
++            size = parse_size(row.get("Size"))
++            if not res.dry_run:
++                r = self._docker("image", "rm", row["ref"], timeout=300)
++                if not r.ok:
++                    res.errors.append(f"{row['ref']}: {(r.stderr or r.stdout).strip()[-200:]}")
++                    continue
++            res.freed_bytes += size
++            res.items += 1
++            res.notes.append(f"{'would remove' if res.dry_run else 'removed'} {row['ref']} ({fmt_bytes(size)})")
++
++    def _docker_build_cache(self, res: TargetResult) -> None:
++        from .health import parse_system_df
++
++        if res.dry_run:
++            df = self._docker("system", "df", "--format", "{{json .}}", timeout=120)
++            info = parse_system_df(df.stdout).get("build_cache") if df.ok else None
++            res.freed_bytes = (info or {}).get("reclaimable", 0)
++            res.items = (info or {}).get("count", 0)
++            return
++        out = self._docker("builder", "prune", "-af", timeout=1800)
++        if not out.ok:
++            res.errors.append((out.stderr or out.stdout).strip()[-300:])
++            return
++        m = re.search(r"Total(?: reclaimed space)?:\s*([\d.]+\s*[kKMGT]?i?B)", out.stdout)
++        res.freed_bytes = parse_size(m.group(1)) if m else 0
++        res.items = sum(1 for line in out.stdout.splitlines() if re.match(r"^[0-9a-z]{20,}", line.strip()))
++
++    def _docker_containers(self, res: TargetResult) -> None:
++        listing = self._docker("ps", "-a", "--no-trunc", "--size", "--filter", "status=exited",
++                               "--filter", "status=created", "--filter", "status=dead",
++                               "--format", "{{json .}}", timeout=120)
++        if not listing.ok:
++            res.errors.append("docker ps failed")
++            return
++        rows = select_oneoff_containers(parse_json_lines(listing.stdout), set(self._bench_names()), self.clock())
++        for c in rows:
++            if not res.dry_run:
++                r = self._docker("rm", c["id"], timeout=120)
++                if not r.ok:
++                    res.errors.append(f"{c['name']}: {(r.stderr or '').strip()[-200:]}")
++                    continue
++            res.freed_bytes += c["size"]
++            res.items += 1
++            res.notes.append(f"{'would remove' if res.dry_run else 'removed'} {c['name']}")
++
++    def _docker_logs(self, res: TargetResult) -> None:
++        limit = max(1, int(self.opts.docker_log_max_mb)) * 1024 * 1024
++        root = self._docker("info", "--format", "{{.DockerRootDir}}", timeout=30)
++        if root.ok and root.stdout.strip().startswith("/"):
++            self.guard.docker_root = Path(root.stdout.strip())
++        ids = self._docker("ps", "-q", "--no-trunc", timeout=60)
++        if ids.ok and ids.stdout.strip():
++            info = self._docker("inspect", "--format", "{{.Id}}|{{.LogPath}}|{{.HostConfig.LogConfig.Type}}",
++                                *ids.stdout.split(), timeout=120)
++            for line in info.stdout.splitlines() if info.ok else []:
++                parts = line.strip().split("|")
++                if len(parts) != 3 or parts[2] != "json-file" or not parts[1]:
++                    continue
++                path = Path(parts[1])
++                if file_size(path) > limit:
++                    self._truncate_file(res, path, lambda p, cid=parts[0]: self.guard.docker_log(p, cid))
++        self._daemon_log_rotation(res)
++
++    def _daemon_log_rotation(self, res: TargetResult) -> None:
++        unit = self.runner.run(["systemctl", "show", "docker.service", "-p", "ExecStart", "--value"], timeout=20)
++        if unit.ok and "--log-" in unit.stdout:
++            res.notes.append("docker is started with --log-* flags: daemon.json log rotation left untouched")
++            return
++        try:
++            current = self.daemon_json.read_text() if self.daemon_json.is_file() else None
++        except OSError as exc:
++            res.notes.append(f"cannot read {self.daemon_json}: {exc}")
++            return
++        new, why = merge_daemon_json(current)
++        if new is None:
++            res.notes.append(why)
++            return
++        if res.dry_run:
++            res.notes.append(f"would configure docker log rotation (max-size 50m, max-file 3) in {self.daemon_json}")
++            return
++        atomic_write(self.daemon_json, json.dumps(new, indent=2) + "\n", mode=0o644)
++        res.notes.append(f"{self.daemon_json}: {why} (max-size 50m, max-file 3); takes effect for containers "
++                         "created after the next docker restart / reboot - docker was not restarted")
++
++    # ---- files ------------------------------------------------------------------------------
++    def _log_dirs(self) -> list[Path]:
++        dirs: list[Path] = []
++        for bench in self._bench_names():
++            base = self.ctx.benches.path(bench)
++            dirs.append(base / "logs")
++            sites = base / "sites"
++            if sites.is_dir():
++                for site in sorted(sites.iterdir()):
++                    if site.is_dir() and not site.is_symlink() and (site / "site_config.json").is_file():
++                        dirs.append(site / "logs")
++        dirs += [self.root / "proxy" / "logs", self.root / "storage" / "logs"]
++        return [d for d in dirs if d.is_dir() and not d.is_symlink()]
++
++    def _bench_logs(self, res: TargetResult) -> None:
++        cutoff = self.clock() - max(1, int(self.opts.log_retention_days)) * DAY
++        limit = max(1, int(self.opts.bench_log_max_mb)) * 1024 * 1024
++        for d in self._log_dirs():
++            for f in sorted(d.iterdir()):
++                if f.is_symlink() or not f.is_file():
++                    continue
++                active = bool(LOG_ACTIVE_RE.search(f.name))
++                if active:
++                    if mtime(f) < cutoff:
++                        self._delete_file(res, f, self.guard.log_file)  # abandoned
++                    elif file_size(f) > limit:
++                        self._truncate_file(res, f, self.guard.log_file)
++                elif ROTATED_LOG_RE.search(f.name) and mtime(f) < cutoff:
++                    self._delete_file(res, f, self.guard.log_file)
++
++    def _backups_local(self, res: TargetResult) -> None:
++        keep_days = self.opts.backup_local_keep_days
++        if keep_days is None:
++            keep_days = self.settings.backup.retention_days
++        now = datetime.fromtimestamp(self.clock(), timezone.utc)
++        base = self.settings.backups_dir
++        if not base.is_dir():
++            return
++        for bench_dir in sorted(base.iterdir()):
++            if not v.BENCH_RE.match(bench_dir.name) or bench_dir.is_symlink() or not bench_dir.is_dir():
++                continue
++            for site_dir in sorted(bench_dir.iterdir()):
++                if site_dir.is_symlink() or not site_dir.is_dir():
++                    continue
++                stamps = sorted(p.name for p in site_dir.iterdir() if p.is_dir() and v.BACKUP_ID_RE.match(p.name))
++                uploaded = {ts for ts in stamps if (site_dir / ts / UPLOADED_MARKER).is_file()}
++                for ts in select_backups(stamps, uploaded, keep_days, now):
++                    self._delete_dir(res, site_dir / ts, self.guard.backup_dir, f"{site_dir.name}/{ts}")
++
++    def _agent_data(self, res: TargetResult) -> None:
++        cutoff = datetime.fromtimestamp(self.clock() - max(1, self.opts.job_retention_days) * DAY, timezone.utc)
++        iso = cutoff.isoformat(timespec="milliseconds").replace("+00:00", "Z")
++        store = self.ctx.store
++        db = self.settings.jobs_db
++        before = sum(file_size(Path(str(db) + s)) for s in ("", "-wal"))
++        if res.dry_run:
++            n = store.count_finished_before(iso)
++            res.items += n
++            res.notes.append(f"would delete {n} finished job(s) older than {self.opts.job_retention_days} days")
++        else:
++            n = store.delete_finished_before(iso)
++            store.vacuum()
++            after = sum(file_size(Path(str(db) + s)) for s in ("", "-wal"))
++            res.freed_bytes += max(0, before - after)
++            res.items += n
++            res.notes.append(f"deleted {n} finished job(s), database vacuumed")
++        # image build logs: keep the newest N builds, drop older ones past the retention
++        builds = self.settings.builds_dir
++        if builds.is_dir():
++            dirs = sorted((p for p in builds.iterdir() if p.is_dir() and not p.is_symlink()), key=mtime, reverse=True)
++            log_cutoff = self.clock() - max(1, int(self.opts.log_retention_days)) * DAY
++            for d in dirs[max(0, self.opts.build_logs_keep):]:
++                if mtime(d) < log_cutoff:
++                    self._delete_dir(res, d, self.guard.build_dir, f"build log {d.name}")
++        self._agent_previous(res)
++
++    def _agent_previous(self, res: TargetResult) -> None:
++        from .upgrade import AgentInstall
++
++        inst = AgentInstall(self.root / "agent")
++        state = inst.read_state()
++        healthy = state.get("status") in (None, "confirmed", "rolled_back")
++        week = self.clock() - 7 * DAY
++        if not healthy:
++            res.notes.append("agent upgrade not confirmed yet: previous agent kept")
++            return
++        for path in (inst.venv_prev, inst.src_prev, inst.venv_failed, inst.src_failed):
++            if path.exists() and mtime(path) < week:
++                self._delete_dir(res, path, self.guard.agent_leftover, f"removed {path.name}")
++
++    def _tmp(self, res: TargetResult) -> None:
++        day_ago = self.clock() - DAY
++        pitr = self.settings.backups_dir / ".pitr"
++        if pitr.is_dir():
++            for d in sorted(pitr.iterdir()):
++                if not d.is_dir() or d.is_symlink() or mtime(d) >= day_ago:
++                    continue
++                try:
++                    job = self.ctx.store.get(d.name, with_steps=False)
++                except KeyError:
++                    job = None
++                if job and job.get("status") in ("queued", "running"):
++                    continue
++                self._delete_dir(res, d, self.guard.pitr_dir, f"PITR work dir {d.name}")
++        from .upgrade import AgentInstall
++
++        inst = AgentInstall(self.root / "agent")
++        running = self.ctx.store.list(status="running", kind="agent.upgrade", limit=5)
++        if not running:
++            for path in (inst.venv_new, inst.src_new, inst.dist_new):
++                if path.exists() and mtime(path) < day_ago:
++                    self._delete_dir(res, path, self.guard.agent_leftover, f"upgrade leftover {path.name}")
++
++    # ---- system -------------------------------------------------------------------------------
++    def _journal(self, res: TargetResult) -> None:
++        if not self.which("journalctl"):
++            res.notes.append("journalctl not available")
++            return
++        usage = self.runner.run(["journalctl", "--disk-usage"], timeout=60)
++        m = re.search(r"take up ([\d.]+\s*[KMGT]?)i?B?", usage.stdout or "")
++        current = parse_systemd_size(m.group(1)) if m else 0
++        if res.dry_run:
++            res.freed_bytes = max(0, current - parse_systemd_size(JOURNAL_MAX))
++            res.notes.append(f"journal uses {fmt_bytes(current)}; kept: last {self.opts.log_retention_days} days, "
++                             f"at most {JOURNAL_MAX}")
++            return
++        out = self.runner.run(["journalctl", f"--vacuum-time={max(1, int(self.opts.log_retention_days))}d",
++                               f"--vacuum-size={JOURNAL_MAX}"], timeout=600)
++        text = (out.stdout or "") + (out.stderr or "")
++        if not out.ok:
++            res.errors.append(text.strip()[-300:])
++            return
++        freed = re.findall(r"freed ([\d.]+\s*[KMGT]?)i?B? of", text)
++        res.freed_bytes = sum(parse_systemd_size(x) for x in freed)
++        res.items = len(re.findall(r"^Deleted archived journal", text, re.M))
++
++    def _apt(self, res: TargetResult) -> None:
++        from .os_updates import APT_ENV, apt_get
++
++        if not self.which("apt-get"):
++            res.notes.append("not an apt system")
++            return
++        cache = sum(file_size(p) for d in (self.apt_archives, self.apt_archives / "partial") if d.is_dir()
++                    for p in d.glob("*.deb"))
++        if res.dry_run:
++            sim = self.runner.run(apt_get("-s", "autoremove", "--purge"), env=APT_ENV, timeout=300)
++            removable = len(re.findall(r"^Remv ", sim.stdout or "", re.M)) if sim.ok else 0
++            res.freed_bytes = cache
++            res.items = removable
++            res.notes.append(f"package cache {fmt_bytes(cache)}; {removable} unused package(s)")
++            return
++        clean = self.runner.run(apt_get("clean"), env=APT_ENV, timeout=600)
++        if not clean.ok:
++            res.errors.append((clean.stderr or "apt-get clean failed").strip()[-300:])
++        else:
++            res.freed_bytes += cache
++        auto = self.runner.run(apt_get("-y", "autoremove", "--purge"), env=APT_ENV, timeout=1800)
++        if not auto.ok:
++            res.errors.append((auto.stderr or "apt-get autoremove failed").strip()[-300:])
++            return
++        m = re.search(r"After this operation, ([\d.,]+\s*[kMG]?B) disk space will be freed", auto.stdout or "")
++        if m:
++            res.freed_bytes += parse_size(m.group(1).replace(",", ""))
++        res.items += len(re.findall(r"^Removing ", auto.stdout or "", re.M))
++
++
++def summarize(results: Iterable[dict[str, Any]]) -> dict[str, Any]:
++    rows = list(results)
++    return {
++        "freed_bytes": sum(int(r.get("freed_bytes") or 0) for r in rows),
++        "items": sum(int(r.get("items") or 0) for r in rows),
++        "errors": sum(len(r.get("errors") or []) for r in rows),
++    }
++
+diff --git a/agent/nexaploy_agent/runtime/health.py b/agent/nexaploy_agent/runtime/health.py
+new file mode 100644
+index 0000000..70a1d26
+--- /dev/null
++++ b/agent/nexaploy_agent/runtime/health.py
+@@ -0,0 +1,335 @@
++"""Server health facts.
++
++* ``light_health(...)`` rides along with every heartbeat as ``facts["health"]`` (cheap: statvfs,
++  /proc reads, one ``systemctl`` and one ``timedatectl`` call - those two at most every 5 minutes)
++* ``full_health(...)`` is the ``server.diagnose`` job: the light facts plus docker disk usage,
++  OOM kills since boot, MariaDB connections / datadir / binlog size and served certificates.
++
++The control plane turns them into issues (nexaploy/server_health_utils.py ``evaluate_health``);
++the agent only measures.
++"""
++
++from __future__ import annotations
++
++import os
++import re
++import time
++from datetime import datetime, timezone
++from pathlib import Path
++from typing import Any, Iterable
++
++from .docker import parse_json_lines
++
++DOCKER_ROOT = Path("/var/lib/docker")
++UNIT_INTERVAL_SECONDS = 300
++# failed units worth reporting (others are the operator's business)
++UNIT_PATTERNS = (
++    re.compile(r"^nexaploy[-.@]"),
++    re.compile(r"^docker\.(service|socket)$"),
++    re.compile(r"^containerd\.service$"),
++    re.compile(r"rclone", re.I),
++    re.compile(r"\.mount$"),
++)
++OOM_RE = re.compile(r"(Out of memory|oom-kill|oom_reaper|Killed process)", re.I)
++UNITS = {"B": 1, "KB": 1000, "MB": 1000 ** 2, "GB": 1000 ** 3, "TB": 1000 ** 4,
++         "KIB": 1024, "MIB": 1024 ** 2, "GIB": 1024 ** 3, "TIB": 1024 ** 4}
++
++
++def utc_iso(ts: float | None = None) -> str:
++    return datetime.fromtimestamp(ts if ts is not None else time.time(), timezone.utc) \
++        .isoformat(timespec="seconds").replace("+00:00", "Z")
++
++
++def parse_size(text: str | None) -> int:
++    """Docker human sizes ('1.23GB', '512kB', '0B', '1.2 GiB') -> bytes (decimal units as docker)."""
++    m = re.match(r"^\s*([\d.]+)\s*([kKMGT]?i?B)\s*$", str(text or ""))
++    if not m:
++        return 0
++    try:
++        return int(float(m.group(1)) * UNITS.get(m.group(2).upper(), 1))
++    except ValueError:
++        return 0
++
++
++# --------------------------------------------------------------------------- filesystems
++def filesystem_usage(paths: Iterable[Path]) -> list[dict[str, Any]]:
++    """Space and inode usage per distinct filesystem of `paths` (first path wins)."""
++    out: list[dict[str, Any]] = []
++    seen: set[int] = set()
++    for p in paths:
++        p = Path(p)
++        try:
++            if not p.exists():
++                continue
++            dev = p.stat().st_dev
++            if dev in seen:
++                continue
++            st = os.statvfs(p)
++        except OSError:
++            continue
++        seen.add(dev)
++        total = st.f_blocks * st.f_frsize
++        free = st.f_bavail * st.f_frsize
++        used = max(0, total - st.f_bfree * st.f_frsize)
++        inodes = st.f_files
++        inodes_free = st.f_ffree
++        out.append({
++            "path": str(p),
++            "total": total,
++            "free": free,
++            "used_percent": round(100.0 * used / (used + free), 1) if (used + free) else 0.0,
++            "inodes_total": inodes,
++            "inodes_used_percent": round(100.0 * (inodes - inodes_free) / inodes, 1) if inodes else 0.0,
++        })
++    return out
++
++
++def meminfo(path: Path = Path("/proc/meminfo")) -> dict[str, int]:
++    out: dict[str, int] = {}
++    try:
++        for line in path.read_text().splitlines():
++            key, _, rest = line.partition(":")
++            parts = rest.split()
++            if parts and parts[0].isdigit():
++                out[key] = int(parts[0]) * 1024
++    except OSError:
++        pass
++    return out
++
++
++def memory_facts(mem: dict[str, int]) -> dict[str, Any]:
++    total, avail = mem.get("MemTotal", 0), mem.get("MemAvailable", 0)
++    swap_total, swap_free = mem.get("SwapTotal", 0), mem.get("SwapFree", 0)
++    return {
++        "mem_total": total,
++        "mem_available": avail,
++        "mem_used_percent": round(100.0 * (total - avail) / total, 1) if total else 0.0,
++        "swap_total": swap_total,
++        "swap_used_percent": round(100.0 * (swap_total - swap_free) / swap_total, 1) if swap_total else 0.0,
++    }
++
++
++# --------------------------------------------------------------------------- systemd / time
++def parse_failed_units(text: str) -> list[str]:
++    """``systemctl list-units --state=failed --no-legend --plain`` -> unit names we care about."""
++    units = []
++    for line in (text or "").splitlines():
++        parts = line.strip().lstrip("●* ").split()
++        if not parts:
++            continue
++        name = parts[0]
++        if any(p.search(name) for p in UNIT_PATTERNS):
++            units.append(name)
++    return sorted(dict.fromkeys(units))
++
++
++def parse_ntp(text: str) -> bool | None:
++    value = (text or "").strip().lower()
++    if value in ("yes", "true", "1"):
++        return True
++    if value in ("no", "false", "0"):
++        return False
++    return None
++
++
++def systemd_facts(runner) -> dict[str, Any]:
++    out: dict[str, Any] = {"failed_units": None, "ntp_synchronized": None}
++    res = runner.run(["systemctl", "list-units", "--state=failed", "--no-legend", "--plain", "--all"], timeout=20)
++    if res.ok:
++        out["failed_units"] = parse_failed_units(res.stdout)
++    res = runner.run(["timedatectl", "show", "-p", "NTPSynchronized", "--value"], timeout=20)
++    if res.ok:
++        out["ntp_synchronized"] = parse_ntp(res.stdout)
++    return out
++
++
++# --------------------------------------------------------------------------- light (heartbeat)
++class HealthCollector:
++    def __init__(self, settings, runner, clock=time.time, unit_interval: float = UNIT_INTERVAL_SECONDS,
++                 meminfo_path: Path = Path("/proc/meminfo")):
++        self.settings = settings
++        self.runner = runner
++        self.clock = clock
++        self.unit_interval = unit_interval
++        self.meminfo_path = meminfo_path
++        self._units: dict[str, Any] | None = None
++        self._units_at: float | None = None
++
++    def paths(self) -> list[Path]:
++        root = self.settings.root
++        return [Path("/"), root, DOCKER_ROOT, root / "db" / "data", root / "backups"]
++
++    def _systemd(self, force: bool = False) -> dict[str, Any]:
++        now = self.clock()
++        if force or self._units is None or self._units_at is None or now - self._units_at >= self.unit_interval:
++            try:
++                self._units = systemd_facts(self.runner)
++            except Exception:
++                self._units = {"failed_units": None, "ntp_synchronized": None}
++            self._units_at = now
++        return dict(self._units)
++
++    def light(self, force: bool = False) -> dict[str, Any]:
++        """Never raises."""
++        out: dict[str, Any] = {"agent_time": utc_iso(self.clock())}
++        try:
++            out["filesystems"] = filesystem_usage(self.paths())
++            out.update(memory_facts(meminfo(self.meminfo_path)))
++            out.update(self._systemd(force))
++        except Exception as exc:  # pragma: no cover - defensive
++            out["error"] = f"{type(exc).__name__}: {exc}"[:300]
++        return out
++
++
++# --------------------------------------------------------------------------- full (server.diagnose)
++def parse_system_df(text: str) -> dict[str, Any]:
++    """``docker system df --format '{{json .}}'`` -> {images: {size, reclaimable}, ...}."""
++    out: dict[str, Any] = {}
++    keys = {"images": "images", "containers": "containers", "local volumes": "volumes", "build cache": "build_cache"}
++    for row in parse_json_lines(text):
++        key = keys.get(str(row.get("Type") or "").strip().lower())
++        if not key:
++            continue
++        reclaim = str(row.get("Reclaimable") or "").split("(")[0].strip()
++        out[key] = {
++            "count": int(row.get("TotalCount") or 0) if str(row.get("TotalCount") or "0").isdigit() else 0,
++            "size": parse_size(row.get("Size")),
++            "reclaimable": parse_size(reclaim),
++        }
++    out["total"] = sum(v["size"] for v in out.values() if isinstance(v, dict))
++    out["reclaimable"] = sum(v["reclaimable"] for v in out.values() if isinstance(v, dict))
++    return out
++
++
++def count_oom(text: str) -> tuple[int, list[str]]:
++    lines = [line.strip() for line in (text or "").splitlines() if OOM_RE.search(line)]
++    kills = [line for line in lines if re.search(r"Killed process|oom-kill", line, re.I)]
++    return len(kills) or len(lines), lines[-5:]
++
++
++def oom_facts(runner) -> dict[str, Any]:
++    res = runner.run(["journalctl", "-k", "-b", "--no-pager", "-q", "-o", "cat",
++                      "--grep", "Out of memory|oom-kill|Killed process"], timeout=60)
++    if not res.ok and res.returncode != 1:  # 1 = no match
++        res = runner.run(["dmesg", "--ctime"], timeout=30)
++        if not res.ok:
++            return {"oom_kills": None}
++    count, recent = count_oom(res.stdout)
++    return {"oom_kills": count, "oom_recent": recent}
++
++
++def dir_size(path: Path, limit_entries: int = 2_000_000) -> int:
++    total = 0
++    seen = 0
++    stack = [Path(path)]
++    while stack:
++        current = stack.pop()
++        try:
++            with os.scandir(current) as it:
++                for entry in it:
++                    seen += 1
++                    if seen > limit_entries:
++                        return total
++                    try:
++                        if entry.is_dir(follow_symlinks=False):
++                            stack.append(Path(entry.path))
++                        elif entry.is_file(follow_symlinks=False):
++                            total += entry.stat(follow_symlinks=False).st_blocks * 512
++                    except OSError:
++                        continue
++        except OSError:
++            continue
++    return total
++
++
++MARIADB_SQL = (
++    "SELECT 'threads_connected', VARIABLE_VALUE FROM information_schema.GLOBAL_STATUS "
++    "WHERE VARIABLE_NAME='THREADS_CONNECTED'; "
++    "SELECT 'max_used_connections', VARIABLE_VALUE FROM information_schema.GLOBAL_STATUS "
++    "WHERE VARIABLE_NAME='MAX_USED_CONNECTIONS'; "
++    "SELECT 'max_connections', @@max_connections; "
++    "SELECT 'log_bin', @@log_bin"
++)
++
++
++def parse_key_values(text: str) -> dict[str, str]:
++    out = {}
++    for line in (text or "").splitlines():
++        parts = line.strip().split("\t")
++        if len(parts) >= 2:
++            out[parts[0].strip()] = parts[1].strip()
++    return out
++
++
++def mariadb_facts(runner, password: str | None, data_dir: Path) -> dict[str, Any]:
++    from .pitr import db_query_command
++
++    out: dict[str, Any] = {"reachable": None}
++    if password:
++        res = runner.run(db_query_command(MARIADB_SQL), env={"MYSQL_PWD": password}, timeout=60)
++        out["reachable"] = res.ok
++        if res.ok:
++            kv = parse_key_values(res.stdout)
++            for key in ("threads_connected", "max_used_connections", "max_connections"):
++                if kv.get(key, "").isdigit():
++                    out[key] = int(kv[key])
++            out["log_bin"] = kv.get("log_bin") in ("1", "ON")
++        else:
++            out["error"] = (res.stderr or res.stdout or "").strip()[-300:]
++    if data_dir.is_dir():
++        out["datadir_bytes"] = dir_size(data_dir)
++        try:
++            out["binlog_bytes"] = sum(p.stat().st_size for p in data_dir.glob("mysql-bin.[0-9]*"))
++        except OSError:
++            pass
++    return out
++
++
++def tls_summary(report: dict[str, Any] | None, now: datetime | None = None, warn_days: int = 14) -> dict[str, Any]:
++    hosts = (report or {}).get("hosts") or {}
++    now = now or datetime.now(timezone.utc)
++    failing, expiring = [], []
++    for host, info in sorted(hosts.items()):
++        if not isinstance(info, dict):
++            continue
++        if info.get("error") or info.get("trusted") is False:
++            failing.append(host)
++            continue
++        try:
++            not_after = datetime.fromisoformat(str(info.get("not_after")).replace("Z", "+00:00"))
++            if (not_after - now).days < warn_days:
++                expiring.append(host)
++        except (TypeError, ValueError):
++            pass
++    return {"hosts": len(hosts), "failing": failing[:20], "expiring": expiring[:20]}
++
++
++def full_health(ctx) -> dict[str, Any]:
++    """Everything server.diagnose reports (each part best effort)."""
++    runner = ctx.runner
++    out = HealthCollector(ctx.settings, runner).light(force=True)
++    res = runner.run(["docker", "system", "df", "--format", "{{json .}}"], timeout=120)
++    out["docker_df"] = parse_system_df(res.stdout) if res.ok else None
++    res = runner.run(["docker", "info", "--format", "{{.DockerRootDir}}"], timeout=30)
++    root_dir = Path(res.stdout.strip()) if res.ok and res.stdout.strip().startswith("/") else DOCKER_ROOT
++    out["docker_root"] = str(root_dir)
++    out["docker_root_fs"] = (filesystem_usage([root_dir]) or [None])[0]
++    try:
++        out.update(oom_facts(runner))
++    except Exception:
++        out["oom_kills"] = None
++    try:
++        password = ctx.settings.db_root_password()
++    except Exception:
++        password = None
++    try:
++        out["mariadb"] = mariadb_facts(runner, password, ctx.settings.root / "db" / "data")
++    except Exception as exc:
++        out["mariadb"] = {"reachable": None, "error": str(exc)[:300]}
++    try:
++        out["tls"] = tls_summary(ctx.tls.check())
++    except Exception:
++        out["tls"] = None
++    out["full"] = True
++    return out
++
+diff --git a/agent/nexaploy_agent/runtime/os_updates.py b/agent/nexaploy_agent/runtime/os_updates.py
+new file mode 100644
+index 0000000..cc2dd52
+--- /dev/null
++++ b/agent/nexaploy_agent/runtime/os_updates.py
+@@ -0,0 +1,309 @@
++"""Operating-system updates (apt: Ubuntu / Debian).
++
++``OsUpdates.status()`` is reported in every heartbeat as ``facts["os_updates"]``:
++
++    {supported, pending, security, packages: [first 50 names], running_kernel, newest_kernel,
++     kernel_update_pending, reboot_required, reboot_required_pkgs, boot_time,
++     unattended_security, checked_at}
++
++The package counts come from ``apt list --upgradable`` (uses the package lists as they are:
++``apt-daily.timer`` or an ``server.os_update`` job refreshes them) and are cached for 6 hours
++in ``<data_dir>/os_updates.json``; update jobs invalidate the cache. Reboot / kernel / boot
++time / unattended settings are cheap file reads and are refreshed on every call.
++
++Other distributions report ``{"supported": false}``.
++"""
++
++from __future__ import annotations
++
++import json
++import os
++import re
++import shutil
++import time
++from dataclasses import dataclass
++from datetime import datetime, timezone
++from pathlib import Path
++from typing import Any
++
++from ..fsutil import atomic_write
++
++CACHE_TTL_SECONDS = 6 * 3600
++CACHE_FILE = "os_updates.json"
++MAX_PACKAGES = 50
++APT_ENV = {"LANG": "C", "LC_ALL": "C", "DEBIAN_FRONTEND": "noninteractive", "NEEDRESTART_MODE": "a"}
++DPKG_LOCK_TIMEOUT = 600
++
++AUTO_UPGRADES_FILE = "20auto-upgrades"
++NEXAPLOY_UNATTENDED_FILE = "52nexaploy-unattended"
++
++
++@dataclass
++class OsPaths:
++    """Host paths (overridable in tests)."""
++
++    os_release: Path = Path("/etc/os-release")
++    boot_dir: Path = Path("/boot")
++    reboot_required: Path = Path("/var/run/reboot-required")
++    reboot_required_pkgs: Path = Path("/var/run/reboot-required.pkgs")
++    proc_stat: Path = Path("/proc/stat")
++    apt_conf_dir: Path = Path("/etc/apt/apt.conf.d")
++
++
++def utc_iso(ts: float | None = None) -> str:
++    dt = datetime.fromtimestamp(ts if ts is not None else time.time(), timezone.utc)
++    return dt.isoformat(timespec="seconds").replace("+00:00", "Z")
++
++
++# --------------------------------------------------------------------------- parsing
++_UPGRADABLE_RE = re.compile(r"^(?P<name>[A-Za-z0-9.+:_-]+)/(?P<suite>\S+)\s+(?P<version>\S+)\s+(?P<arch>\S+)")
++
++
++def parse_upgradable(text: str) -> list[dict[str, Any]]:
++    """``apt list --upgradable`` -> [{name, suite, version, security}].
++
++    Example line: ``openssl/jammy-updates,jammy-security 3.0.2-0ubuntu1.15 amd64 [upgradable
++    from: 3.0.2-0ubuntu1.14]``. A package is a security update when one of its suites is a
++    security suite (``jammy-security``, ``bookworm-security``, ``stable-security``...).
++    """
++    out = []
++    for line in (text or "").splitlines():
++        line = line.strip()
++        if not line or line.startswith(("Listing", "WARNING", "N:", "W:", "E:")):
++            continue
++        m = _UPGRADABLE_RE.match(line)
++        if not m:
++            continue
++        suites = m.group("suite").split(",")
++        out.append({
++            "name": m.group("name"),
++            "suite": m.group("suite"),
++            "version": m.group("version"),
++            "security": any("security" in s.lower() for s in suites),
++        })
++    return out
++
++
++def natural_key(text: str) -> tuple:
++    """'5.15.0-101-generic' sorts after '5.15.0-91-generic' (numbers compared as numbers)."""
++    return tuple((0, int(part), "") if part.isdigit() else (1, 0, part)
++                 for part in re.findall(r"\d+|[A-Za-z]+", text or ""))
++
++
++def kernel_versions(boot_dir: Path) -> list[str]:
++    try:
++        names = [p.name for p in boot_dir.iterdir() if p.name.startswith("vmlinuz-")]
++    except OSError:
++        return []
++    return sorted((n[len("vmlinuz-"):] for n in names if len(n) > len("vmlinuz-")), key=natural_key)
++
++
++def newest_kernel(boot_dir: Path) -> str | None:
++    versions = kernel_versions(boot_dir)
++    return versions[-1] if versions else None
++
++
++def read_reboot_required(flag: Path, pkgs: Path) -> tuple[bool, list[str]]:
++    if not flag.exists():
++        return False, []
++    try:
++        names = [line.strip() for line in pkgs.read_text().splitlines() if line.strip()]
++    except OSError:
++        names = []
++    return True, sorted(dict.fromkeys(names))
++
++
++def boot_time(proc_stat: Path) -> int | None:
++    """Unix time of the last boot (``btime`` in /proc/stat)."""
++    try:
++        for line in proc_stat.read_text().splitlines():
++            if line.startswith("btime "):
++                return int(line.split()[1])
++    except (OSError, ValueError, IndexError):
++        pass
++    return None
++
++
++_APT_SETTING_RE = re.compile(r'^\s*(?P<key>[A-Za-z0-9:_-]+)\s+"(?P<value>[^"]*)"\s*;', re.M)
++
++
++def parse_apt_conf(text: str) -> dict[str, str]:
++    return {m.group("key"): m.group("value") for m in _APT_SETTING_RE.finditer(text or "")}
++
++
++def unattended_enabled(apt_conf_dir: Path) -> bool:
++    """APT::Periodic::Unattended-Upgrade "1" in 20auto-upgrades (later files override)."""
++    values: dict[str, str] = {}
++    try:
++        files = sorted(p for p in apt_conf_dir.iterdir() if p.is_file())
++    except OSError:
++        return False
++    for path in files:
++        try:
++            values.update(parse_apt_conf(path.read_text(errors="replace")))
++        except OSError:
++            continue
++    return values.get("APT::Periodic::Unattended-Upgrade", "0").strip() not in ("", "0")
++
++
++def auto_upgrades_content(enabled: bool) -> str:
++    flag = "1" if enabled else "0"
++    return (
++        "// Managed by Nexaploy (server.os_configure)\n"
++        f'APT::Periodic::Update-Package-Lists "{flag}";\n'
++        f'APT::Periodic::Unattended-Upgrade "{flag}";\n'
++        'APT::Periodic::AutocleanInterval "7";\n'
++    )
++
++
++def unattended_content() -> str:
++    # Security origins only; reboots are scheduled by Nexaploy (maintenance window), never
++    # by unattended-upgrades itself.
++    return (
++        "// Managed by Nexaploy (server.os_configure)\n"
++        "Unattended-Upgrade::Allowed-Origins {\n"
++        '\t"${distro_id}:${distro_codename}-security";\n'
++        '\t"${distro_id}ESMApps:${distro_codename}-apps-security";\n'
++        '\t"${distro_id}ESM:${distro_codename}-infra-security";\n'
++        "};\n"
++        "Unattended-Upgrade::Origins-Pattern {\n"
++        '\t"origin=Debian,codename=${distro_codename}-security,label=Debian-Security";\n'
++        '\t"origin=Debian,codename=${distro_codename},label=Debian-Security";\n'
++        "};\n"
++        'Unattended-Upgrade::Automatic-Reboot "false";\n'
++        'Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";\n'
++        'Unattended-Upgrade::Remove-Unused-Dependencies "true";\n'
++        'Dpkg::Options { "--force-confdef"; "--force-confold"; };\n'
++    )
++
++
++def os_release(path: Path) -> dict[str, str]:
++    out: dict[str, str] = {}
++    try:
++        for line in path.read_text().splitlines():
++            if "=" in line:
++                k, _, val = line.partition("=")
++                out[k.strip()] = val.strip().strip('"')
++    except OSError:
++        pass
++    return out
++
++
++def is_apt_distro(osr: dict[str, str]) -> bool:
++    ids = {osr.get("ID", "").lower(), *osr.get("ID_LIKE", "").lower().split()}
++    return bool(ids & {"debian", "ubuntu"})
++
++
++def apt_get(*args: str) -> list[str]:
++    return ["apt-get", "-o", f"DPkg::Lock::Timeout={DPKG_LOCK_TIMEOUT}", *args]
++
++
++def upgrade_command(mode: str) -> list[str]:
++    if mode == "security":
++        return ["unattended-upgrade", "-v"]
++    return apt_get("-y", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold",
++                   "full-upgrade")
++
++
++def reboot_command(job_id: str, delay_seconds: int) -> list[str]:
++    """Transient timer rebooting the host after the job reported success (same pattern as the
++    agent restart in runtime/upgrade.py: the reboot runs outside the worker's cgroup)."""
++    suffix = re.sub(r"[^a-z0-9]", "", (job_id or "").lower())[:26] or str(int(time.time()))
++    return [
++        "systemd-run", "--quiet", "--collect",
++        f"--unit=nexaploy-os-reboot-{suffix}",
++        f"--on-active={int(delay_seconds)}s",
++        "--timer-property=AccuracySec=1s",
++        "systemctl", "reboot",
++    ]
++
++
++SHUTDOWN_FALLBACK = ["shutdown", "-r", "+1", "Nexaploy: reboot after system updates"]
++
++
++# --------------------------------------------------------------------------- service
++class OsUpdates:
++    def __init__(self, data_dir: Path, runner, paths: OsPaths | None = None,
++                 ttl: float = CACHE_TTL_SECONDS, clock=time.time, which=shutil.which):
++        self.data_dir = Path(data_dir)
++        self.which = which
++        self.runner = runner
++        self.paths = paths or OsPaths()
++        self.ttl = ttl
++        self.clock = clock
++
++    @property
++    def cache_path(self) -> Path:
++        return self.data_dir / CACHE_FILE
++
++    def supported(self) -> bool:
++        return is_apt_distro(os_release(self.paths.os_release)) and self.which("apt-get") is not None
++
++    # ---- cache ------------------------------------------------------------------------
++    def _read_cache(self) -> dict[str, Any] | None:
++        try:
++            data = json.loads(self.cache_path.read_text())
++        except (OSError, ValueError):
++            return None
++        if not isinstance(data, dict) or self.clock() - float(data.get("_ts") or 0) > self.ttl:
++            return None
++        return data
++
++    def invalidate(self) -> None:
++        try:
++            self.cache_path.unlink()
++        except OSError:
++            pass
++
++    def _collect_packages(self) -> dict[str, Any]:
++        res = self.runner.run(["apt", "list", "--upgradable"], env=APT_ENV, timeout=120)
++        if not res.ok:
++            return {"error": (res.stderr or res.stdout or "apt list failed").strip()[-300:]}
++        pkgs = parse_upgradable(res.stdout)
++        return {
++            "pending": len(pkgs),
++            "security": sum(1 for p in pkgs if p["security"]),
++            "packages": [p["name"] for p in pkgs][:MAX_PACKAGES],
++            "security_packages": [p["name"] for p in pkgs if p["security"]][:MAX_PACKAGES],
++            "checked_at": utc_iso(self.clock()),
++        }
++
++    def running_kernel(self) -> str | None:
++        return os.uname().release if hasattr(os, "uname") else None
++
++    # ---- status ------------------------------------------------------------------------
++    def live(self) -> dict[str, Any]:
++        """The cheap part (file reads only)."""
++        p = self.paths
++        running = self.running_kernel()
++        newest = newest_kernel(p.boot_dir)
++        reboot, pkgs = read_reboot_required(p.reboot_required, p.reboot_required_pkgs)
++        kernel_pending = bool(newest and running and natural_key(newest) > natural_key(running))
++        return {
++            "running_kernel": running,
++            "newest_kernel": newest,
++            "kernel_update_pending": kernel_pending,
++            "reboot_required": reboot or kernel_pending,
++            "reboot_required_pkgs": pkgs[:MAX_PACKAGES],
++            "boot_time": boot_time(p.proc_stat),
++            "unattended_security": unattended_enabled(p.apt_conf_dir),
++        }
++
++    def status(self, force: bool = False) -> dict[str, Any]:
++        """Never raises (heartbeat)."""
++        try:
++            if not self.supported():
++                return {"supported": False}
++            cached = None if force else self._read_cache()
++            if cached is None:
++                cached = self._collect_packages()
++                cached["_ts"] = self.clock()
++                try:
++                    atomic_write(self.cache_path, json.dumps(cached) + "\n", mode=0o600)
++                except OSError:
++                    pass
++            out = {"supported": True, **{k: v for k, v in cached.items() if k != "_ts"}}
++            out.update(self.live())
++            return out
++        except Exception as exc:  # pragma: no cover - defensive
++            return {"supported": False, "error": f"{type(exc).__name__}: {exc}"[:300]}
+diff --git a/agent/tests/test_maintenance.py b/agent/tests/test_maintenance.py
+new file mode 100644
+index 0000000..c0e5e34
+--- /dev/null
++++ b/agent/tests/test_maintenance.py
+@@ -0,0 +1,467 @@
++"""Server maintenance: OS updates, health facts and cleanup (runtime/os_updates.py, health.py,
++cleanup.py, jobs/maintenance_jobs.py)."""
++
++from __future__ import annotations
++
++import json
++import os
++import time
++from datetime import datetime, timedelta, timezone
++from pathlib import Path
++
++import pytest
++
++from nexaploy_agent.jobs import maintenance_jobs as mj
++from nexaploy_agent.jobs.registry import REGISTRY
++from nexaploy_agent.runtime import cleanup as cl
++from nexaploy_agent.runtime import health as hl
++from nexaploy_agent.runtime import os_updates as ou
++
++from .conftest import make_bench, make_site, run_job
++
++UPGRADABLE = """Listing... Done
++openssl/jammy-updates,jammy-security 3.0.2-0ubuntu1.15 amd64 [upgradable from: 3.0.2-0ubuntu1.14]
++curl/jammy-updates 7.81.0-1ubuntu1.16 amd64 [upgradable from: 7.81.0-1ubuntu1.15]
++libssl3/bookworm-security 3.0.14-1~deb12u1 amd64 [upgradable from: 3.0.13-1~deb12u1]
++"""
++
++
++# --------------------------------------------------------------------------- fixtures
++@pytest.fixture
++def os_paths(tmp_path: Path) -> ou.OsPaths:
++    base = tmp_path / "host"
++    (base / "boot").mkdir(parents=True)
++    (base / "apt.conf.d").mkdir()
++    (base / "os-release").write_text('ID=ubuntu\nID_LIKE=debian\nVERSION_ID="22.04"\n')
++    (base / "stat").write_text("cpu 1 2 3\nbtime 1762200000\nprocesses 5\n")
++    for k in ("5.15.0-91-generic", "5.15.0-101-generic", "5.15.0-97-generic"):
++        (base / "boot" / f"vmlinuz-{k}").write_text("")
++    return ou.OsPaths(os_release=base / "os-release", boot_dir=base / "boot",
++                      reboot_required=base / "reboot-required", reboot_required_pkgs=base / "reboot-required.pkgs",
++                      proc_stat=base / "stat", apt_conf_dir=base / "apt.conf.d")
++
++
++@pytest.fixture
++def osu(ctx, runner, os_paths):
++    clock = [1_000_000.0]
++    svc = ou.OsUpdates(ctx.settings.data_dir, ctx.runner, paths=os_paths, clock=lambda: clock[0],
++                       which=lambda name: f"/usr/bin/{name}")
++    svc.running_kernel = lambda: "5.15.0-97-generic"  # type: ignore[method-assign]
++    svc._clock = clock  # type: ignore[attr-defined]
++    ctx.os_updates = svc
++    runner.on(["apt", "list", "--upgradable"], stdout=UPGRADABLE)
++    return svc
++
++
++# --------------------------------------------------------------------------- os updates (pure)
++def test_parse_upgradable_counts_security():
++    pkgs = ou.parse_upgradable(UPGRADABLE)
++    assert [p["name"] for p in pkgs] == ["openssl", "curl", "libssl3"]
++    assert [p["security"] for p in pkgs] == [True, False, True]
++
++
++def test_kernel_natural_sort(os_paths):
++    assert ou.newest_kernel(os_paths.boot_dir) == "5.15.0-101-generic"
++    assert ou.natural_key("5.15.0-101-generic") > ou.natural_key("5.15.0-97-generic")
++
++
++def test_boot_time_reboot_required_and_unattended(os_paths):
++    assert ou.boot_time(os_paths.proc_stat) == 1762200000
++    assert ou.read_reboot_required(os_paths.reboot_required, os_paths.reboot_required_pkgs) == (False, [])
++    os_paths.reboot_required.write_text("*** System restart required ***\n")
++    os_paths.reboot_required_pkgs.write_text("linux-base\nlibc6\nlinux-base\n")
++    assert ou.read_reboot_required(os_paths.reboot_required, os_paths.reboot_required_pkgs) == (True, ["libc6", "linux-base"])
++    assert ou.unattended_enabled(os_paths.apt_conf_dir) is False
++    (os_paths.apt_conf_dir / "20auto-upgrades").write_text(ou.auto_upgrades_content(True))
++    assert ou.unattended_enabled(os_paths.apt_conf_dir) is True
++    assert 'Unattended-Upgrade::Automatic-Reboot "false";' in ou.unattended_content()
++
++
++def test_status_cached_and_invalidated(osu, runner):
++    st = osu.status()
++    assert st["supported"] and st["pending"] == 3 and st["security"] == 2
++    assert st["running_kernel"] == "5.15.0-97-generic" and st["newest_kernel"] == "5.15.0-101-generic"
++    assert st["kernel_update_pending"] and st["reboot_required"]  # newer kernel installed
++    assert st["boot_time"] == 1762200000 and st["checked_at"]
++    assert len(runner.find("apt list")) == 1
++    osu.status()
++    assert len(runner.find("apt list")) == 1  # cached
++    osu._clock[0] += ou.CACHE_TTL_SECONDS + 1
++    osu.status()
++    assert len(runner.find("apt list")) == 2  # expired
++    osu.invalidate()
++    osu.status()
++    assert len(runner.find("apt list")) == 3
++
++
++def test_status_unsupported(ctx, os_paths):
++    os_paths.os_release.write_text("ID=fedora\n")
++    svc = ou.OsUpdates(ctx.settings.data_dir, ctx.runner, paths=os_paths, which=lambda n: "/usr/bin/" + n)
++    assert svc.status() == {"supported": False}
++
++
++def test_heartbeat_carries_os_updates_and_health(ctx, osu):
++    from nexaploy_agent.control_plane import ControlPlaneService
++
++    sent = {}
++
++    class Client:
++        enabled = True
++
++        def heartbeat(self, facts, benches, usage=None, tls=None):
++            sent.update(facts)
++
++    svc = ControlPlaneService(ctx, client=Client())
++    svc.heartbeat_once()
++    assert sent["os_updates"]["pending"] == 3
++    assert "filesystems" in sent["health"] and sent["health"]["agent_time"].endswith("Z")
++
++
++# --------------------------------------------------------------------------- os update jobs
++def test_os_update_all_with_reboot_if_required(ctx, worker, runner, osu, monkeypatch):
++    monkeypatch.setattr(mj, "systemd_available", lambda: True)
++    job = run_job(ctx, worker, "server.os_update", {"mode": "all", "reboot": "if_required"})
++    assert job["status"] == "success", job
++    assert [s["name"] for s in job["steps"]] == ["update_lists", "upgrade", "cleanup", "status", "reboot"]
++    up = runner.find("full-upgrade")[0]
++    assert "DPkg::Lock::Timeout=600" in up.cmdline and "--force-confold" in up.cmdline
++    assert up.env["DEBIAN_FRONTEND"] == "noninteractive" and up.env["NEEDRESTART_MODE"] == "a"
++    assert runner.called("apt-get -o DPkg::Lock::Timeout=600 update")
++    assert runner.called("autoremove --purge")
++    reboot = runner.find("systemctl reboot")[0]
++    assert reboot.args[0] == "systemd-run" and "--on-active=60s" in reboot.args
++    assert job["result"]["reboot_scheduled"] is True
++
++
++def test_os_update_never_reboots(ctx, worker, runner, osu, monkeypatch):
++    monkeypatch.setattr(mj, "systemd_available", lambda: True)
++    job = run_job(ctx, worker, "server.os_update", {"mode": "all", "reboot": "never"})
++    assert job["status"] == "success"
++    assert not runner.called("systemctl reboot") and job["result"]["reboot_scheduled"] is False
++
++
++def test_os_update_security_needs_unattended(ctx, worker, runner, osu):
++    runner.on(["which", "unattended-upgrade"], returncode=1)
++    job = run_job(ctx, worker, "server.os_update", {"mode": "security", "reboot": "never"})
++    assert job["status"] == "failure" and "unattended-upgrades is not installed" in job["error"]
++    runner.on(["which", "unattended-upgrade"], stdout="/usr/bin/unattended-upgrade\n")
++    job = run_job(ctx, worker, "server.os_update", {"mode": "security", "reboot": "never"})
++    assert job["status"] == "success" and runner.called("unattended-upgrade -v")
++
++
++def test_os_update_unsupported_fails(ctx, worker, osu, os_paths):
++    os_paths.os_release.write_text("ID=alpine\n")
++    job = run_job(ctx, worker, "server.os_update", {})
++    assert job["status"] == "failure" and "apt based" in job["error"]
++
++
++def test_reboot_fallback_shutdown(ctx, worker, runner, osu, monkeypatch):
++    monkeypatch.setattr(mj, "systemd_available", lambda: False)
++    job = run_job(ctx, worker, "server.os_reboot", {"delay_seconds": 30})
++    assert job["status"] == "success" and runner.called("shutdown -r +1")
++
++
++def test_os_configure_writes_apt_files(ctx, worker, runner, osu, os_paths):
++    runner.on(["which", "unattended-upgrade"], stdout="/usr/bin/unattended-upgrade\n")
++    job = run_job(ctx, worker, "server.os_configure", {"unattended_security": True})
++    assert job["status"] == "success", job
++    assert ou.unattended_enabled(os_paths.apt_conf_dir)
++    assert "Automatic-Reboot \"false\"" in (os_paths.apt_conf_dir / "52nexaploy-unattended").read_text()
++    job = run_job(ctx, worker, "server.os_configure", {"unattended_security": False})
++    assert not ou.unattended_enabled(os_paths.apt_conf_dir)
++    assert job["result"]["os_updates"]["unattended_security"] is False
++
++
++def test_registry_has_maintenance_kinds():
++    for kind in ("server.os_update", "server.os_reboot", "server.os_configure", "server.diagnose", "server.cleanup"):
++        assert kind in REGISTRY
++
++
++# --------------------------------------------------------------------------- health
++def test_health_parsers():
++    units = hl.parse_failed_units(
++        "● nexaploy-agent-worker.service loaded failed failed Nexaploy worker\n"
++        "snapd.service loaded failed failed Snap\n"
++        "rclone-site-a.service loaded failed failed mount\n"
++        "docker.service loaded failed failed Docker\n")
++    assert units == ["docker.service", "nexaploy-agent-worker.service", "rclone-site-a.service"]
++    assert hl.parse_ntp("yes\n") is True and hl.parse_ntp("no") is False and hl.parse_ntp("") is None
++    assert hl.parse_size("1.5GB") == 1_500_000_000 and hl.parse_size("512kB") == 512_000 and hl.parse_size("x") == 0
++    df = hl.parse_system_df(
++        '{"Type":"Images","TotalCount":"5","Size":"4GB","Reclaimable":"1GB (25%)"}\n'
++        '{"Type":"Build Cache","TotalCount":"10","Size":"2GB","Reclaimable":"2GB"}\n')
++    assert df["images"]["reclaimable"] == 1_000_000_000 and df["build_cache"]["size"] == 2_000_000_000
++    assert df["reclaimable"] == 3_000_000_000
++    n, recent = hl.count_oom("[1] Out of memory: Killed process 123 (python)\n[2] ok\n[3] oom-kill:constraint\n")
++    assert n == 2 and len(recent) == 2
++    now = datetime(2026, 11, 4, tzinfo=timezone.utc)
++    tls = hl.tls_summary({"hosts": {
++        "a.example.com": {"trusted": True, "not_after": "2026-11-10T00:00:00Z"},
++        "b.example.com": {"trusted": False},
++        "c.example.com": {"trusted": True, "not_after": "2027-02-01T00:00:00Z"},
++    }}, now)
++    assert tls == {"hosts": 3, "failing": ["b.example.com"], "expiring": ["a.example.com"]}
++
++
++def test_light_health(ctx, runner, tmp_path):
++    mem = tmp_path / "meminfo"
++    mem.write_text("MemTotal: 1000 kB\nMemAvailable: 250 kB\nSwapTotal: 100 kB\nSwapFree: 50 kB\n")
++    runner.on(["systemctl", "list-units"], stdout="nexaploy-agent-api.service loaded failed failed x\n")
++    runner.on(["timedatectl"], stdout="no\n")
++    clock = [100.0]
++    coll = hl.HealthCollector(ctx.settings, ctx.runner, clock=lambda: clock[0], meminfo_path=mem)
++    h = coll.light()
++    assert h["mem_used_percent"] == 75.0 and h["swap_used_percent"] == 50.0
++    assert h["failed_units"] == ["nexaploy-agent-api.service"] and h["ntp_synchronized"] is False
++    assert h["filesystems"] and {"used_percent", "inodes_used_percent"} <= set(h["filesystems"][0])
++    coll.light()
++    assert len(runner.find("systemctl list-units")) == 1  # throttled
++    clock[0] += hl.UNIT_INTERVAL_SECONDS
++    coll.light()
++    assert len(runner.find("systemctl list-units")) == 2
++
++
++def test_diagnose_job(ctx, worker, runner, osu):
++    runner.on(["system", "df"], stdout='{"Type":"Images","TotalCount":"1","Size":"1GB","Reclaimable":"0B"}\n')
++    runner.on(["mariadb"], stdout="threads_connected\t12\nmax_used_connections\t40\nmax_connections\t151\nlog_bin\t1\n")
++    job = run_job(ctx, worker, "server.diagnose", {})
++    assert job["status"] == "success", job
++    h = job["result"]["health"]
++    assert h["full"] and h["mariadb"]["threads_connected"] == 12 and h["mariadb"]["max_connections"] == 151
++    mariadb_call = runner.find("mariadb")[0]
++    assert mariadb_call.env == {"MYSQL_PWD": "db-root-pw-SECRET"} and "db-root-pw-SECRET" not in mariadb_call.cmdline
++    assert job["result"]["os_updates"]["pending"] == 3
++
++
++# --------------------------------------------------------------------------- cleanup: guard
++def test_path_guard_refuses_protected_paths(settings, tmp_path):
++    root = settings.root
++    g = cl.PathGuard(root)
++    site = root / "benches" / "erp-v15" / "sites" / "a.example.com"
++    for d in ("logs", "private/backups", "public/files"):
++        (site / d).mkdir(parents=True, exist_ok=True)
++    (site / "logs" / "web.log").write_text("x")
++    (site / "private" / "backups" / "db.sql.gz").write_text("x")
++    (site / "public" / "files" / "a.log").write_text("x")
++    (site / "site_config.json").write_text("{}")
++    assert g.log_file(site / "logs" / "web.log")
++    for bad in (site / "private" / "backups" / "db.sql.gz", site / "public" / "files" / "a.log",
++                site / "site_config.json", root / "config" / "db.env"):
++        with pytest.raises(cl.UnsafePath):
++            g.log_file(bad)
++    (root / "db" / "data").mkdir(parents=True)
++    (root / "db" / "data" / "ibdata1").write_text("x")
++    with pytest.raises(cl.UnsafePath):
++        g.log_file(root / "db" / "data" / "ibdata1")
++    (root / "proxy" / "data" / "certificates").mkdir(parents=True)
++    with pytest.raises(cl.UnsafePath):
++        g.backup_dir(root / "proxy" / "data" / "certificates")
++    # a logs dir that is a symlink into private files is rejected by its real path
++    other = root / "benches" / "erp-v15" / "sites" / "b.example.com"
++    other.mkdir(parents=True)
++    os.symlink(site / "private" / "backups", other / "logs")
++    with pytest.raises(cl.UnsafePath):
++        g.log_file(other / "logs" / "db.sql.gz")
++    link = site / "logs" / "link.log"
++    os.symlink(root / "config" / "db.env", link)
++    with pytest.raises(cl.UnsafePath):
++        g.log_file(link)
++    with pytest.raises(cl.UnsafePath):
++        g.docker_log(Path("/etc/passwd"), "a" * 64)
++
++
++# --------------------------------------------------------------------------- cleanup: pure selection
++def _img(id_, repo, tag, created, size="1GB"):
++    return {"ID": id_, "Repository": repo, "Tag": tag, "CreatedAt": created, "Size": size}
++
++
++def test_select_images_rules():
++    now = datetime(2026, 11, 4, tzinfo=timezone.utc).timestamp()
++    old = "2026-10-01 10:00:00 +0000 UTC"
++    older = "2026-09-01 10:00:00 +0000 UTC"
++    new = "2026-11-03 23:00:00 +0000 UTC"
++    images = [
++        _img("sha256:used", "nexaploy/bench", "erp-v15-20261001T1000", old),
++        _img("sha256:env", "nexaploy/bench", "erp-v15-20260915T1000", older),
++        _img("sha256:a", "nexaploy/bench", "erp-v15-20260901T1000", older),
++        _img("sha256:b", "nexaploy/bench", "erp-v15-20260902T1000", "2026-09-02 10:00:00 +0000 UTC"),
++        _img("sha256:fresh", "nexaploy/bench", "erp-v15-20261103T2300", new),
++        _img("sha256:db", "mariadb", "10.6", older),
++        _img("sha256:redis", "redis", "6.2-alpine", older),
++        _img("sha256:dangling", "<none>", "<none>", older, "300MB"),
++    ]
++    chosen, notes = cl.select_images(images, {"sha256:used"}, {"nexaploy/bench:erp-v15-20260915T1000"}, now, 72)
++    refs = [c["ref"] for c in chosen]
++    # newest unused of the family (b) is kept as rollback target; a and the dangling one go
++    assert refs == ["sha256:dangling", "nexaploy/bench:erp-v15-20260901T1000"]
++    assert any("rollback target" in n for n in notes) and any("younger than" in n for n in notes)
++
++
++def test_select_oneoff_containers():
++    now = datetime(2026, 11, 4, tzinfo=timezone.utc).timestamp()
++    rows = [
++        {"ID": "1", "Names": "erp-v15-backend-run-abc", "State": "exited", "CreatedAt": "2026-11-01 00:00:00 +0000 UTC",
++         "Labels": "com.docker.compose.project=erp-v15,com.docker.compose.oneoff=True", "Size": "10kB (virtual 1GB)"},
++        {"ID": "2", "Names": "erp-v15-configurator", "State": "exited", "CreatedAt": "2026-11-01 00:00:00 +0000 UTC",
++         "Labels": "com.docker.compose.project=erp-v15,com.docker.compose.service=configurator", "Size": "0B"},
++        {"ID": "3", "Names": "erp-v15-backend", "State": "exited", "CreatedAt": "2026-11-01 00:00:00 +0000 UTC",
++         "Labels": "com.docker.compose.project=erp-v15,com.docker.compose.service=backend", "Size": "0B"},
++        {"ID": "4", "Names": "someone-else", "State": "exited", "CreatedAt": "2026-11-01 00:00:00 +0000 UTC",
++         "Labels": "com.docker.compose.project=other,com.docker.compose.oneoff=True", "Size": "0B"},
++        {"ID": "5", "Names": "erp-v15-backend-run-new", "State": "exited", "CreatedAt": "2026-11-03 23:59:00 +0000 UTC",
++         "Labels": "com.docker.compose.project=erp-v15,com.docker.compose.oneoff=True", "Size": "0B"},
++    ]
++    picked = cl.select_oneoff_containers(rows, {"erp-v15"}, now)
++    assert [c["id"] for c in picked] == ["1", "2"] and picked[0]["size"] == 10_000
++
++
++def test_merge_daemon_json():
++    new, _ = cl.merge_daemon_json(None)
++    assert new == {"log-opts": {"max-size": "50m", "max-file": "3"}}
++    new, _ = cl.merge_daemon_json('{"data-root": "/data/docker", "log-opts": {"labels": "x"}}')
++    assert new["data-root"] == "/data/docker" and new["log-opts"] == {"labels": "x", "max-size": "50m", "max-file": "3"}
++    assert cl.merge_daemon_json('{"log-opts": {"max-size": "10m"}}')[0] is None
++    assert cl.merge_daemon_json('{"log-driver": "journald"}')[0] is None
++    assert cl.merge_daemon_json("{broken")[0] is None
++
++
++def test_select_backups_never_newest_or_not_uploaded():
++    now = datetime(2026, 11, 4, tzinfo=timezone.utc)
++    stamps = ["20261001T000000Z", "20261002T000000Z", "20261003T000000Z", "20261103T000000Z"]
++    uploaded = {"20261001T000000Z", "20261003T000000Z", "20261103T000000Z"}
++    assert cl.select_backups(stamps, uploaded, 14, now) == ["20261001T000000Z", "20261003T000000Z"]
++    assert cl.select_backups(["20261001T000000Z"], {"20261001T000000Z"}, 1, now) == []
++
++
++# --------------------------------------------------------------------------- cleanup: files
++def _age(path: Path, days: float) -> None:
++    t = time.time() - days * 86400
++    os.utime(path, (t, t))
++
++
++def _cleaner(ctx, tmp_path, dry_run, **kw):
++    opts = cl.CleanupOptions(dry_run=dry_run, **kw)
++    return cl.Cleaner(ctx, opts, daemon_json=tmp_path / "daemon.json", docker_root=tmp_path / "docker",
++                      apt_archives=tmp_path / "apt", which=lambda n: "/usr/bin/" + n)
++
++
++def test_bench_logs(ctx, tmp_path):
++    bench = make_bench(ctx, "erp-v15")
++    site = make_site(ctx, "erp-v15", "a.example.com")
++    (site / "logs").mkdir()
++    (site / "private" / "files").mkdir(parents=True)
++    old_rotated = bench / "logs" / "web.log.1"
++    bench_logs = bench / "logs"
++    bench_logs.mkdir(exist_ok=True)
++    old_rotated.write_text("x" * 100)
++    _age(old_rotated, 30)
++    fresh_rotated = bench_logs / "worker.log.2"
++    fresh_rotated.write_text("y")
++    big = site / "logs" / "frappe.log"
++    big.write_bytes(b"z" * (11 * 1024 * 1024))
++    private = site / "private" / "files" / "old.log.1"
++    private.write_text("keep")
++    _age(private, 300)
++    dry = _cleaner(ctx, tmp_path, True, bench_log_max_mb=10).run("bench_logs")
++    assert dry["items"] == 2 and old_rotated.exists() and big.stat().st_size > 0
++    res = _cleaner(ctx, tmp_path, False, bench_log_max_mb=10).run("bench_logs")
++    assert res["items"] == 2 and res["freed_bytes"] >= 11 * 1024 * 1024
++    assert not old_rotated.exists() and fresh_rotated.exists() and big.exists() and big.stat().st_size == 0
++    assert private.exists() and (site / "site_config.json").exists()
++
++
++def test_backups_local(ctx, tmp_path):
++    base = ctx.settings.backups_dir / "erp-v15" / "a.example.com"
++    now = datetime.now(timezone.utc)
++    stamps = [(now - timedelta(days=d)).strftime("%Y%m%dT%H%M%SZ") for d in (40, 30, 20, 1)]
++    for i, ts in enumerate(stamps):
++        d = base / ts
++        d.mkdir(parents=True)
++        (d / "db.sql.gz").write_bytes(b"x" * 1000)
++        if i != 1:  # stamps[1] never reached the remote: it is the only copy
++            (d / ".uploaded").write_text("ok")
++    res = _cleaner(ctx, tmp_path, False, backup_local_keep_days=14).run("backups_local")
++    assert res["items"] == 2
++    assert not (base / stamps[0]).exists() and (base / stamps[1]).exists()
++    assert not (base / stamps[2]).exists() and (base / stamps[3]).exists()
++
++
++def test_tmp_and_agent_data(ctx, tmp_path):
++    pitr = ctx.settings.backups_dir / ".pitr"
++    stale = pitr / "01JAAAAAAAAAAAAAAAAAAAAAAA"
++    stale.mkdir(parents=True)
++    (stale / "replay.sql").write_text("x" * 50)
++    _age(stale, 3)
++    running = ctx.store.create("site.restore_pitr", {}, ["x"])
++    ctx.store.claim_next()
++    live = pitr / running["id"]
++    live.mkdir()
++    _age(live, 3)
++    res = _cleaner(ctx, tmp_path, False).run("tmp")
++    assert not stale.exists() and live.exists() and res["items"] == 1
++    old = ctx.store.create("site.usage", {}, [])
++    ctx.store.finish(old["id"], "success")
++    ctx.store._conn().execute("UPDATE jobs SET ended_at = '2020-01-01T00:00:00.000Z' WHERE id = ?", (old["id"],))
++    dry = _cleaner(ctx, tmp_path, True).run("agent_data")
++    assert dry["items"] == 1 and ctx.store.get(old["id"])
++    res = _cleaner(ctx, tmp_path, False).run("agent_data")
++    assert res["items"] == 1
++    with pytest.raises(KeyError):
++        ctx.store.get(old["id"])
++
++
++def test_docker_targets(ctx, runner, tmp_path):
++    make_bench(ctx, "erp-v15")
++    runner.on(["ps", "-aq"], stdout="c1\nc2\n")
++    runner.on(["inspect", "--format", "{{.Image}}"], stdout="sha256:used\nsha256:used\n")
++    runner.on(["image", "ls"], stdout="\n".join(json.dumps(r) for r in (
++        {"ID": "sha256:used", "Repository": "nexaploy/bench", "Tag": "erp-v15-20261001T1000",
++         "CreatedAt": "2026-10-01 10:00:00 +0000 UTC", "Size": "2GB"},
++        {"ID": "sha256:dangling", "Repository": "<none>", "Tag": "<none>",
++         "CreatedAt": "2026-10-01 10:00:00 +0000 UTC", "Size": "500MB"},
++    )) + "\n")
++    res = _cleaner(ctx, tmp_path, False).run("docker_images")
++    assert res["items"] == 1 and res["freed_bytes"] == 500_000_000
++    rm = runner.find("image rm")
++    assert [c.args for c in rm] == [["docker", "image", "rm", "sha256:dangling"]]
++    assert not any("-f" in c.args for c in runner.calls if "rm" in c.args)
++    # build cache
++    runner.on(["builder", "prune"], stdout="ID\nabcdefabcdefabcdefabcdef\nTotal:\t1.5GB\n")
++    res = _cleaner(ctx, tmp_path, False).run("docker_build_cache")
++    assert res["freed_bytes"] == 1_500_000_000
++    # docker logs: truncate a big json log of a running container, write daemon.json, never restart docker
++    cid = "a" * 64
++    log = tmp_path / "docker" / "containers" / cid / f"{cid}-json.log"
++    log.parent.mkdir(parents=True)
++    log.write_bytes(b"l" * (11 * 1024 * 1024))
++    runner.on(["ps", "-q", "--no-trunc"], stdout=cid + "\n")
++    runner.on(["info", "--format"], stdout=str(tmp_path / "docker") + "\n")
++    runner.on(lambda a: "{{.Id}}|{{.LogPath}}|{{.HostConfig.LogConfig.Type}}" in a,
++              stdout=f"{cid}|{log}|json-file\n")
++    res = _cleaner(ctx, tmp_path, False, docker_log_max_mb=10).run("docker_logs")
++    assert log.stat().st_size == 0 and res["items"] == 1
++    assert json.loads((tmp_path / "daemon.json").read_text())["log-opts"]["max-size"] == "50m"
++    assert not any("restart" in c.cmdline and "docker" in c.cmdline and "systemctl" in c.cmdline for c in runner.calls)
++    assert any("docker restart" in n for n in res["notes"])
++
++
++def test_cleanup_job_dry_run_changes_nothing(ctx, worker, runner, osu, tmp_path, monkeypatch):
++    monkeypatch.setattr(cl, "DAEMON_JSON", tmp_path / "daemon.json")
++    bench = make_bench(ctx, "erp-v15")
++    (bench / "logs").mkdir(exist_ok=True)
++    f = bench / "logs" / "web.log.3"
++    f.write_text("x" * 10)
++    _age(f, 60)
++    job = run_job(ctx, worker, "server.cleanup", {"targets": ["journal", "bench_logs"], "dry_run": True})
++    assert job["status"] == "success", job
++    assert [s["name"] for s in job["steps"]] == ["bench_logs", "journal", "summary"]
++    assert f.exists() and job["result"]["dry_run"] is True
++    assert job["result"]["targets"]["bench_logs"]["freed_bytes"] == 10
++    assert not runner.called("--vacuum")
++    job = run_job(ctx, worker, "server.cleanup", {"targets": ["bench_logs"], "dry_run": False})
++    assert not f.exists() and job["result"]["freed_bytes"] == 10
++
++
++def test_cleanup_rejects_unknown_target(ctx):
++    with pytest.raises(Exception):
++        ctx.enqueue("server.cleanup", {"targets": ["/etc"]})
