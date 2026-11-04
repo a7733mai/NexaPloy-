@@ -21,6 +21,10 @@ site_app = typer.Typer(no_args_is_help=True, help="Manage sites.")
 app.add_typer(bench_app, name="bench")
 app.add_typer(site_app, name="site")
 
+from .controlplane_cli import cp_app  # noqa: E402
+
+app.add_typer(cp_app, name="controlplane")
+
 FINAL = {"success", "failure", "cancelled"}
 
 

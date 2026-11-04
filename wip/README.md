@@ -1,15 +1,17 @@
-# Work in progress (snapshots)
+# Work in progress
 
-Snapshots of features that were still being built when this was saved, as patches against
-commit `c7f5033`. Apply one on a branch to continue:
+Merged: the AGENT side of server maintenance (OS updates, health, cleanup jobs) and of easy
+control-plane deployment (zero-flag image resolution/local build, DNS preflight,
+`--restore-control-plane`, `controlplane.update` job, `nexaploy controlplane` CLI).
 
-```bash
-git checkout -b continue-maintenance c7f5033
-git apply --3way wip/server-maintenance.patch
-```
-
-- `server-maintenance.patch`: OS updates from the dashboard, server health, cleanup through the agent.
-- `control-plane-deploy.patch`: zero-flag all-in-one image resolution/build, DNS preflight,
-  control plane self-update, restore onto a new server, first-run checklist.
-
-When the finished versions are merged into this branch, these files are deleted.
+Still to do (control plane side):
+- JOB_KINDS + Agent Job options for server.os_update / os_reboot / os_configure / diagnose /
+  cleanup and controlplane.update; callbacks.
+- Server fields, heartbeat ingest of facts.os_updates / facts.health, evaluate_health,
+  notifications server_health_critical / server_health_ok, maintenance window + weekly
+  cleanup schedulers, auto cleanup on critical disk.
+- Server page cards (System updates, Health, Clean up), admin fleet health + bulk actions,
+  "Update control plane" in /dashboard/admin, first-run setup checklist.
+- all_in_one.mark_host: clear the old host flag after a restore.
+- README "Deploy the control plane in 5 minutes", ARCHITECTURE §5.9, CHANGELOG,
+  release.yml building from the pinned official image.
