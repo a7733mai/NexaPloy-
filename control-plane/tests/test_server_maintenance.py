@@ -170,3 +170,42 @@ def test_job_kinds_and_doctypes():
 	assert settings["allow_customer_os_updates"]["default"] == "1"
 	for field in hu.SETTINGS_THRESHOLDS:
 		assert field in settings
+
+
+STRING_RE = re.compile(r"""(?<![A-Za-z0-9.])_{1,2}\(\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)')\s*[,)]""")
+
+
+def test_translations():
+	ar = set()
+	for path in [os.path.join(APP, "translations", "ar.csv")] + sorted(glob.glob(os.path.join(APP, "translations", "ar.*.part"))):
+		with open(path, encoding="utf-8", newline="") as fh:
+			ar |= {r[0] for r in csv.reader(fh) if r}
+	strings = set()
+	for parts in (("server_maintenance.py",), ("api", "server_maintenance.py")):
+		strings |= {m.group(1) or m.group(2) for m in STRING_RE.finditer(read(*parts))}
+	for page in ("server.html", "admin.html"):
+		html = read("www", "dashboard", page)
+		start = html.index("server maintenance & health")
+		strings |= {m.group(1) or m.group(2) for m in STRING_RE.finditer(html[start:])}
+	js = read("public", "js", "server_maintenance.js")
+	strings |= set(re.findall(r'\bt\(\s*"((?:[^"\\]|\\.)*)"\s*[,)]', js))
+	strings |= set(hu.TARGET_LABELS.values()) | set(hu.DAYS) | {"OK", "Warning", "Critical", "Unknown"}
+	missing = sorted(strings - ar)
+	assert not missing, missing
+
+
+def test_wiring():
+	hooks = read("hooks.py")
+	assert "nexaploy.server_maintenance.check_server_health" in hooks
+	assert "nexaploy.server_maintenance.schedule_maintenance" in hooks
+	assert "server_maintenance.on_heartbeat(" in read("api", "agent.py")
+	assert "import nexaploy.server_maintenance" in read("agent_callbacks.py")
+	src = read("server_maintenance.py")
+	for kind in ("server.os_update", "server.os_reboot", "server.os_configure", "server.diagnose", "server.cleanup"):
+		assert f'"{kind}"' in src
+	assert "hu.manage_allowed(" in src and "allow_customer_os_updates" in src
+	html = read("www", "dashboard", "server.html")
+	assert '<script src="/assets/nexaploy/js/server_maintenance.js"></script>' in html
+	for label in ("System updates", "Update now", "Reboot now", "Maintenance window", "Automatic security updates",
+	              "Reboot required", "Health", "Run full check", "Clean up"):
+		assert f'_("{label}")' in html, label

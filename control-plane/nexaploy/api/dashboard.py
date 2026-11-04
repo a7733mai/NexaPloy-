@@ -685,6 +685,8 @@ def list_servers(include_archived=False):
 			"last_heartbeat", "agent_version", "creation",
 			# hosted servers created by nexaploy.provisioning (api/provisioning.py)
 			"provider", "region", "provisioning_status", "public_ipv4",
+			# server maintenance & health (§17)
+			"health_status", "os_pending_updates", "os_reboot_required",
 		],
 		order_by="creation desc",
 	)

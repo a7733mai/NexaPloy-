@@ -3,6 +3,7 @@
 {% block head %}
 {# agent upgrades: plain script so it registers before Alpine starts #}
 <script src="/assets/nexaploy/js/agent_upgrade.js"></script>
+<script src="/assets/nexaploy/js/server_maintenance.js"></script>
 {% endblock %}
 
 {% block page_title %}<a href="/dashboard/servers" class="muted">{{ _("Servers") }}</a> <span class="muted">/</span> <span class="ltr" id="nx-server-title"></span>{% endblock %}
@@ -59,6 +60,128 @@
 						</dl>
 					</div>
 				</section>
+			</div>
+
+			<!-- server maintenance & health (§17): public/js/server_maintenance.js -->
+			<div x-data="nxServerMaint(server.name)">
+				<template x-if="st">
+					<div class="stack">
+						<div class="grid cols-2">
+							<section class="card">
+								<div class="card-head">
+									<h2>{{ _("System updates") }}</h2>
+									<template x-if="st.os.os_update_status"><span :class="nx.statusClass(st.os.os_update_status)" x-text="__(st.os.os_update_status)"></span></template>
+								</div>
+								<div class="card-body stack">
+									<template x-if="!st.os.os_updates_supported"><p class="small muted">{{ _("System updates are only available on Ubuntu and Debian servers.") }}</p></template>
+									<template x-if="st.os.os_updates_supported">
+										<div class="stack">
+											<dl class="kv">
+												<dt>{{ _("Pending updates") }}</dt><dd x-text="st.os.os_pending_updates || 0"></dd>
+												<dt>{{ _("Security updates") }}</dt><dd><span :class="st.os.os_security_updates ? 'badge warning' : ''" x-text="st.os.os_security_updates || 0"></span></dd>
+												<dt>{{ _("Running kernel") }}</dt><dd class="mono small ltr" x-text="st.os.os_running_kernel || '—'"></dd>
+												<dt>{{ _("Newest kernel") }}</dt><dd class="mono small ltr" x-text="st.os.os_newest_kernel || '—'"></dd>
+												<dt>{{ _("Last boot") }}</dt><dd class="small" x-text="st.os.os_boot_time ? nx.fmtDate(st.os.os_boot_time) : '—'"></dd>
+												<dt>{{ _("Last checked") }}</dt><dd class="small" x-text="st.os.os_updates_checked_at ? nx.fmtDate(st.os.os_updates_checked_at) : '—'"></dd>
+											</dl>
+											<template x-if="st.os.os_reboot_required"><div class="alert warning">{{ _("Reboot required") }}</div></template>
+											<template x-if="st.os.os_update_error"><pre class="log" x-text="st.os.os_update_error"></pre></template>
+											<template x-if="st.can_manage">
+												<div class="stack">
+													<div class="row">
+														<select class="input" x-model="mode"><option value="security">{{ _("Security updates only") }}</option><option value="all">{{ _("All updates") }}</option></select>
+														<select class="input" x-model="rebootPolicy"><option value="never">{{ _("Never") }}</option><option value="if_required">{{ _("If required") }}</option><option value="always">{{ _("Always") }}</option></select>
+													</div>
+													<div class="row">
+														<button class="btn sm primary" type="button" @click="updateNow()" :disabled="busy">{{ _("Update now") }}</button>
+														<button class="btn sm" type="button" @click="rebootNow()" :disabled="busy">{{ _("Reboot now") }}</button>
+													</div>
+													<label class="check"><input type="checkbox" :checked="!!st.os.unattended_security" @change="toggleUnattended($event.target.checked)" :disabled="busy"> {{ _("Automatic security updates") }}</label>
+													<h3 class="small">{{ _("Maintenance window") }}</h3>
+													<div class="row">
+														<label class="check"><input type="checkbox" x-model="win.maintenance_enabled" :true-value="1" :false-value="0"> {{ _("Enabled") }}</label>
+														<select class="input" x-model="win.maintenance_day"><template x-for="d in st.days" :key="d"><option :value="d" x-text="__(d)"></option></template></select>
+														<label class="field"><span class="small">{{ _("Hour (UTC)") }}</span><input class="input" type="number" min="0" max="23" x-model="win.maintenance_hour"></label>
+													</div>
+													<div class="row">
+														<select class="input" x-model="win.maintenance_mode"><option value="security">{{ _("Security updates only") }}</option><option value="all">{{ _("All updates") }}</option></select>
+														<select class="input" x-model="win.maintenance_reboot"><option value="never">{{ _("Never") }}</option><option value="if_required">{{ _("If required") }}</option><option value="always">{{ _("Always") }}</option></select>
+														<button class="btn sm" type="button" @click="saveWindow()" :disabled="busy">{{ _("Save") }}</button>
+													</div>
+												</div>
+											</template>
+										</div>
+									</template>
+								</div>
+							</section>
+
+							<section class="card">
+								<div class="card-head">
+									<h2>{{ _("Health") }}</h2>
+									<span :class="healthClass(st.health.status)" x-text="__(st.health.status)"></span>
+								</div>
+								<div class="card-body stack">
+									<template x-if="!st.health.issues.length"><p class="small muted">{{ _("No issues found.") }}</p></template>
+									<template x-for="i in st.health.issues" :key="i.code + i.detail">
+										<div>
+											<div class="row"><span :class="sevClass(i.severity)" x-text="__(i.severity === 'critical' ? 'Critical' : i.severity === 'warning' ? 'Warning' : 'Info')"></span> <strong x-text="i.title"></strong></div>
+											<div class="small ltr" x-text="i.detail"></div>
+											<div class="small muted" x-text="i.hint"></div>
+										</div>
+									</template>
+									<div class="small muted">{{ _("Last checked") }}: <span x-text="st.health.checked_at ? nx.fmtDate(st.health.checked_at) : '—'"></span> · {{ _("Last full check") }}: <span x-text="st.health.diagnosed_at ? nx.fmtDate(st.health.diagnosed_at) : '—'"></span></div>
+									<div class="small muted">{{ _("Last cleanup") }}: <span x-text="st.cleanup.last_at ? nx.fmtDate(st.cleanup.last_at) : '—'"></span> <template x-if="st.cleanup.last_at"><span>· {{ _("Freed") }} <span x-text="nx.bytes(st.cleanup.last_freed || 0)"></span></span></template></div>
+									<template x-if="st.can_manage">
+										<div class="row">
+											<button class="btn sm" type="button" @click="diagnose()" :disabled="busy || !!st.health.diagnose_job">{{ _("Run full check") }}</button>
+											<button class="btn sm primary" type="button" @click="openClean()" :disabled="busy">{{ _("Clean up") }}</button>
+										</div>
+									</template>
+								</div>
+							</section>
+						</div>
+
+						<template x-if="dlg">
+							<div class="modal-backdrop" @click.self="dlg = false" @keydown.escape.window="dlg = false">
+								<section class="card modal" role="dialog" aria-modal="true" style="width: min(640px, 100%)">
+									<div class="card-head row between">
+										<h2>{{ _("Clean up") }}</h2>
+										<button class="btn sm ghost" type="button" @click="dlg = false">{{ _("Close") }}</button>
+									</div>
+									<div class="card-body stack">
+										<p class="small muted">{{ _("Choose what to clean. Site files, databases, certificates and configuration are never touched.") }}</p>
+										<template x-for="x in st.cleanup.targets" :key="x.target">
+											<label class="check"><input type="checkbox" x-model="targets[x.target]"> <span x-text="__(x.label)"></span></label>
+										</template>
+										<div class="row">
+											<button class="btn sm" type="button" @click="runClean(true)" :disabled="busy || !!cleanJob || !chosen().length">{{ _("Estimate space (dry run)") }}</button>
+											<button class="btn sm primary" type="button" @click="runClean(false)" :disabled="busy || !!cleanJob || !cleanResult || !cleanDry || !chosen().length">{{ _("Clean up now") }}</button>
+										</div>
+										<template x-if="cleanJob"><div class="loading"><span class="spinner"></span> {{ _("Waiting for the server agent…") }}</div></template>
+										<template x-if="cleanResult">
+											<div class="stack">
+												<template x-if="cleanResult.error"><pre class="log" x-text="cleanResult.error"></pre></template>
+												<template x-if="cleanResult.summary">
+													<div class="stack">
+														<strong><span x-text="cleanResult.summary.dry_run ? __('Estimated space to free') : __('Space freed')"></span>: <span x-text="nx.bytes(cleanResult.summary.freed_bytes)"></span></strong>
+														<table class="nx-table">
+															<thead><tr><th></th><th>{{ _("Items") }}</th><th></th></tr></thead>
+															<tbody>
+																<template x-for="r in cleanResult.summary.targets" :key="r.target">
+																	<tr><td x-text="__(r.label)"></td><td x-text="r.items"></td><td x-text="nx.bytes(r.freed_bytes)"></td></tr>
+																</template>
+															</tbody>
+														</table>
+													</div>
+												</template>
+											</div>
+										</template>
+									</div>
+								</section>
+							</div>
+						</template>
+					</div>
+				</template>
 			</div>
 
 			<section class="card">
