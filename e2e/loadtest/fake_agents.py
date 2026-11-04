@@ -99,12 +99,13 @@ async def main():
 	ap.add_argument("--site-name", required=True)
 	ap.add_argument("--tokens", required=True)
 	ap.add_argument("--servers", type=int, default=100)
+	ap.add_argument("--offset", type=int, default=0, help="skip the first N tokens (run several processes)")
 	ap.add_argument("--duration", type=int, default=180)
 	ap.add_argument("--poll", type=float, default=10)
 	ap.add_argument("--heartbeat", type=float, default=60)
 	ap.add_argument("--timeout", type=float, default=30)
 	args = ap.parse_args()
-	creds = json.load(open(args.tokens))[: args.servers]
+	creds = json.load(open(args.tokens))[args.offset: args.offset + args.servers]
 	stats = Stats()
 	limits = httpx.Limits(max_connections=args.servers, max_keepalive_connections=args.servers)
 	async with httpx.AsyncClient(timeout=args.timeout, limits=limits, trust_env=False) as client:
