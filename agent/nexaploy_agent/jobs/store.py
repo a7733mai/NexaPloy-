@@ -257,6 +257,19 @@ class JobStore:
         )
         return cur.rowcount
 
+    def count_finished_before(self, iso_ts: str) -> int:
+        row = self._conn().execute(
+            "SELECT COUNT(*) FROM jobs WHERE status IN ('success','failure','cancelled') AND ended_at < ?",
+            (iso_ts,),
+        ).fetchone()
+        return int(row[0] or 0)
+
+    def vacuum(self) -> None:
+        """Give the space of deleted rows back to the filesystem (server.cleanup)."""
+        conn = self._conn()
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        conn.execute("VACUUM")
+
     # ---- steps ---------------------------------------------------------------------
     def steps(self, job_id: str) -> list[dict[str, Any]]:
         rows = self._conn().execute(
