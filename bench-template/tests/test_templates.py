@@ -237,7 +237,8 @@ def test_frontend_env(bench):
 def test_configurator(bench):
     c = bench["services"]["configurator"]
     script = c["command"][0]
-    assert c["entrypoint"] == ["bash", "-c"]
+    assert c["entrypoint"] == ["/usr/local/bin/nexaploy-entrypoint.sh", "bash", "-c"]
+    assert c["working_dir"] == "/home/frappe/frappe-bench"  # bench must run from the bench root
     assert 'bench set-config -g db_host "$$DB_HOST"' in script
     assert 'bench set-config -gp db_port "$$DB_PORT"' in script
     assert f"redis_cache \"redis://{BENCH}-redis-cache:6379\"" in script

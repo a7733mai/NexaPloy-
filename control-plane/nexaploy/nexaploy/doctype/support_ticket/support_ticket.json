@@ -1,0 +1,196 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "format:TKT-{#####}",
+ "creation": "2026-11-04 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "subject",
+  "team",
+  "status",
+  "priority",
+  "column_break_1",
+  "site",
+  "server",
+  "raised_by",
+  "assigned_to",
+  "section_break_sla",
+  "first_response_due",
+  "first_response_at",
+  "column_break_2",
+  "last_reply_at",
+  "resolved_at",
+  "closed_at",
+  "section_break_replies",
+  "replies"
+ ],
+ "fields": [
+  {
+   "fieldname": "subject",
+   "fieldtype": "Data",
+   "label": "Subject",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "label": "Team",
+   "options": "Team",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Open\nWaiting on Customer\nWaiting on Support\nResolved\nClosed",
+   "default": "Open",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "label": "Priority",
+   "options": "Low\nNormal\nHigh\nUrgent",
+   "default": "Normal",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "options": "Site"
+  },
+  {
+   "fieldname": "server",
+   "fieldtype": "Link",
+   "label": "Server",
+   "options": "Server"
+  },
+  {
+   "fieldname": "raised_by",
+   "fieldtype": "Link",
+   "label": "Raised By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "assigned_to",
+   "fieldtype": "Link",
+   "label": "Assigned To",
+   "options": "User",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "section_break_sla",
+   "fieldtype": "Section Break",
+   "label": "SLA"
+  },
+  {
+   "fieldname": "first_response_due",
+   "fieldtype": "Datetime",
+   "label": "First Response Due",
+   "read_only": 1
+  },
+  {
+   "fieldname": "first_response_at",
+   "fieldtype": "Datetime",
+   "label": "First Response At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_reply_at",
+   "fieldtype": "Datetime",
+   "label": "Last Reply At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "resolved_at",
+   "fieldtype": "Datetime",
+   "label": "Resolved At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "closed_at",
+   "fieldtype": "Datetime",
+   "label": "Closed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_replies",
+   "fieldtype": "Section Break",
+   "label": "Conversation"
+  },
+  {
+   "fieldname": "replies",
+   "fieldtype": "Table",
+   "label": "Replies",
+   "options": "Support Ticket Reply",
+   "description": "Staff: use the Reply button (emails the team). Rows added here directly also count as staff replies."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-04 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Support Ticket",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Nexaploy Support",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Nexaploy Customer",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "title_field": "subject",
+ "search_fields": "subject,team,status"
+}

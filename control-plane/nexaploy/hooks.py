@@ -6,6 +6,9 @@ app_email = "dev@nexaploy.local"
 app_license = "mit"
 required_apps = []
 
+# Public SaaS signup: /signup/<product slug>
+website_route_rules = [{"from_route": "/signup/<product>", "to_route": "signup"}]
+
 # Customer portal (www/dashboard)
 # -------------------------------
 role_home_page = {"Nexaploy Customer": "dashboard"}
@@ -23,7 +26,7 @@ after_migrate = "nexaploy.install.after_migrate"
 # --------
 # The role is also exported as a fixture so `bench export-fixtures` keeps it in git.
 fixtures = [
-	{"dt": "Role", "filters": [["role_name", "in", ["Nexaploy Customer", "Nexaploy 2FA"]]]},
+	{"dt": "Role", "filters": [["role_name", "in", ["Nexaploy Customer", "Nexaploy 2FA", "Nexaploy Support"]]]},
 ]
 
 # Authentication
@@ -53,6 +56,9 @@ permission_query_conditions = {
 	"GitHub Installation": "nexaploy.permissions.team_query",
 	"Team Activity": "nexaploy.permissions.team_activity_query",
 	"Team Credit Transaction": "nexaploy.permissions.team_credit_query",
+	"Marketplace Publisher": "nexaploy.api.publisher.publisher_query",
+	"Publisher Payout": "nexaploy.billing.payouts.payout_query",
+	"Support Ticket": "nexaploy.support.support_ticket_query",
 	"Team": "nexaploy.permissions.team_doc_query",
 	"Team Invitation": "nexaploy.permissions.team_invitation_query",
 	"Deploy Candidate": "nexaploy.permissions.deploy_candidate_query",
@@ -74,6 +80,9 @@ has_permission = {
 	"GitHub Installation": "nexaploy.permissions.has_team_permission",
 	"Team Activity": "nexaploy.permissions.has_read_only_team_permission",
 	"Team Credit Transaction": "nexaploy.permissions.has_read_only_team_permission",
+	"Marketplace Publisher": "nexaploy.permissions.has_team_permission",
+	"Publisher Payout": "nexaploy.permissions.has_read_only_team_permission",
+	"Support Ticket": "nexaploy.support.has_support_ticket_permission",
 	"Team": "nexaploy.permissions.has_team_doc_permission",
 	"Team Invitation": "nexaploy.permissions.has_team_permission",
 }
@@ -100,10 +109,18 @@ scheduler_events = {
 	"cron": {
 		# mark servers Offline when no heartbeat for 5 minutes
 		"* * * * *": ["nexaploy.tasks.mark_offline_servers"],
-		"*/5 * * * *": ["nexaploy.tasks.check_alerts", "nexaploy.tasks.check_sites_uptime"],
+		"*/5 * * * *": [
+			"nexaploy.tasks.check_alerts",
+			"nexaploy.tasks.check_sites_uptime",
+			"nexaploy.provisioning.jobs.check_provisioning",
+		],
 		"*/15 * * * *": ["nexaploy.tasks.apply_auto_updates", "nexaploy.tasks.enforce_plan_limits"],
 	},
-	"hourly": ["nexaploy.tasks.prune_registration_tokens", "nexaploy.tasks.schedule_backups"],
+	"hourly": [
+		"nexaploy.tasks.prune_registration_tokens",
+		"nexaploy.tasks.schedule_backups",
+		"nexaploy.support_tasks.auto_close_resolved_tickets",
+	],
 	"daily": [
 		"nexaploy.tasks.prune_remote_backups",
 		"nexaploy.tasks.prune_server_metrics",
@@ -111,5 +128,7 @@ scheduler_events = {
 		"nexaploy.billing.subscriptions.reconcile_subscriptions",
 		"nexaploy.billing.invoicing.generate_monthly_invoices",
 		"nexaploy.billing.invoicing.mark_overdue_and_suspend",
+		"nexaploy.billing.payouts.generate_publisher_payouts",
+		"nexaploy.saas.expire_trials",
 	],
 }

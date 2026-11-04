@@ -22,6 +22,9 @@ BRANCH="main"
 FRAPPE_DOCKER_REF="main"
 SKIP_PREFLIGHT=0
 FORCE_REGISTER=0
+SKIP_PACKAGES=0
+NO_SYSTEMD=0
+SKIP_FRAPPE_DOCKER=0
 
 usage() {
     cat <<'EOF'
@@ -37,6 +40,10 @@ Usage: install.sh [options]
   --frappe-docker-ref REF  frappe_docker git ref used as image build context (default: main)
   --force-register         register again even if a server token is already stored
   --skip-preflight         skip arch/RAM/disk/port checks
+  --root DIR               install root (default: /opt/nexaploy; other paths are for testing)
+  --skip-packages          do not install OS packages (Docker, rclone, ... must already exist)
+  --no-systemd             do not install systemd units (run `nexaploy-agent api|worker` yourself)
+  --skip-frappe-docker     do not clone frappe_docker (no image builds on this server)
   -h, --help               show this help
 EOF
 }
@@ -58,6 +65,10 @@ while [[ $# -gt 0 ]]; do
         --frappe-docker-ref) need_val "$@"; FRAPPE_DOCKER_REF="$2"; shift 2 ;;
         --force-register)    FORCE_REGISTER=1; shift ;;
         --skip-preflight)    SKIP_PREFLIGHT=1; shift ;;
+        --root)              need_val "$@"; ROOT="${2%/}"; shift 2 ;;
+        --skip-packages)     SKIP_PACKAGES=1; shift ;;
+        --no-systemd)        NO_SYSTEMD=1; shift ;;
+        --skip-frappe-docker) SKIP_FRAPPE_DOCKER=1; shift ;;
         -h|--help)           usage; exit 0 ;;
         *)                   usage >&2; die "unknown option: $1" ;;
     esac
@@ -257,6 +268,7 @@ install_stacks() {
 
     install -m 0644 "$tpl/db/docker-compose.yml" "$ROOT/db/docker-compose.yml"
     [[ -f "$ROOT/db/.env" ]] || install -m 0644 "$tpl/db/env.example" "$ROOT/db/.env"
+    set_env_var "$ROOT/db/.env" DB_ENV_FILE "$ROOT/config/db.env"
 
     install -m 0644 "$tpl/proxy/docker-compose.yml" "$ROOT/proxy/docker-compose.yml"
     if [[ -d "$tpl/proxy/config/traefik" ]]; then
@@ -282,7 +294,7 @@ install_stacks() {
     else
         warn "image-builder/build.sh not found in the agent source; image.build jobs will fail"
     fi
-    if [[ ! -d "$ROOT/images/frappe_docker/.git" ]]; then
+    if [[ $SKIP_FRAPPE_DOCKER -eq 0 && ! -d "$ROOT/images/frappe_docker/.git" ]]; then
         log "cloning frappe_docker ($FRAPPE_DOCKER_REF)"
         git clone --quiet "$FRAPPE_DOCKER_URL" "$ROOT/images/frappe_docker"
         git -C "$ROOT/images/frappe_docker" checkout --quiet "$FRAPPE_DOCKER_REF"
@@ -408,14 +420,31 @@ summary() {
 
 main() {
     preflight
-    install_packages
+    if [[ $SKIP_PACKAGES -eq 1 ]]; then
+        log "skipping OS packages (--skip-packages)"
+        command -v docker >/dev/null || die "docker not found"
+        docker compose version >/dev/null 2>&1 || die "docker compose plugin not found"
+        PYTHON=""
+        for candidate in python3.13 python3.12 python3.11 python3; do
+            if command -v "$candidate" >/dev/null && "$candidate" -c 'import sys; sys.exit(sys.version_info < (3, 11))'; then
+                PYTHON="$(command -v "$candidate")"; break
+            fi
+        done
+        [[ -n "$PYTHON" ]] || die "python >= 3.11 not found"
+    else
+        install_packages
+    fi
     create_tree
     create_networks
     install_agent
     install_stacks
     write_config
     register
-    install_units
+    if [[ $NO_SYSTEMD -eq 1 ]]; then
+        log "skipping systemd units (--no-systemd): run 'NEXAPLOY_CONFIG=$CONFIG nexaploy-agent api' and '... worker'"
+    else
+        install_units
+    fi
     start_stacks
     summary
 }

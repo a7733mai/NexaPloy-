@@ -761,3 +761,257 @@ Credit transactions cannot be changed; add an Adjustment instead,لا يمكن �
 Credit transactions cannot be deleted; add an Adjustment instead,لا يمكن حذف حركات الرصيد؛ أضف تسوية بدلًا من ذلك
 Team Activity is read-only,نشاط الفريق للقراءة فقط
 Team Activity cannot be deleted,لا يمكن حذف نشاط الفريق
+"A dedicated server in the region of your choice, created and managed by Nexaploy. The monthly price covers the server and its management.",خادم مخصص في المنطقة التي تختارها، تنشئه Nexaploy وتديره. يشمل السعر الشهري الخادم وإدارته.
+Already have an account?,لديك حساب بالفعل؟
+"An account with this e-mail already exists. Log in first, then sign up again.",يوجد حساب بهذا البريد الإلكتروني بالفعل. سجّل الدخول أولاً ثم أعد التسجيل.
+Apps {0} are not part of release group {1},التطبيقات {0} ليست ضمن مجموعة الإصدار {1}
+Archive the benches on this server first,أرشف الـ Benches على هذا الخادم أولاً
+At least 8 characters with letters and digits. Also the Administrator password of your site.,8 أحرف على الأقل تتضمن حروفاً وأرقاماً. وهي أيضاً كلمة مرور المسؤول (Administrator) لموقعك.
+Bootstrapping,جارٍ التهيئة
+Check your inbox,تحقق من بريدك الوارد
+Checking…,جارٍ التحقق…
+Code is required,الرمز مطلوب
+Company,الشركة
+Confirm your e-mail to create your {0} site,أكّد بريدك الإلكتروني لإنشاء موقع {0} الخاص بك
+Create hosted server,إنشاء خادم مستضاف
+Create my site,أنشئ موقعي
+Create server,إنشاء الخادم
+Creating,جارٍ الإنشاء
+Creating your site… this takes a few minutes.,جارٍ إنشاء موقعك… يستغرق ذلك بضع دقائق.
+Delete,حذف
+Delete or move the sites on this server first,احذف المواقع على هذا الخادم أو انقلها أولاً
+Delete server {0}? The virtual machine and all its data are destroyed.,حذف الخادم {0}؟ سيتم إتلاف الجهاز الافتراضي وجميع بياناته.
+Deleting,جارٍ الحذف
+E-mail,البريد الإلكتروني
+Enter a valid e-mail address,أدخل عنوان بريد إلكتروني صالحاً
+Free for {0} days. No credit card required.,مجاني لمدة {0} يوماً. لا حاجة إلى بطاقة ائتمان.
+Full name,الاسم الكامل
+Full name is required,الاسم الكامل مطلوب
+Imported {0} regions and {1} sizes (disabled),تم استيراد {0} منطقة و{1} حجماً (معطلة)
+Invalid product,منتج غير صالح
+Log in,تسجيل الدخول
+Log in as Administrator with the password you chose.,سجّل الدخول باسم Administrator بكلمة المرور التي اخترتها.
+No server is available for this product right now. Our team has been notified.,لا يتوفر خادم لهذا المنتج حالياً. تم إبلاغ فريقنا.
+Not Provisioned,غير مُجهّز
+Only servers created by Nexaploy can be deleted here,يمكن هنا حذف الخوادم التي أنشأتها Nexaploy فقط
+Open dashboard,فتح لوحة التحكم
+Optional,اختياري
+"Optional. Lowercase letters, digits and dashes.",اختياري. أحرف لاتينية صغيرة وأرقام وشرطات.
+Password,كلمة المرور
+Password is too long,كلمة المرور طويلة جداً
+Password must contain letters and digits and no leading or trailing spaces,يجب أن تحتوي كلمة المرور على حروف وأرقام وألا تبدأ أو تنتهي بمسافة
+Password must have at least 8 characters,يجب أن تتكون كلمة المرور من 8 أحرف على الأقل
+Pending Verification,بانتظار التحقق
+Plan {0} is not a Server Hosted plan,الخطة {0} ليست خطة خادم مستضاف
+Plan {0} is not a Site plan,الخطة {0} ليست خطة موقع
+Please fill in all required fields.,يرجى ملء جميع الحقول المطلوبة.
+Provider,المزوّد
+Provisioning,جارٍ التجهيز
+Ready,جاهز
+Region,المنطقة
+Region {0} is not available,المنطقة {0} غير متاحة
+Release group {0} belongs to a team; use a shared release group,مجموعة الإصدار {0} تابعة لفريق؛ استخدم مجموعة إصدار مشتركة
+Server name,اسم الخادم
+Server size,حجم الخادم
+Server size {0} is not available,حجم الخادم {0} غير متاح
+Server size {0} is not offered in region {1},حجم الخادم {0} غير متوفر في المنطقة {1}
+Server {0} is being created,جارٍ إنشاء الخادم {0}
+Server {0} is being deleted,جارٍ حذف الخادم {0}
+Sign up,إنشاء حساب
+Sign up for {0},سجّل في {0}
+Site address,عنوان الموقع
+The server could not be created.,تعذّر إنشاء الخادم.
+The server of this registration token is already registered,خادم رمز التسجيل هذا مسجّل بالفعل
+The server of this registration token no longer exists,خادم رمز التسجيل هذا لم يعد موجوداً
+The server of this registration token was deleted,تم حذف خادم رمز التسجيل هذا
+This product is not available,هذا المنتج غير متاح
+This server is already deleted,هذا الخادم محذوف بالفعل
+This subdomain is already taken,هذا النطاق الفرعي مستخدم بالفعل
+This verification link has expired. Please sign up again.,انتهت صلاحية رابط التحقق هذا. يرجى التسجيل مرة أخرى.
+This verification link is invalid,رابط التحقق هذا غير صالح
+Too many attempts. Please try again later.,محاولات كثيرة جداً. يرجى المحاولة لاحقاً.
+Trial days cannot be negative,لا يمكن أن تكون أيام التجربة سالبة
+Unknown signup,تسجيل غير معروف
+Verified,تم التحقق
+We sent a confirmation link to,أرسلنا رابط تأكيد إلى
+You will be billed,سيتم احتساب
+Your server is being set up. This usually takes 5 to 10 minutes.,جارٍ إعداد خادمك. يستغرق ذلك عادةً من 5 إلى 10 دقائق.
+Your server is ready.,خادمك جاهز.
+Your site could not be created.,تعذّر إنشاء موقعك.
+Your site could not be created. Our team has been notified.,تعذّر إنشاء موقعك. تم إبلاغ فريقنا.
+Your site is created as soon as you confirm your e-mail.,يتم إنشاء موقعك فور تأكيد بريدك الإلكتروني.
+Your site is ready.,موقعك جاهز.
+Your site {0} is ready. Log in at https://{0} as Administrator with the password you chose at signup. Manage it from {1}.,موقعك {0} جاهز. سجّل الدخول على https://{0} باسم Administrator بكلمة المرور التي اخترتها عند التسجيل. يمكنك إدارته من {1}.
+Your {0} site is ready,موقع {0} الخاص بك جاهز
+"Hello {0},<br><br>Confirm your e-mail address to create {1}:<br><br><a href=""{2}"">{2}</a><br><br>The link is valid for 24 hours. If you did not sign up, ignore this e-mail.","مرحباً {0}،<br><br>أكّد عنوان بريدك الإلكتروني لإنشاء {1}:<br><br><a href=""{2}"">{2}</a><br><br>الرابط صالح لمدة 24 ساعة. إذا لم تقم بالتسجيل فتجاهل هذه الرسالة."
+per month,شهرياً
+per month once the server is created.,شهرياً بمجرد إنشاء الخادم.
+your-company,your-company
+{0} GB RAM,{0} غيغابايت ذاكرة
+{0} GB disk,{0} غيغابايت تخزين
+{0} is available,{0} متاح
+{0} vCPU,{0} معالج افتراضي
+In Review,قيد المراجعة
+Published,منشور
+Approved,معتمد
+Waiting on Customer,بانتظار العميل
+Waiting on Support,بانتظار الدعم
+Resolved,تم الحل
+Closed,مغلقة
+Low,منخفضة
+Normal,عادية
+High,مرتفعة
+Urgent,عاجلة
+Bank,تحويل بنكي
+PayPal,PayPal
+A publisher with payouts cannot be deleted,لا يمكن حذف ناشر لديه دفعات مستحقات
+"Account holder, bank name and SWIFT, or your PayPal email",صاحب الحساب واسم البنك ورمز SWIFT، أو بريدك في PayPal
+Account number / IBAN,رقم الحساب / IBAN
+Account number is too long,رقم الحساب طويل جدًا
+Account on file,الحساب محفوظ
+Add a custom app on the Bench Groups page first.,أضف تطبيقًا مخصصًا من صفحة مجموعات Bench أولًا.
+All,الكل
+All tickets,كل التذاكر
+An app named {0} is already on the marketplace,يوجد تطبيق باسم {0} في المتجر بالفعل
+"App name must be a python package name, e.g. erpnext",يجب أن يكون اسم التطبيق اسم حزمة بايثون، مثل erpnext
+App {0} is not listed by your team,التطبيق {0} غير مدرج من قِبل فريقك
+App {0} not found,التطبيق {0} غير موجود
+Become a publisher,كن ناشرًا
+Cannot tell which Frappe versions the app supports: add releases to the listing or set the custom app's Frappe majors,تعذّر تحديد إصدارات Frappe التي يدعمها التطبيق: أضف إصدارات إلى الإدراج أو حدّد إصدارات Frappe للتطبيق المخصص
+Close this ticket?,إغلاق هذه التذكرة؟
+Close ticket,إغلاق التذكرة
+Create your publisher profile first,أنشئ ملف الناشر أولًا
+Custom app,التطبيق المخصص
+Custom app {0} does not belong to your team,التطبيق المخصص {0} لا يتبع فريقك
+Describe the problem,صف المشكلة
+Documentation,التوثيق
+Documentation URL,رابط التوثيق
+Edit,تعديل
+Edit listing,تعديل الإدراج
+Enter the transfer reference before marking the payout Paid,أدخل مرجع التحويل قبل تعليم الدفعة كمدفوعة
+Explain why the listing is rejected in the review notes,وضّح سبب رفض الإدراج في ملاحظات المراجعة
+First response,أول رد
+First response within (hours),أول رد خلال (ساعات)
+Gross,الإجمالي
+Installs,التثبيتات
+Invalid documentation URL,رابط التوثيق غير صالح
+Invalid listing values,قيم الإدراج غير صالحة
+Listing saved,تم حفظ الإدراج
+Listing withdrawn,تم سحب الإدراج
+"Listings are reviewed by Nexaploy staff before they appear on the marketplace. On approval, one release per Frappe version is created from your app's version branches.",يراجع فريق Nexaploy الإدراجات قبل ظهورها في المتجر. عند الاعتماد يُنشأ إصدار لكل نسخة Frappe من فروع الإصدارات في تطبيقك.
+Logo URL,رابط الشعار
+Marketplace listing {0} submitted for review,تم إرسال إدراج المتجر {0} للمراجعة
+Marketplace payout {0} ({1} to {2}),دفعة المتجر {0} ({1} إلى {2})
+Marketplace payout {0} paid,تم دفع مستحقات المتجر {0}
+Month,الشهر
+My listings,إدراجاتي
+Net,الصافي
+Never share passwords or API secrets in a ticket.,لا تشارك كلمات المرور أو أسرار API في التذكرة أبدًا.
+New listing,إدراج جديد
+New ticket,تذكرة جديدة
+Nexaploy Support,دعم Nexaploy
+No listings yet. Create one from one of your custom apps.,لا توجد إدراجات بعد. أنشئ إدراجًا من أحد تطبيقاتك المخصصة.
+No paid installs yet.,لا توجد تثبيتات مدفوعة بعد.
+No payouts yet. Payouts are calculated monthly for the previous month's payments.,لا توجد دفعات بعد. تُحسب الدفعات شهريًا عن مدفوعات الشهر السابق.
+No tickets. Need help? Open a ticket and our team will get back to you.,لا توجد تذاكر. تحتاج مساعدة؟ افتح تذكرة وسيعود إليك فريقنا.
+None,لا شيء
+Only Draft payouts can be deleted,يمكن حذف الدفعات المسودة فقط
+Only Draft payouts can change their amounts,يمكن تغيير مبالغ الدفعات المسودة فقط
+Only active custom apps can be listed,يمكن إدراج التطبيقات المخصصة النشطة فقط
+Only support staff can reply here,يمكن لفريق الدعم فقط الرد هنا
+Only team Owners and Admins can manage the publisher profile.,يمكن لمالكي الفريق ومسؤوليه فقط إدارة ملف الناشر.
+Open ticket,فتح تذكرة
+Opened,فُتحت
+Paid apps need a monthly price,التطبيقات المدفوعة تحتاج إلى سعر شهري
+Payout details,تفاصيل الدفع
+Payout method,طريقة الدفع
+Payouts,الدفعات
+Platform fee,رسوم المنصة
+Please describe the problem,يرجى وصف المشكلة
+Please write a message,يرجى كتابة رسالة
+Price,السعر
+Price per site per month,السعر لكل موقع شهريًا
+Pricing,التسعير
+Pricing of a published app cannot be changed. Contact support to unpublish it first.,لا يمكن تغيير تسعير تطبيق منشور. تواصل مع الدعم لإلغاء نشره أولًا.
+Priority,الأولوية
+Priority: {0},الأولوية: {0}
+"Public image URLs, one per line (max 8).",روابط صور عامة، رابط في كل سطر (8 كحد أقصى).
+Publish your own app on the marketplace,انشر تطبيقك الخاص في المتجر
+Publish your team's custom apps on the Nexaploy marketplace and earn a share of the revenue of paid apps.,انشر تطبيقات فريقك المخصصة في متجر Nexaploy واحصل على حصة من إيرادات التطبيقات المدفوعة.
+Publisher,الناشر
+Publisher name,اسم الناشر
+Publisher profile,ملف الناشر
+Publisher profile saved,تم حفظ ملف الناشر
+Remove or reassign the publisher's listings first,احذف إدراجات الناشر أو انقلها أولًا
+Reopen,إعادة فتح
+Reply,رد
+Reply sent,تم إرسال الرد
+Reply {0} is empty,الرد {0} فارغ
+Replying reopens the ticket.,الرد يعيد فتح التذكرة.
+Revenue by month,الإيرادات حسب الشهر
+Review notes,ملاحظات المراجعة
+Row {0}: duplicate release for Frappe {1},الصف {0}: إصدار مكرر لـ Frappe {1}
+Row {0}: unsupported Frappe major {1},الصف {0}: إصدار Frappe الرئيسي {1} غير مدعوم
+Sales,المبيعات
+Screenshots,لقطات الشاشة
+Send reply,إرسال الرد
+Server: {0},الخادم: {0}
+Site: {0},الموقع: {0}
+Status: {0},الحالة: {0}
+Stored encrypted. Leave empty to keep the saved account.,يُخزَّن مشفرًا. اتركه فارغًا للإبقاء على الحساب المحفوظ.
+Subject,الموضوع
+Submit for review,إرسال للمراجعة
+Submit {0} for review?,إرسال {0} للمراجعة؟
+Submitted for review,تم الإرسال للمراجعة
+Support,الدعم
+Support email,بريد الدعم
+Support team,فريق الدعم
+Support tickets,تذاكر الدعم
+Team {0} already has a publisher profile,الفريق {0} لديه ملف ناشر بالفعل
+Team: {0},الفريق: {0}
+The repository must be public: marketplace builds clone it without credentials.,يجب أن يكون المستودع عامًا: عمليات بناء المتجر تستنسخه بدون بيانات اعتماد.
+This custom app is already listed,هذا التطبيق المخصص مدرج بالفعل
+This ticket is closed. Reopen it to reply,هذه التذكرة مغلقة. أعد فتحها للرد
+This ticket is closed. Reopen it to reply.,هذه التذكرة مغلقة. أعد فتحها للرد.
+Ticket,التذكرة
+Ticket closed,تم إغلاق التذكرة
+Ticket reopened,تمت إعادة فتح التذكرة
+Ticket {0} not found,التذكرة {0} غير موجودة
+Ticket {0} opened,تم فتح التذكرة {0}
+Title,العنوان
+Unknown status {0},حالة غير معروفة {0}
+Updated,آخر تحديث
+Website,الموقع الإلكتروني
+Withdraw,سحب
+Your app {0} is published on the marketplace,تم نشر تطبيقك {0} في المتجر
+Your app {0} was unpublished from the marketplace,تم إلغاء نشر تطبيقك {0} من المتجر
+Your marketplace listing {0} needs changes,إدراجك في المتجر {0} يحتاج إلى تعديلات
+Your marketplace payout {0} for {1} to {2} has been paid: {3} {4} ({5}).,تم دفع مستحقاتك من المتجر {0} عن الفترة {1} إلى {2}: {3} {4} ({5}).
+Your revenue share,حصتك من الإيرادات
+Your share,حصتك
+Your share is added to your team's prepaid credits.,تُضاف حصتك إلى الرصيد المسبق الدفع لفريقك.
+Your team has too many open tickets. Please reply to or close an existing one.,لدى فريقك تذاكر مفتوحة كثيرة. يرجى الرد على إحداها أو إغلاقها.
+[{0}] Customer replied: {1},[{0}] رد العميل: {1}
+[{0}] New support ticket: {1},[{0}] تذكرة دعم جديدة: {1}
+[{0}] Support replied: {1},[{0}] رد الدعم: {1}
+expected by,متوقع بحلول
+name already listed,الاسم مدرج بالفعل
+{0} submitted {1} for review.,أرسل {0} التطبيق {1} للمراجعة.
+{0} {1} does not belong to team {2},{0} {1} لا يتبع الفريق {2}
+Title is required,العنوان مطلوب
+Add a description,أضف وصفًا
+The listing has no source custom app,الإدراج ليس له تطبيق مخصص مصدر
+Publisher name is required,اسم الناشر مطلوب
+Invalid website URL,رابط الموقع غير صالح
+Invalid support email,بريد الدعم غير صالح
+"Payout method must be Bank, PayPal or Credits",يجب أن تكون طريقة الدفع تحويلًا بنكيًا أو PayPal أو رصيدًا
+Enter the PayPal email address in the payout details,أدخل بريد PayPal في تفاصيل الدفع
+Enter the bank account number (IBAN),أدخل رقم الحساب البنكي (IBAN)
+Invalid logo URL,رابط الشعار غير صالح
+Pricing must be Free or Paid,يجب أن يكون التسعير مجانيًا أو مدفوعًا
+Invalid price,سعر غير صالح
+Only platform administrators can review listings,يمكن لمسؤولي المنصة فقط مراجعة الإدراجات
+Revenue share must be a number,يجب أن تكون حصة الإيرادات رقمًا
+Revenue share must be between 0 and 100 percent,يجب أن تكون حصة الإيرادات بين 0 و100 بالمئة
+Please enter a subject,يرجى إدخال موضوع
+Get help,احصل على مساعدة

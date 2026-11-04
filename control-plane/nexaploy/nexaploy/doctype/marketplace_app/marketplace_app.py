@@ -5,6 +5,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from nexaploy import publisher_utils as pu
 from nexaploy.utils import SUPPORTED_MAJORS, is_valid_app_name
 
 
@@ -21,6 +22,32 @@ class MarketplaceApp(Document):
 			if rel.frappe_major in seen:
 				frappe.throw(_("Row {0}: duplicate release for Frappe {1}").format(rel.idx, rel.frappe_major))
 			seen.add(rel.frappe_major)
+		self.validate_listing()
+
+	def validate_listing(self):
+		"""Publisher listing fields (see nexaploy.publisher_utils): approved <=> Published,
+		publisher display name, media URLs."""
+		before = None if self.is_new() else self.get_doc_before_save()
+		self.status, approved = pu.sync_approval(
+			self.status,
+			self.approved,
+			before.status if before else None,
+			before.approved if before else None,
+			is_new=before is None,
+		)
+		self.approved = 1 if approved else 0
+		if self.publisher_profile:
+			title = frappe.db.get_value("Marketplace Publisher", self.publisher_profile, "title")
+			if title:
+				self.publisher = title
+		try:
+			self.screenshots = "\n".join(pu.parse_screenshots(self.screenshots)) or None
+		except pu.ListingError as exc:
+			frappe.throw(_(str(exc)))
+		if self.documentation_url and not pu.is_valid_url(self.documentation_url):
+			frappe.throw(_("Invalid documentation URL"))
+		if self.status == pu.REJECTED and not (self.review_notes or "").strip():
+			frappe.throw(_("Explain why the listing is rejected in the review notes"))
 
 	def as_compat_dict(self, branch=None):
 		"""Shape consumed by nexaploy.utils.check_compatibility / build_apps_json."""

@@ -28,6 +28,10 @@ x-frappe-hardening: &frappe-hardening
   tmpfs:
     - /tmp:mode=1777,size=256m
     - /home/frappe/.cache:uid=${FRAPPE_UID:-3113},gid=${FRAPPE_GID:-3113},mode=0700,size=64m
+    # bench/config only holds lock files and pids (frappe writes site_config.lock here)
+    - /home/frappe/frappe-bench/config:uid=${FRAPPE_UID:-3113},gid=${FRAPPE_GID:-3113},mode=0755,size=4m
+    # bench's is_bench_directory() also requires config/pids
+    - /home/frappe/frappe-bench/config/pids:uid=${FRAPPE_UID:-3113},gid=${FRAPPE_GID:-3113},mode=0755,size=1m
   security_opt:
     - no-new-privileges:true
   cap_drop:
@@ -81,11 +85,13 @@ services:
     <<: *frappe-hardening
     profiles: ["configurator"]
     restart: "no"
-    entrypoint: ["bash", "-c"]
+    # The image entrypoint links sites/assets and writes sites/apps.txt (baked, in
+    # install order); `bench` must run from the bench root to find its apps.
+    entrypoint: ["/usr/local/bin/nexaploy-entrypoint.sh", "bash", "-c"]
     command:
       - >
         set -euo pipefail;
-        ls -1 ../apps > apps.txt;
+        [ -s sites/apps.txt ] || ls -1 apps > sites/apps.txt;
         bench set-config -g db_host "$$DB_HOST";
         bench set-config -gp db_port "$$DB_PORT";
         bench set-config -g redis_cache "redis://{{ bench }}-redis-cache:6379";
@@ -93,7 +99,7 @@ services:
         bench set-config -g redis_socketio "redis://{{ bench }}-redis-queue:6379";
         bench set-config -gp socketio_port 9000;
         echo "configurator: common_site_config.json updated"
-    working_dir: /home/frappe/frappe-bench/sites
+    working_dir: /home/frappe/frappe-bench
     environment:
       <<: *frappe-env
     volumes:

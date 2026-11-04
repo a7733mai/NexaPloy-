@@ -36,9 +36,12 @@ services:
       SECRETS: "0"
       AUTH: "0"
       LOG_LEVEL: warning
+      # bind 0.0.0.0 only; fails to start on hosts with IPv6 disabled otherwise
+      DISABLE_IPV6: "1"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    read_only: true
+    # Not read_only: the entrypoint renders /usr/local/etc/haproxy/haproxy.cfg from
+    # haproxy.cfg.template (same dir) at start. Still no caps / no-new-privileges.
     tmpfs:
       - /run
       - /tmp

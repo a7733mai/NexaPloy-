@@ -124,6 +124,17 @@ def create_app(ctx: AgentContext | None = None, settings: Settings | None = None
             raise Conflict(f"job {job_id} is {job['status']}; only queued jobs can be cancelled")
         return public_job(ctx.store.get(job_id))
 
+    @app.post("/v1/jobs/{job_id}/retry", dependencies=auth)
+    def retry_job(job_id: str):
+        job = ctx.store.get(job_id, with_steps=False)
+        if job.get("origin") != "local":
+            raise Conflict("control plane jobs are retried by the control plane")
+        if _contains_mask(job.get("params")):
+            raise Conflict("job secrets were scrubbed after it finished; submit a new job")
+        if not ctx.store.retry(job_id):
+            raise Conflict(f"job {job_id} is {job['status']}; only failed jobs can be retried")
+        return public_job(ctx.store.get(job_id))
+
     # ---- images -----------------------------------------------------------------------
     @app.post("/v1/images/build", dependencies=auth, status_code=202)
     def build_image(body: dict[str, Any] = Body(...)):
@@ -302,3 +313,13 @@ def create_app(ctx: AgentContext | None = None, settings: Settings | None = None
 
 def app_factory() -> FastAPI:  # for `uvicorn --factory nexaploy_agent.api:app_factory`
     return create_app()
+
+
+def _contains_mask(value) -> bool:
+    from .redact import MASK
+
+    if isinstance(value, dict):
+        return any(_contains_mask(v) for v in value.values())
+    if isinstance(value, list):
+        return any(_contains_mask(v) for v in value)
+    return isinstance(value, str) and MASK in value

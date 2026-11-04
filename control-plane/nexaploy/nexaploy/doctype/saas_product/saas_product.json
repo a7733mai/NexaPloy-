@@ -1,0 +1,124 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:slug",
+ "creation": "2026-11-28 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "slug",
+  "enabled",
+  "description",
+  "column_break_1",
+  "release_group",
+  "bench_selection",
+  "apps",
+  "default_plan",
+  "trial_days",
+  "domain"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "slug",
+   "fieldtype": "Data",
+   "label": "Slug",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "description": "Signup page: /signup/<slug> (or /signup?product=<slug>)."
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "release_group",
+   "fieldtype": "Link",
+   "label": "Release Group",
+   "options": "Release Group",
+   "reqd": 1,
+   "description": "Shared hosted release group; its Active benches without a team on Hosted servers host the sites."
+  },
+  {
+   "fieldname": "bench_selection",
+   "fieldtype": "Select",
+   "label": "Bench Selection",
+   "options": "Least Sites",
+   "default": "Least Sites"
+  },
+  {
+   "fieldname": "apps",
+   "fieldtype": "Small Text",
+   "label": "Apps",
+   "description": "Apps installed on every new site (comma or newline separated), e.g. erpnext. Must be part of the release group."
+  },
+  {
+   "fieldname": "default_plan",
+   "fieldtype": "Link",
+   "label": "Default Plan",
+   "options": "Nexaploy Plan",
+   "description": "Site plan of new sites (billed after the trial)."
+  },
+  {
+   "fieldname": "trial_days",
+   "fieldtype": "Int",
+   "label": "Trial Days",
+   "default": "14"
+  },
+  {
+   "fieldname": "domain",
+   "fieldtype": "Data",
+   "label": "Domain",
+   "description": "Root domain for the subdomains. Default: Nexaploy Settings root domain."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-28 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "SaaS Product",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "naming_rule": "By fieldname",
+ "title_field": "title",
+ "show_title_field_in_link": 0
+}

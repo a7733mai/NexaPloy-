@@ -275,3 +275,54 @@ def test_activity_and_credit_doctypes_link_team():
 	for dt in ("Team Activity", "Team Credit Transaction"):
 		team = next(f for f in BY_NAME[dt]["fields"] if f["fieldname"] == "team")
 		assert team["fieldtype"] == "Link" and team["options"] == "Team" and team.get("reqd") == 1
+
+
+# hosted server provisioning + SaaS signup: register the new DocTypes with the checks above
+EXPECTED.update({"Cloud Provider", "Cloud Region", "Cloud Server Size", "SaaS Product", "SaaS Signup"})
+
+
+def test_provisioning_and_saas_doctypes():
+	fields = {dt: {f["fieldname"]: f for f in BY_NAME[dt]["fields"]} for dt in BY_NAME}
+	server = fields["Server"]
+	for name in ("provider", "region", "size", "provider_server_id", "public_ipv4", "public_ipv6", "provisioning_status"):
+		assert name in server, name
+	assert server["provider"]["options"] == "Cloud Provider"
+	assert server["region"]["options"] == "Cloud Region"
+	assert server["size"]["options"] == "Cloud Server Size"
+	assert server["provisioning_status"]["options"].split("\n") == [
+		"Not Provisioned", "Creating", "Bootstrapping", "Ready", "Failed", "Deleting", "Deleted"
+	]
+	assert fields["Cloud Provider"]["api_token"]["fieldtype"] == "Password"
+	assert fields["Cloud Provider"]["provider"]["options"].split("\n") == ["Hetzner", "DigitalOcean"]
+	assert fields["Cloud Server Size"]["plan"]["options"] == "Nexaploy Plan"
+	assert fields["Server Registration Token"]["server"]["options"] == "Server"
+	assert fields["Site"]["trial_end_date"]["fieldtype"] == "Date"
+	product = fields["SaaS Product"]
+	assert BY_NAME["SaaS Product"]["autoname"] == "field:slug"
+	assert product["release_group"]["options"] == "Release Group"
+	assert product["default_plan"]["options"] == "Nexaploy Plan"
+	assert product["trial_days"].get("default") == "14"
+	signup = fields["SaaS Signup"]
+	assert signup["status"]["options"].split("\n") == [
+		"Pending Verification", "Verified", "Provisioning", "Active", "Failed"
+	]
+	for secret in ("token_hash", "status_token_hash"):
+		assert signup[secret].get("hidden") == 1 and signup[secret].get("unique") == 1
+	assert signup["password"]["fieldtype"] == "Password"
+	# platform-managed DocTypes: customers reach them only through the portal APIs
+	for dt in ("Cloud Provider", "Cloud Region", "Cloud Server Size", "SaaS Product", "SaaS Signup"):
+		assert {p["role"] for p in BY_NAME[dt]["permissions"]} == {"System Manager"}, dt
+
+
+# marketplace publishers / payouts and support tickets: register the new DocTypes
+EXPECTED.update({"Marketplace Publisher", "Publisher Payout", "Publisher Payout Item", "Support Ticket", "Support Ticket Reply"})
+CHILD_TABLES.update({"Publisher Payout Item", "Support Ticket Reply"})
+VALID_FIELDTYPES.add("Attach Image")  # Marketplace App.logo
+
+
+def test_publisher_and_support_doctypes_link_team():
+	for dt in ("Marketplace Publisher", "Support Ticket"):
+		team = next(f for f in BY_NAME[dt]["fields"] if f["fieldname"] == "team")
+		assert team["fieldtype"] == "Link" and team["options"] == "Team" and team.get("reqd") == 1
+	payout_team = next(f for f in BY_NAME["Publisher Payout"]["fields"] if f["fieldname"] == "team")
+	assert payout_team.get("fetch_from") == "publisher.team"

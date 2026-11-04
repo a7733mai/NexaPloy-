@@ -661,6 +661,8 @@ def list_servers(include_archived=False):
 		fields=[
 			"name", "server_id", "hostname", "ownership", "status", "plan", "team",
 			"last_heartbeat", "agent_version", "creation",
+			# hosted servers created by nexaploy.provisioning (api/provisioning.py)
+			"provider", "region", "provisioning_status", "public_ipv4",
 		],
 		order_by="creation desc",
 	)

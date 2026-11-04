@@ -190,3 +190,24 @@ def test_run_forever_stops(ctx):
     t.join(2)
     assert not t.is_alive()
     assert ctx.store.get(job["id"])["status"] == "success"
+
+
+def test_retry_requeues_failed_job_and_keeps_successful_steps(tmp_path):
+    from nexaploy_agent.jobs.store import JobStore
+
+    store = JobStore(tmp_path / "jobs.db")
+    job = store.create("bench.create", {"name": "erp"}, ["render", "configure", "start"])
+    jid = job["id"] if isinstance(job, dict) else job
+    store.claim_next()
+    store.start_step(jid, 0)
+    store.end_step(jid, 0, "success")
+    store.start_step(jid, 1)
+    store.end_step(jid, 1, "failure")
+    store.skip_remaining(jid, 1)
+    store.finish(jid, "failure", "boom")
+
+    assert store.retry(jid) is True
+    got = store.get(jid)
+    assert got["status"] == "queued" and got["error"] is None
+    assert [s["status"] for s in got["steps"]] == ["success", "pending", "pending"]
+    assert store.retry(jid) is False  # only failed jobs

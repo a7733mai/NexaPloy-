@@ -227,6 +227,17 @@ def cancel(job_id: str) -> None:
 
 
 @app.command()
+def retry(job_id: str, wait: bool = typer.Option(False, "--wait", "-w", help="follow the job")) -> None:
+    """Retry a failed job (successful steps are skipped)."""
+    job = call("POST", f"/jobs/{job_id}/retry")
+    if not wait:
+        show(job)
+        return
+    if follow(job["id"]).get("status") != "success":
+        raise typer.Exit(1)
+
+
+@app.command()
 def build(
     tag: str = typer.Option(..., help="image tag, e.g. nexaploy/bench:erp-v15-main-20261103T2130"),
     major: int = typer.Option(..., help="Frappe major (14/15/16)"),

@@ -64,6 +64,9 @@ class Server(Document):
 	@frappe.whitelist()
 	def archive(self):
 		self.check_permission("write")
+		if self.get("provider") and self.get("provider_server_id") and self.get("provisioning_status") not in ("Deleted",):
+			# the VM would keep running (and billing at the provider) — delete it instead
+			frappe.throw(_("This server was created at a cloud provider; delete it from the dashboard (Delete server) instead of archiving."))
 		self.on_trash()
 		self.db_set("status", "Archived")
 		self.db_set("token_hash", None)

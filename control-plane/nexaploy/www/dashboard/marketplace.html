@@ -31,7 +31,7 @@
 		<template x-for="a in filtered" :key="a.app_name">
 			<article class="card app-card">
 				<div class="row between">
-					<div class="title" x-text="a.title"></div>
+					<div class="row"><template x-if="a.logo"><img :src="a.logo" alt="" width="28" height="28" style="border-radius: 6px; object-fit: contain"></template><div class="title" x-text="a.title"></div></div>
 					<span class="price" x-text="a.pricing === 'Paid' ? nx.money(a.price_monthly) + ' ' + __('/ month') : __('Free')"></span>
 				</div>
 				<div class="small muted"><span class="ltr" x-text="a.app_name"></span><template x-if="a.publisher"><span x-text="' · ' + a.publisher"></span></template></div>
@@ -42,10 +42,12 @@
 				</div>
 				<div class="row" style="margin-block-start: auto">
 					<a class="btn sm" :href="a.repo_url" target="_blank" rel="noopener" x-show="a.repo_url">{{ _("Source code") }}</a>
+					<a class="btn sm" :href="a.documentation_url" target="_blank" rel="noopener" x-show="a.documentation_url">{{ _("Documentation") }}</a>
 				</div>
 			</article>
 		</template>
 	</div>
 	<p class="small muted">{{ _("Apps are installed per site from the site's Apps tab. A site can only use apps that are part of its bench.") }}</p>
+	<p class="small muted"><a href="/dashboard/publisher">{{ _("Publish your own app on the marketplace") }}</a></p>
 </div>
 {% endblock %}

@@ -1,0 +1,60 @@
+{% extends "templates/signup_base.html" %}
+
+{% block content %}
+<div class="stack">
+	<div>
+		<h1>{{ _("Sign up for {0}").format(product.title) }}</h1>
+		{% if product.description %}<p class="muted" style="margin: 0">{{ product.description }}</p>{% endif %}
+		{% if product.trial_days %}<p class="small muted">{{ _("Free for {0} days. No credit card required.").format(product.trial_days) }}</p>{% endif %}
+	</div>
+
+	<section class="card" id="nx-signup-form-card">
+		<div class="card-body">
+			<form id="nx-signup-form" class="form-grid" novalidate>
+				<label class="field">{{ _("Full name") }}
+					<input class="input" name="full_name" autocomplete="name" required maxlength="140">
+				</label>
+				<label class="field">{{ _("E-mail") }}
+					<input class="input ltr" name="email" type="email" autocomplete="email" required maxlength="140">
+				</label>
+				<label class="field">{{ _("Company") }} <span class="hint">{{ _("Optional") }}</span>
+					<input class="input" name="company" autocomplete="organization" maxlength="140">
+				</label>
+				<label class="field">{{ _("Site address") }}
+					<div class="input-group">
+						<input class="input ltr" name="subdomain" autocomplete="off" required maxlength="63" placeholder="{{ _('your-company') }}">
+						<span class="addon">.{{ product.root_domain }}</span>
+					</div>
+					<span class="small avail" id="nx-subdomain-status" aria-live="polite"></span>
+				</label>
+				<label class="field">{{ _("Password") }}
+					<input class="input" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128">
+					<span class="hint">{{ _("At least 8 characters with letters and digits. Also the Administrator password of your site.") }}</span>
+				</label>
+				<div class="alert danger" id="nx-signup-error" hidden></div>
+				<button class="btn primary" type="submit" id="nx-signup-submit">{{ _("Create my site") }}</button>
+				<p class="small muted" style="margin: 0">{{ _("Already have an account?") }} <a id="nx-login-link" href="/login">{{ _("Log in") }}</a></p>
+			</form>
+		</div>
+	</section>
+
+	<section class="card" id="nx-signup-progress" hidden>
+		<div class="card-body stack">
+			<div class="alert info" id="nx-step-verify" hidden>
+				<b>{{ _("Check your inbox") }}</b><br>
+				{{ _("We sent a confirmation link to") }} <span class="ltr" id="nx-signup-email"></span>. {{ _("Your site is created as soon as you confirm your e-mail.") }}
+			</div>
+			<div class="alert info row" id="nx-step-provisioning" hidden>
+				<span class="spinner"></span> <span>{{ _("Creating your site… this takes a few minutes.") }}</span> <span class="ltr" id="nx-signup-site"></span>
+			</div>
+			<div class="alert success" id="nx-step-active" hidden>
+				<b>{{ _("Your site is ready.") }}</b><br>
+				<a id="nx-signup-url" class="ltr" href="#" target="_blank" rel="noopener"></a><br>
+				<span class="small">{{ _("Log in as Administrator with the password you chose.") }}</span>
+				<a class="btn sm" href="/dashboard/sites">{{ _("Open dashboard") }}</a>
+			</div>
+			<div class="alert danger" id="nx-step-failed" hidden></div>
+		</div>
+	</section>
+</div>
+{% endblock %}

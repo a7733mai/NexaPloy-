@@ -1,0 +1,150 @@
+{% extends "templates/dashboard_base.html" %}
+
+{% block head %}
+<!-- synchronous on purpose: registers its alpine:init listener before Alpine (deferred) starts -->
+<script src="/assets/nexaploy/js/support.js"></script>
+<style>
+	.nx-thread { display: flex; flex-direction: column; gap: 12px; }
+	.nx-msg { border: 1px solid var(--nx-border); border-radius: 10px; padding: 12px 14px; }
+	.nx-msg.staff { background: var(--nx-primary-soft); }
+	.nx-msg .body { overflow-wrap: anywhere; }
+	.nx-msg .body p { margin: 0 0 8px; }
+	.nx-msg .body pre { white-space: pre-wrap; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stack" x-data="nxSupport" x-cloak>
+	<template x-if="error"><div class="alert danger" x-text="error"></div></template>
+
+	<!-- Ticket list -->
+	<template x-if="!current">
+		<div class="stack">
+			<section class="card" x-show="showNew">
+				<div class="card-head">
+					<h2>{{ _("New ticket") }}</h2>
+					<button class="btn sm ghost" type="button" @click="showNew = false">{{ _("Close") }}</button>
+				</div>
+				<form class="card-body form-grid" @submit.prevent="create()">
+					<label class="field"><span>{{ _("Subject") }}</span>
+						<input class="input" type="text" maxlength="140" x-model="form.subject" required>
+					</label>
+					<div class="grid cols-2">
+						<label class="field"><span>{{ _("Priority") }}</span>
+							<select class="input" x-model="form.priority">
+								<template x-for="p in (opts ? opts.priorities : [])" :key="p"><option :value="p" x-text="__(p)" :selected="p === form.priority"></option></template>
+							</select>
+							<span class="hint" x-show="opts && opts.first_response_hours[form.priority]"><span>{{ _("First response within (hours)") }}:</span> <span x-text="opts ? opts.first_response_hours[form.priority] : ''"></span></span>
+						</label>
+						<label class="field"><span>{{ _("Site") }}</span>
+							<select class="input" x-model="form.site">
+								<option value="">{{ _("None") }}</option>
+								<template x-for="s in (opts ? opts.sites : [])" :key="s"><option :value="s" x-text="s" :selected="s === form.site"></option></template>
+							</select>
+						</label>
+					</div>
+					<label class="field" x-show="opts && opts.servers.length"><span>{{ _("Server") }}</span>
+						<select class="input" x-model="form.server">
+							<option value="">{{ _("None") }}</option>
+							<template x-for="s in (opts ? opts.servers : [])" :key="s.name"><option :value="s.name" x-text="s.hostname || s.name"></option></template>
+						</select>
+					</label>
+					<label class="field"><span>{{ _("Describe the problem") }}</span>
+						<textarea class="input" rows="7" x-model="form.message" required></textarea>
+						<span class="hint">{{ _("Never share passwords or API secrets in a ticket.") }}</span>
+					</label>
+					<div class="row">
+						<button class="btn primary" type="submit" :disabled="busy"><span class="spinner" x-show="busy"></span> {{ _("Open ticket") }}</button>
+					</div>
+				</form>
+			</section>
+
+			<section class="card">
+				<div class="card-head">
+					<h2>{{ _("Support tickets") }}</h2>
+					<select class="input" style="width: auto" x-model="filter" @change="load()" aria-label="{{ _('Status') }}">
+						<option value="active">{{ _("Active") }}</option>
+						<option value="">{{ _("All") }}</option>
+						<template x-for="s in statuses" :key="s"><option :value="s" x-text="__(s)"></option></template>
+					</select>
+					<button class="btn sm primary" type="button" @click="openNew()">{{ _("New ticket") }}</button>
+				</div>
+				<div class="card-body flush table-wrap">
+					<template x-if="loading"><div class="loading"><span class="spinner"></span> {{ _("Loading…") }}</div></template>
+					<template x-if="!loading && !tickets.length"><div class="empty">{{ _("No tickets. Need help? Open a ticket and our team will get back to you.") }}</div></template>
+					<table class="nx-table" x-show="!loading && tickets.length">
+						<thead><tr><th>{{ _("Ticket") }}</th><th>{{ _("Subject") }}</th><th>{{ _("Status") }}</th><th>{{ _("Priority") }}</th><th>{{ _("Site") }}</th><th>{{ _("Updated") }}</th></tr></thead>
+						<tbody>
+							<template x-for="tk in tickets" :key="tk.name">
+								<tr>
+									<td class="ltr nowrap"><a :href="'/dashboard/support?name=' + encodeURIComponent(tk.name)" @click.prevent="open(tk.name)" x-text="tk.name"></a></td>
+									<td x-text="tk.subject"></td>
+									<td><span :class="statusClass(tk.status)" x-text="__(tk.status)"></span></td>
+									<td><span :class="priorityClass(tk.priority)" x-text="__(tk.priority)"></span></td>
+									<td class="small ltr" x-text="tk.site || '—'"></td>
+									<td class="small nowrap" x-text="nx.ago(tk.modified)"></td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</div>
+	</template>
+
+	<!-- Ticket view (?name=) -->
+	<template x-if="current">
+		<div class="stack">
+			<div><a href="/dashboard/support" @click.prevent="back()">← {{ _("All tickets") }}</a></div>
+			<section class="card">
+				<div class="card-head">
+					<h2><span class="ltr" x-text="current.name"></span> · <span x-text="current.subject"></span></h2>
+					<span :class="statusClass(current.status)" x-text="__(current.status)"></span>
+				</div>
+				<div class="card-body kv">
+					<div><span class="muted">{{ _("Priority") }}</span> <span x-text="__(current.priority)"></span></div>
+					<div x-show="current.site"><span class="muted">{{ _("Site") }}</span> <a class="ltr" :href="'/dashboard/site?name=' + encodeURIComponent(current.site || '')" x-text="current.site"></a></div>
+					<div x-show="current.server"><span class="muted">{{ _("Server") }}</span> <span class="ltr" x-text="current.server"></span></div>
+					<div><span class="muted">{{ _("Opened") }}</span> <span x-text="nx.fmtDate(current.creation)"></span></div>
+					<div>
+						<span class="muted">{{ _("First response") }}</span>
+						<template x-if="current.first_response_at"><span x-text="nx.fmtDate(current.first_response_at)"></span></template>
+						<template x-if="!current.first_response_at"><span><span>{{ _("expected by") }}</span> <span x-text="nx.fmtDate(current.sla.due)"></span></span></template>
+					</div>
+					<div class="row" style="margin-block-start: 8px">
+						<template x-if="current.can_close"><button class="btn sm" type="button" @click="close()" :disabled="busy">{{ _("Close ticket") }}</button></template>
+						<template x-if="current.can_reopen"><button class="btn sm" type="button" @click="reopen()" :disabled="busy">{{ _("Reopen") }}</button></template>
+					</div>
+				</div>
+			</section>
+
+			<div class="nx-thread">
+				<template x-for="r in current.replies" :key="r.name">
+					<article class="nx-msg" :class="{ staff: r.is_staff }">
+						<div class="row between small">
+							<strong x-text="r.author_name || r.author"></strong>
+							<template x-if="r.is_staff"><span class="badge info">{{ _("Support team") }}</span></template>
+							<span class="muted" x-text="nx.fmtDate(r.created)"></span>
+						</div>
+						<!-- server-sanitised HTML (nexaploy.support_utils.sanitize_html) -->
+						<div class="body" x-html="r.message"></div>
+					</article>
+				</template>
+			</div>
+
+			<section class="card" x-show="current.can_reply">
+				<form class="card-body form-grid" @submit.prevent="reply()">
+					<label class="field"><span>{{ _("Reply") }}</span>
+						<textarea class="input" rows="5" x-model="replyText" required></textarea>
+					</label>
+					<div class="row">
+						<button class="btn primary" type="submit" :disabled="busy"><span class="spinner" x-show="busy"></span> {{ _("Send reply") }}</button>
+						<template x-if="current.status === 'Resolved'"><span class="small muted">{{ _("Replying reopens the ticket.") }}</span></template>
+					</div>
+				</form>
+			</section>
+			<template x-if="current.status === 'Closed'"><p class="small muted">{{ _("This ticket is closed. Reopen it to reply.") }}</p></template>
+		</div>
+	</template>
+</div>
+{% endblock %}

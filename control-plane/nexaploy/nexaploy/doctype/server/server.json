@@ -30,7 +30,18 @@
   "alert_state",
   "section_break_facts",
   "facts",
-  "benches_report"
+  "benches_report",
+  "section_break_provisioning",
+  "provider",
+  "region",
+  "size",
+  "provisioning_status",
+  "column_break_provisioning",
+  "provider_server_id",
+  "public_ipv4",
+  "public_ipv6",
+  "provisioning_started_at",
+  "provisioning_error"
  ],
  "fields": [
   {
@@ -192,12 +203,82 @@
    "fieldtype": "JSON",
    "label": "Benches (reported)",
    "read_only": 1
+  },
+  {
+   "fieldname": "section_break_provisioning",
+   "fieldtype": "Section Break",
+   "label": "Provisioning",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "provider",
+   "fieldtype": "Link",
+   "label": "Cloud Provider",
+   "options": "Cloud Provider",
+   "read_only": 1
+  },
+  {
+   "fieldname": "region",
+   "fieldtype": "Link",
+   "label": "Cloud Region",
+   "options": "Cloud Region",
+   "read_only": 1
+  },
+  {
+   "fieldname": "size",
+   "fieldtype": "Link",
+   "label": "Cloud Server Size",
+   "options": "Cloud Server Size",
+   "read_only": 1
+  },
+  {
+   "fieldname": "provisioning_status",
+   "fieldtype": "Select",
+   "label": "Provisioning Status",
+   "options": "Not Provisioned\nCreating\nBootstrapping\nReady\nFailed\nDeleting\nDeleted",
+   "default": "Not Provisioned",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_provisioning",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "provider_server_id",
+   "fieldtype": "Data",
+   "label": "Provider Server ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "public_ipv4",
+   "fieldtype": "Data",
+   "label": "Public IPv4",
+   "read_only": 1
+  },
+  {
+   "fieldname": "public_ipv6",
+   "fieldtype": "Data",
+   "label": "Public IPv6",
+   "read_only": 1
+  },
+  {
+   "fieldname": "provisioning_started_at",
+   "fieldtype": "Datetime",
+   "label": "Provisioning Started At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "provisioning_error",
+   "fieldtype": "Small Text",
+   "label": "Provisioning Error",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-10 12:00:00.000000",
+ "modified": "2026-11-28 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Server",

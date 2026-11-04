@@ -48,7 +48,12 @@
   "staging_of",
   "column_break_lifecycle",
   "staging_site",
-  "move_options"
+  "move_options",
+  "section_break_trial",
+  "saas_product",
+  "trial_end_date",
+  "column_break_trial",
+  "trial_state"
  ],
  "fields": [
   {
@@ -340,12 +345,43 @@
    "read_only": 1,
    "hidden": 1,
    "description": "In-flight move state: backup_id, allow_upgrade, source bench/server, cross_server."
+  },
+  {
+   "fieldname": "section_break_trial",
+   "fieldtype": "Section Break",
+   "label": "Trial",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "saas_product",
+   "fieldtype": "Link",
+   "label": "SaaS Product",
+   "options": "SaaS Product",
+   "read_only": 1
+  },
+  {
+   "fieldname": "trial_end_date",
+   "fieldtype": "Date",
+   "label": "Trial End Date",
+   "description": "First billable day. Subscriptions start on this date."
+  },
+  {
+   "fieldname": "column_break_trial",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "trial_state",
+   "fieldtype": "Select",
+   "label": "Trial State",
+   "options": "\nNotified\nSuspended\nConverted",
+   "read_only": 1,
+   "description": "Set by expire_trials: Notified (trial over, grace period), Suspended, Converted (team can pay)."
   }
  ],
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-25 12:00:00.000000",
+ "modified": "2026-11-28 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Site",

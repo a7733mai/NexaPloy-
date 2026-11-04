@@ -634,3 +634,229 @@ Pure helpers: `nexaploy/observability_utils.py` (tests: `tests/test_observabilit
 team to every member with `read`, including `site.sql` / `site.console` results (and the query / code).
 Restrict them for those kinds (e.g. `observability_utils.required_action(kind, params.read_only)`) if
 Billing members must not see query results.
+
+## Hosted servers on a cloud provider (auto-provisioning)
+
+Nexaploy can create Hosted servers itself on **Hetzner Cloud** or **DigitalOcean**. The VM boots
+with cloud-init, runs `install.sh` with a single-use registration token and registers with the
+control plane like a BYOS server — except that the token is bound to a pre-created Server, so
+registration *activates that Server* instead of creating a new one.
+
+### DocTypes (platform admins only; customers use the portal API)
+
+| DocType | Naming | Notes |
+|---|---|---|
+| Cloud Provider | `title` | `provider` Hetzner/DigitalOcean, `api_token` (Password), `enabled`, `default_image` (Hetzner `ubuntu-24.04`, DO `ubuntu-24-04-x64`, filled in when empty), `ssh_key_ids` (optional, ops access). Method `sync_catalog` imports the provider's regions/sizes as **disabled** rows. |
+| Cloud Region | `<provider>-<code>` | `provider`, `code` (fsn1/nbg1/hel1/ash, fra1/ams3/lon1), `title`, `country`, `enabled` |
+| Cloud Server Size | `<provider>-<code>` | `provider`, `code` (cx32, s-2vcpu-4gb), `vcpu`, `memory_gb`, `disk_gb`, `monthly_cost` (our cost), `enabled`, `plan` (Link Nexaploy Plan of type *Server Hosted*: what the customer pays). Sizes without an enabled plan are not offered. |
+
+Server adds `provider`, `region`, `size`, `provider_server_id`, `public_ipv4`, `public_ipv6`,
+`provisioning_status` (Not Provisioned/Creating/Bootstrapping/Ready/Failed/Deleting/Deleted),
+`provisioning_started_at`, `provisioning_error`. Server Registration Token `server` may now be
+set *before* use (see below).
+
+### Flow
+
+1. Portal (`/dashboard/servers` → *Create hosted server*): `nexaploy.api.provisioning.list_options()`
+   → providers with enabled regions and sizes priced by their plan.
+2. `create_hosted_server(region, size, title=None)` (team Owner/Admin: `admin` + `billing`):
+   inserts `Server` (ownership Hosted, status Pending, `plan` = the size's plan,
+   `provisioning_status` Creating) and enqueues `nexaploy.provisioning.jobs.provision_server`
+   (queue `long`).
+3. The job creates a registration token bound to the Server (`Server Registration Token.server`,
+   TTL 24 h, sha256 only), builds the cloud-init (`provisioning/cloud_init.py`:
+   `curl -fsSL <cp>/install.sh | bash -s -- --token <T> --control-plane <cp> --acme-email <e>`,
+   log in `/var/log/nexaploy-install.log`, one retry) and calls the provider
+   (`create_server(name, region, size, image, user_data, ssh_keys, labels)`); stores the
+   provider id and IPs → **Bootstrapping**. Errors → **Failed** + alert.
+   The control plane URL is `site_config.nexaploy_control_plane_url`, else `get_url()`;
+   the ACME e-mail is Nexaploy Settings `alert_email`, else the team's billing e-mail.
+4. `install.sh` calls `nexaploy.api.agent.register`: the token has `server` set → the Server gets
+   its token hash, status Active and `provisioning_status` **Ready** (no new Server row). A
+   heartbeat of a Creating/Bootstrapping/Failed server also sets Ready.
+5. `check_provisioning` (every 5 min): Creating/Bootstrapping for more than 20 min → **Failed** +
+   alert; fills in IPs assigned after create (DigitalOcean).
+6. `delete_hosted_server(server)` (Owner/Admin): refused while non-archived sites or benches
+   exist; → **Deleting**, background `deprovision_server` deletes the VM (404 = already gone) →
+   **Deleted**, Server **Archived**, unused tokens invalidated.
+
+Billing: `billing/subscriptions.sync_server` bills Server.plan (= the size's plan) and skips
+servers whose `provisioning_status` is Creating/Failed/Deleting/Deleted — a hosted server is
+billed from Bootstrapping until it is deleted.
+
+Code: `provisioning/base.py` (Provider interface, `get_provider`, HTTP behind a `transport`
+callable — `requests` is imported lazily), `hetzner.py` (`https://api.hetzner.cloud/v1`),
+`digitalocean.py` (`https://api.digitalocean.com/v2`), `cloud_init.py`, `utils.py` (pure rules,
+incl. `registration_action` / `attach_values` used by `register`), `jobs.py` (frappe glue),
+`api/provisioning.py` (portal API), `public/js/provisioning.js` (`nxHostedServer`).
+Note: the registration token is part of the VM's user data at the provider (single use, 24 h).
+
+## SaaS signup (one-click ERPNext)
+
+A public page `/signup/<slug>` (route rule → `www/signup.html`; `/signup?product=<slug>` works
+without it) creates an account, a team and a site on a shared bench in one go.
+
+| DocType | Naming | Notes |
+|---|---|---|
+| SaaS Product | `slug` | `title`, `description`, `release_group` (a shared group: no team), `bench_selection` (Least Sites), `apps` (installed on every site), `default_plan` (Site plan), `trial_days` (14), `domain` (root for subdomains; default Nexaploy Settings `root_domain`), `enabled` |
+| SaaS Signup | hash | `product`, `status` Pending Verification/Verified/Provisioning/Active/Failed, `email`, `full_name`, `company`, `subdomain`, `site_name`, `user`, `team`, `site`, hidden `token_hash` (e-mail link) / `status_token_hash` (progress token), `password` (encrypted, cleared once the site exists), `expires_on` (24 h) |
+
+Site adds `saas_product`, `trial_end_date` (first billable day) and `trial_state`
+(""/Notified/Suspended/Converted).
+
+API (`nexaploy/api/signup.py`, guest, `frappe.rate_limiter.rate_limit`):
+
+- `product_info(product)`; `check_subdomain(product, subdomain)` (live check: existing sites and
+  domains, and subdomains reserved by other pending signups);
+- `signup(product, email, full_name, subdomain, password, company=None)` (5/hour/IP) — an existing
+  account must log in first; logged in as that e-mail → no verification. Otherwise e-mails
+  `/signup?product=<slug>&verify=<token>` and returns `{token, status}`;
+- `verify_email(token)` (20/hour/IP) → User (Website User + *Nexaploy Customer*, the chosen
+  password), a team (an existing team where the user can write, else a new team named after the
+  company / personal team), Site on the least loaded shared bench (`saas.pick_bench`: Active
+  benches without a team of the product's release group on Active Hosted servers without a team)
+  with the product's plan, apps and `trial_end_date` = today + `trial_days`. The site's
+  Administrator password is the chosen password. The new user is logged in;
+- `signup_status(token)` (progress or verification token) → `{status, site_name, url}`; Active
+  once the Site is Active (welcome e-mail), Failed if `site.create` fails (ops alert).
+
+Trials: subscriptions of a trial site start on `trial_end_date` (`sync_site` passes
+`signup_utils.billing_start_date`; a not-yet-started subscription follows a changed trial end).
+`nexaploy.saas.expire_trials` (daily): trial over and the team cannot pay (no successful
+Stripe/Paymob/Manual payment and no credits) → e-mail (`trial_state` Notified); 3 days later →
+Site Suspended + `maintenance_mode` (`site.set_config`) (`trial_state` Suspended). Once the team
+can pay: Converted (and unsuspended if the trial suspended it).
+
+Pure logic: `nexaploy/signup_utils.py`; tests: `tests/test_provisioning.py`.
+
+## Marketplace publishers & payouts
+
+Teams publish their own **Custom Apps** on the marketplace and earn a share of paid-app revenue.
+Pure rules: `nexaploy/publisher_utils.py` (review state machine, listing validation, releases from
+branches) and `nexaploy/billing/payouts_utils.py` (payout math, payout calendar); tests in
+`tests/test_publisher.py`. Portal: `/dashboard/publisher` (`www/dashboard/publisher.{html,py}`,
+component `nxPublisher` in `public/js/publisher.js`); Arabic strings in `translations/ar.publisher.part`.
+
+| DocType | Naming | Notes |
+|---|---|---|
+| Marketplace Publisher | hash | `team` (unique: one profile per team), `title`, `website`, `support_email`, `verified` (staff), `payout_method` Bank/PayPal/Credits, `payout_details` (non-secret: holder, bank, SWIFT or PayPal email), `payout_account` (Password: account number / IBAN, never returned by the API), `revenue_share_percent` (publisher share, default **80**, staff only) |
+| Marketplace App | | + `publisher_profile` (Link Marketplace Publisher; the old `publisher` Data field stays as the display name and is filled from the profile), `status` Draft/In Review/Published/Rejected (**Published ⇔ `approved`**, kept in sync by the controller), `review_notes`, `logo` (Attach Image), `screenshots` (public URLs, one per line, max 8), `documentation_url`, `source_custom_app` (Link Custom App), `submitted_on`, `reviewed_by`, `reviewed_on` |
+| Publisher Payout | `PAYOUT-YYYY-#####` | `publisher`, `team` (fetched), `status` Draft/Approved/Paid, `payout_method`, `period_start/end`, `currency`, `revenue_share_percent`, `gross`, `platform_fee`, `net`, `paid_on`, `payment_reference`, `credit_transaction`, child **Publisher Payout Item** (`invoice`, `invoice_item`, `app`, `site`, `amount`, `share`) |
+
+Patch `nexaploy.patches.v0_3.marketplace_listing_status` (post model sync) marks existing approved apps
+*Published* and the others *Draft*. A Marketplace App created **approved** in the desk (curated apps)
+is Published automatically.
+
+### Listing flow
+
+```
+Draft --submit--> In Review --approve--> Published --unpublish--> Draft
+  ^                  |   \--reject (notes required)--> Rejected --submit--> In Review
+  +----withdraw------+
+```
+
+1. A team Owner/Admin creates the publisher profile on `/dashboard/publisher`
+   (`nexaploy.api.publisher.save_publisher`; Bank needs an account number, PayPal an email).
+2. *New listing* picks one of the team's Active Custom Apps that is not listed yet
+   (`listable_custom_apps` → `create_listing`): `app_name` and `repo_url` come from the custom app; the
+   name must not exist on the marketplace yet. Draft/Rejected listings are fully editable
+   (`update_listing`); In Review is locked (withdraw first); Published listings may change everything
+   except `pricing`/`price_monthly` (customers subscribed at that price).
+3. `submit_listing` (title, description, source app, price for paid apps required) → *In Review*, email to
+   `Nexaploy Settings.alert_email`.
+4. **Review is done in the desk** (System Manager): open the Marketplace App (filter *Listing Status = In
+   Review*) and use **Review → Approve / Reject / Unpublish** (`approve_listing`, `reject_listing` (notes
+   required), `unpublish_listing`). Approving generates **one release per Frappe major** from the custom
+   app (`publisher_utils.releases_from_branches`): branches named `version-NN` (preferred), `vNN`,
+   `version-NN-*` from the GitHub installation (falls back to the tracked branch only), plus the custom
+   app's declared `frappe_majors` on its tracked branch (declared majors also filter out stale version
+   branches); release rows that already exist on the listing win. Nothing determinable → approval is
+   refused (add release rows by hand). The publisher team (ops recipients) is emailed the decision with
+   the review notes.
+5. Checklist for reviewers: **the repository must be public** — marketplace builds clone `repo_url`
+   without credentials (a private custom app works only in its own team's bench groups); app works on
+   the generated majors; description/logo/screenshots are appropriate; price is sensible.
+
+Portal API (`nexaploy.api.publisher`, current team): `get_publisher` (read), `list_listings` (read; with
+installs = Site App rows on non-archived sites, failed installs excluded), `save_publisher`,
+`listable_custom_apps`, `create_listing`, `update_listing(app, values)`, `submit_listing`,
+`withdraw_listing` (admin), `get_revenue` (billing: paid invoice lines of the publisher's apps by payment
+month with the estimated share, and the payouts). Activity: `publisher.create|update`,
+`marketplace.listing_create|update|submit|withdraw|approve|reject|unpublish`, `payout.create|approve|paid|reopen`.
+
+### Payouts (`nexaploy/billing/payouts.py`)
+
+`generate_publisher_payouts` runs daily and acts on **Billing Settings.invoice_day + 5 days** (invoice day
+1 → the 6th; day 31 in February → March 5) for the month before that invoice day. Revenue is counted
+on a cash basis: every line of a **Paid** Nexaploy Invoice with `document_type = Marketplace App` whose
+invoice was **paid** (`paid_on`) in that month, for apps with a `publisher_profile` (platform-owned apps
+are skipped). Per line `share = round(amount × revenue_share_percent / 100, 2)` (pre-tax line amount,
+ROUND_HALF_UP); `net = Σ share`, `platform_fee = gross − net`. One **Draft** payout per (publisher,
+period, currency); an invoice line is never paid twice (lines already in any payout are skipped, a Draft
+payout of the same period is extended). Invoices paid with prepaid credits count as paid.
+
+Staff work payouts in the desk (*Publisher Payout* form buttons): **Approve** (Draft → Approved), **Back to
+Draft**, **Mark Paid** (Approved → Paid; Bank/PayPal need the transfer reference). Paying a **Credits**
+payout adds `net` to the publisher team's prepaid credits (`billing.credits.add_credits`, type
+`Adjustment`, referenced to the payout, payout currency) — once; the ledger row is linked in
+`credit_transaction`. Amounts are frozen once a payout leaves Draft; only Draft payouts can be deleted.
+The team's billing recipients are emailed when a payout is paid.
+
+## Support tickets
+
+Pure rules: `nexaploy/support_utils.py` (SLA, status machine, HTML sanitiser); glue (role, emails, row
+permissions): `nexaploy/support.py`; API: `nexaploy/api/support.py`; scheduler: `nexaploy/support_tasks.py`;
+tests: `tests/test_support.py`. Portal: `/dashboard/support` (list + new ticket) and
+`/dashboard/support?name=<ticket>` (conversation), component `nxSupport` in `public/js/support.js`.
+Link to it with `/dashboard/support?new=1&site=<site>` to open the form pre-filled (e.g. a *Get help*
+button on the site page).
+
+| DocType | Naming | Notes |
+|---|---|---|
+| Support Ticket | `TKT-#####` | `team`, `subject`, `site`/`server` (must belong to the team), `priority` Low/Normal/High/Urgent, `status` Open/Waiting on Customer/Waiting on Support/Resolved/Closed, `raised_by`, `assigned_to`, `first_response_due`, `first_response_at`, `last_reply_at`, `resolved_at`, `closed_at`, child **Support Ticket Reply** (`author`, `is_staff`, `created`, `message` Text Editor) |
+
+- **Who**: any team member (team action `read`, so Billing members too) may open, read, reply to, close
+  and reopen the team's tickets; at most 25 active tickets per team. Staff are users with the role
+  **Nexaploy Support** (desk access; created by `after_install`/`after_migrate` and shipped in
+  `fixtures/role.json`) or System Managers; they see all tickets.
+- **Status**: customer reply → *Waiting on Support* (an unanswered *Open* ticket stays Open; a reply to a
+  *Resolved* ticket reopens it); staff reply → *Waiting on Customer* and sets `first_response_at`; staff
+  set *Resolved* in the desk (or tick *Mark as Resolved* in the Reply dialog); close from anything;
+  reopen Resolved/Closed → Waiting on Support; replies to Closed tickets are refused. Resolved tickets
+  close automatically after 7 days (`support_tasks.auto_close_resolved_tickets`).
+- **SLA** (first response, calendar hours): Urgent 1 h, High 4 h, Normal 12 h, Low 24 h. `sla_state` →
+  pending / at_risk (< 25 % of the window left) / breached / met / missed; the desk form shows a
+  headline when the first response is due or overdue.
+- **Staff replies** (desk): **Reply** button on the Support Ticket form (`nexaploy.api.support.staff_reply`,
+  assigns the ticket to the replier if unassigned); rows added to the Replies table directly are treated
+  the same. Staff addresses are not shown to customers ("Nexaploy Support").
+- **Emails**: new tickets / customer replies / reopen → the assigned user, else every Nexaploy Support
+  user (fallback `Nexaploy Settings.alert_email`); staff replies → `teams.team_notification_emails(team,
+  "ops")` + the ticket's `raised_by`. Bodies are plain text excerpts plus a link.
+- **Sanitising**: every reply message is passed through `support_utils.sanitize_html` on save and again
+  when returned to the portal (allow-list of formatting tags, only `href` http/https/mailto on links with
+  `rel="noopener noreferrer nofollow"`, script/style/iframe/svg/form content dropped, text escaped, 20 000
+  chars). The portal renders it with `x-html`; plain-text customer messages keep their line breaks.
+- Activity: `support.ticket_create`, `support.reply`, `support.close`, `support.reopen`,
+  `support.staff_reply`, `support.resolve`, `support.auto_close`.
+
+### hooks.py entries (publishers, payouts, support)
+
+```python
+permission_query_conditions.update({
+	"Marketplace Publisher": "nexaploy.api.publisher.publisher_query",
+	"Publisher Payout": "nexaploy.billing.payouts.payout_query",
+	"Support Ticket": "nexaploy.support.support_ticket_query",
+})
+has_permission.update({
+	"Marketplace Publisher": "nexaploy.permissions.has_team_permission",
+	"Publisher Payout": "nexaploy.permissions.has_read_only_team_permission",
+	"Support Ticket": "nexaploy.support.has_support_ticket_permission",
+})
+fixtures = [{"dt": "Role", "filters": [["role_name", "in", ["Nexaploy Customer", "Nexaploy 2FA", "Nexaploy Support"]]]}]
+scheduler_events["hourly"] += ["nexaploy.support_tasks.auto_close_resolved_tickets"]
+scheduler_events["daily"] += ["nexaploy.billing.payouts.generate_publisher_payouts"]
+```
+
+Not yet verified on a bench: the desk buttons (Marketplace App review, Publisher Payout, Support Ticket
+Reply), `format:` naming of payouts/tickets, the GitHub branch listing on approval, email delivery.

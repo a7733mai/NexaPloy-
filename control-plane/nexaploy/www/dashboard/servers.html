@@ -1,7 +1,103 @@
 {% extends "templates/dashboard_base.html" %}
 
+{% block head %}
+{# hosted servers on a cloud provider: plain script so it registers before Alpine starts #}
+<script src="/assets/nexaploy/js/provisioning.js"></script>
+{% endblock %}
+
 {% block content %}
-<div class="stack" x-data="nxServers" x-cloak>
+<div class="stack">
+
+	<!-- Create a hosted server (Nexaploy creates the VM at the cloud provider) -->
+	<section class="card" x-data="nxHostedServer" x-cloak x-show="open && canCreate"
+		@nx-hosted-open.window="openForm()" @nx-hosted-delete.window="remove($event.detail)">
+		<div class="card-head">
+			<h2>{{ _("Create hosted server") }}</h2>
+			<button class="btn sm ghost" type="button" @click="open = false">{{ _("Close") }}</button>
+		</div>
+		<div class="card-body stack">
+			<p class="muted" style="margin: 0">{{ _("A dedicated server in the region of your choice, created and managed by Nexaploy. The monthly price covers the server and its management.") }}</p>
+
+			<template x-if="!server">
+				<div class="stack">
+					<template x-if="providers.length > 1">
+						<div>
+							<div style="font-weight: 550; margin-block-end: 6px">{{ _("Provider") }}</div>
+							<div class="choice-list">
+								<template x-for="p in providers" :key="p.name">
+									<label class="choice" :class="{ selected: provider === p.name }">
+										<input type="radio" name="nx-hosted-provider" :value="p.name" :checked="provider === p.name" @change="pickProvider(p.name)">
+										<span x-text="p.title"></span>
+									</label>
+								</template>
+							</div>
+						</div>
+					</template>
+					<div x-show="current">
+						<div style="font-weight: 550; margin-block-end: 6px">{{ _("Region") }}</div>
+						<div class="choice-list">
+							<template x-for="r in (current ? current.regions : [])" :key="r.name">
+								<label class="choice" :class="{ selected: region === r.name }">
+									<input type="radio" name="nx-hosted-region" :value="r.name" x-model="region">
+									<span><span x-text="r.title"></span> <span class="small muted mono" x-text="r.code"></span></span>
+								</label>
+							</template>
+						</div>
+					</div>
+					<div x-show="current">
+						<div style="font-weight: 550; margin-block-end: 6px">{{ _("Server size") }}</div>
+						<div class="choice-list">
+							<template x-for="s in (current ? current.sizes : [])" :key="s.name">
+								<label class="choice" :class="{ selected: size === s.name }">
+									<input type="radio" name="nx-hosted-size" :value="s.name" x-model="size">
+									<span>
+										<b x-text="s.plan_title"></b>
+										<span class="small muted" style="display: block" x-text="spec(s)"></span>
+										<span class="small"><span x-text="nx.money(s.price_monthly, s.currency)"></span> {{ _("per month") }}</span>
+									</span>
+								</label>
+							</template>
+						</div>
+					</div>
+					<label class="field">{{ _("Server name") }} <span class="hint">{{ _("Optional. Lowercase letters, digits and dashes.") }}</span>
+						<input class="input ltr" x-model="title" maxlength="63" placeholder="erp-server">
+					</label>
+					<div class="row between">
+						<div class="small muted" x-show="selectedSize">
+							{{ _("You will be billed") }} <b x-text="selectedSize ? nx.money(selectedSize.price_monthly, selectedSize.currency) : ''"></b> {{ _("per month once the server is created.") }}
+						</div>
+						<button class="btn primary" type="button" :disabled="creating || !region || !size" @click="create()">
+							<span class="spinner" x-show="creating"></span> {{ _("Create server") }}
+						</button>
+					</div>
+				</div>
+			</template>
+
+			<template x-if="server">
+				<div class="stack">
+					<div class="row">
+						<template x-for="step in steps" :key="step">
+							<span class="badge" :class="{ success: stepState(step) === 'done', info: stepState(step) === 'current', pulse: stepState(step) === 'current' }" x-text="__(step)"></span>
+						</template>
+					</div>
+					<div class="alert info row" x-show="server.provisioning_status === 'Creating' || server.provisioning_status === 'Bootstrapping'">
+						<span class="spinner"></span>
+						<span>{{ _("Your server is being set up. This usually takes 5 to 10 minutes.") }} <span class="ltr mono" x-text="server.public_ipv4 || ''"></span></span>
+					</div>
+					<div class="alert success" x-show="server.provisioning_status === 'Ready'">
+						{{ _("Your server is ready.") }}
+						<a :href="'/dashboard/server?name=' + encodeURIComponent(server.name)">{{ _("Open server") }}</a>
+					</div>
+					<div class="alert danger" x-show="server.provisioning_status === 'Failed'">
+						<b>{{ _("The server could not be created.") }}</b>
+						<span class="small" style="display: block" x-text="server.provisioning_error || ''"></span>
+					</div>
+				</div>
+			</template>
+		</div>
+	</section>
+
+<div class="stack" x-data="nxServers" x-cloak @nx-servers-reload.window="load()">
 
 	<!-- Add your own server (BYOS) -->
 	<section class="card" x-show="adding && nx.can('admin')">
@@ -58,6 +154,7 @@
 	<section class="card">
 		<div class="card-head">
 			<h2>{{ _("Servers") }}</h2>
+			<button class="btn" type="button" x-show="$store.nxHosted && $store.nxHosted.available" @click="$dispatch('nx-hosted-open')">{{ _("Create hosted server") }}</button>
 			<button class="btn primary" type="button" x-show="!adding && nx.can('admin')" @click="adding = true">{{ _("Add your own server") }}</button>
 		</div>
 		<div class="card-body flush table-wrap">
@@ -66,11 +163,14 @@
 			<template x-if="!loading && !error && !servers.length">
 				<div class="empty">
 					<p>{{ _("You have no servers yet. Sites can also run on our shared hosting.") }}</p>
-					<button class="btn primary" type="button" x-show="nx.can('admin')" @click="adding = true">{{ _("Add your own server") }}</button>
+					<div class="row" style="justify-content: center">
+						<button class="btn" type="button" x-show="$store.nxHosted && $store.nxHosted.available" @click="$dispatch('nx-hosted-open')">{{ _("Create hosted server") }}</button>
+						<button class="btn primary" type="button" x-show="nx.can('admin')" @click="adding = true">{{ _("Add your own server") }}</button>
+					</div>
 				</div>
 			</template>
 			<table class="nx-table" x-show="servers.length">
-				<thead><tr><th>{{ _("Server") }}</th><th>{{ _("Type") }}</th><th>{{ _("Benches") }}</th><th>{{ _("Sites") }}</th><th>{{ _("Heartbeat") }}</th><th>{{ _("Status") }}</th></tr></thead>
+				<thead><tr><th>{{ _("Server") }}</th><th>{{ _("Type") }}</th><th>{{ _("Benches") }}</th><th>{{ _("Sites") }}</th><th>{{ _("Heartbeat") }}</th><th>{{ _("Status") }}</th><th></th></tr></thead>
 				<tbody>
 					<template x-for="s in servers" :key="s.name">
 						<tr class="clickable" @click="location.href = '/dashboard/server?name=' + encodeURIComponent(s.name)">
@@ -79,12 +179,24 @@
 							<td x-text="s.benches"></td>
 							<td x-text="s.sites"></td>
 							<td class="small muted nowrap" x-text="nx.ago(s.heartbeat_age)"></td>
-							<td><span :class="nx.statusClass(s.status)" x-text="__(s.status)"></span></td>
+							<td>
+								<span :class="nx.statusClass(s.status)" x-text="__(s.status)"></span>
+								<div class="small muted" x-show="s.provisioning_status && s.provisioning_status !== 'Not Provisioned' && s.provisioning_status !== 'Ready'">
+									<span x-text="__(s.provisioning_status)"></span>
+								</div>
+								<div class="small muted ltr mono" x-show="s.public_ipv4" x-text="s.public_ipv4"></div>
+							</td>
+							<td class="nowrap">
+								<button class="btn sm danger" type="button"
+									x-show="s.provider && nx.can('admin') && s.status !== 'Archived' && ['Deleting', 'Deleted'].indexOf(s.provisioning_status) === -1"
+									@click.stop="$dispatch('nx-hosted-delete', { name: s.name, hostname: s.hostname })">{{ _("Delete") }}</button>
+							</td>
 						</tr>
 					</template>
 				</tbody>
 			</table>
 		</div>
 	</section>
+</div>
 </div>
 {% endblock %}

@@ -52,6 +52,10 @@ class _BenchJob(Job):
         self.check(self.ctx.docker.pull(image), f"docker pull {image}")
 
     def configure(self) -> None:
+        # Re-render first: cheap and deterministic, and a retried job then picks up
+        # template fixes even though its earlier "prepare" step is skipped.
+        if self.ctx.benches.render(self.bench):
+            self.log("docker-compose.yml re-rendered")
         # The configurator is itself idempotent (bench set-config -g ...).
         self.check(self.ctx.benches.run_configurator(self.bench), "configurator")
 

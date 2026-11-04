@@ -135,6 +135,10 @@ def _registration_token_row(token):
 def register(registration_token=None, hostname=None, facts=None, agent_version=None, **kwargs):
 	"""BYOS registration. Consumes a single-use registration token and returns
 	`{server_id, server_token}`; the plaintext server token is shown exactly once.
+
+	A token bound to a pre-created Server (Server Registration Token.server set before use,
+	Hosted servers provisioned by nexaploy.provisioning) activates that Server instead of
+	creating a new BYOS one.
 	"""
 	token = registration_token or _request_token()
 	if not token:
@@ -143,13 +147,17 @@ def register(registration_token=None, hostname=None, facts=None, agent_version=N
 	row = frappe.db.get_value(
 		"Server Registration Token",
 		{"token_hash": hash_token(token)},
-		["name", "team", "expires_on", "used"],
+		["name", "team", "expires_on", "used", "server"],
 		as_dict=True,
 		for_update=True,
 	)
 	if not row or row.used or token_expired(row.expires_on, now_datetime()):
 		frappe.local.response["http_status_code"] = 401
 		raise frappe.AuthenticationError(_("Invalid, used or expired registration token"))
+
+	if row.server:
+		# Hosted server pre-created by nexaploy.provisioning: activate it instead of a new Server
+		return _attach_registration(row, hostname, facts, agent_version)
 
 	# the token's team is a Team (§9); a legacy user-valued token maps to that user's team
 	team = row.team
@@ -193,6 +201,43 @@ def register(registration_token=None, hostname=None, facts=None, agent_version=N
 	return {"server_id": server_id, "server_token": server_token}
 
 
+def _attach_registration(row, hostname, facts, agent_version):
+	"""Registration token bound to a pre-created (provisioned) Server: give that Server its
+	token and activate it (provisioning_status -> Ready)."""
+	from nexaploy.provisioning.utils import attach_values, registration_action
+
+	server = frappe.db.get_value(
+		"Server",
+		row.server,
+		["name", "server_id", "status", "token_hash", "provider", "provisioning_status"],
+		as_dict=True,
+		for_update=True,
+	)
+	try:
+		registration_action(row.server, server)
+	except ValueError as exc:
+		frappe.local.response["http_status_code"] = 401
+		raise frappe.AuthenticationError(_(str(exc)))
+
+	server_token = generate_token()
+	values = attach_values(
+		server,
+		hostname,
+		agent_version,
+		frappe.as_json(_load_json(facts, {})),
+		hash_token(server_token),
+		now_datetime(),
+	)
+	frappe.db.set_value("Server", server.name, values)
+	frappe.db.set_value("Server Registration Token", row.name, {"used": 1}, update_modified=True)
+
+	from nexaploy.ops import on_server_activated, sync_billing
+
+	sync_billing(frappe.get_doc("Server", server.name))
+	on_server_activated(server.name)
+	return {"server_id": server.server_id, "server_token": server_token}
+
+
 # --------------------------------------------------------------------------- heartbeat
 
 
@@ -206,10 +251,17 @@ def heartbeat(server_id=None, facts=None, benches=None, agent_version=None, **kw
 		values["benches_report"] = frappe.as_json(_load_json(benches, []))
 	if agent_version:
 		values["agent_version"] = agent_version
-	previous_status = frappe.db.get_value("Server", server, "status")
+	previous_status, provisioning_status = frappe.db.get_value(
+		"Server", server, ["status", "provisioning_status"]
+	)
 	if previous_status in ("Offline", "Pending"):
 		values["status"] = "Active"
 	frappe.db.set_value("Server", server, values, update_modified=False)
+	if provisioning_status in ("Creating", "Bootstrapping", "Failed"):
+		# a provisioned server whose agent runs (e.g. registered after the bootstrap timeout)
+		from nexaploy.provisioning.jobs import mark_ready
+
+		mark_ready(server)
 
 	from nexaploy import ops
 

@@ -33,6 +33,7 @@
 					<a class="btn sm" :href="site.url" target="_blank" rel="noopener" x-show="site.status === 'Active'">{{ _("Open site") }}</a>
 					<a class="btn sm" :href="site.url + '/app'" target="_blank" rel="noopener" x-show="site.status === 'Active'">{{ _("Open desk") }}</a>
 					<a class="btn sm" :href="'/dashboard/insights?site=' + encodeURIComponent(site.name)">{{ _("Insights") }}</a>
+					<a class="btn sm" :href="'/dashboard/support?new=1&site=' + encodeURIComponent(site.name)">{{ _("Get help") }}</a>
 				</div>
 				<div class="card-body">
 					<dl class="kv">

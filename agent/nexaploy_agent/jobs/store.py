@@ -220,6 +220,29 @@ class JobStore:
             raise
         return bool(cur.rowcount)
 
+    def retry(self, job_id: str) -> bool:
+        """Re-queue a failed job. Successful steps stay successful and are skipped by the
+        worker (steps are idempotent); failed/skipped steps run again."""
+        conn = self._conn()
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            cur = conn.execute(
+                "UPDATE jobs SET status = 'queued', error = NULL, ended_at = NULL "
+                "WHERE id = ? AND status = 'failure'",
+                (job_id,),
+            )
+            if cur.rowcount:
+                conn.execute(
+                    "UPDATE steps SET status = 'pending', output = output || ? "
+                    "WHERE job_id = ? AND status IN ('failure','skipped')",
+                    ("\n[retry requested]\n", job_id),
+                )
+            conn.execute("COMMIT")
+        except BaseException:
+            conn.execute("ROLLBACK")
+            raise
+        return bool(cur.rowcount)
+
     def set_result(self, job_id: str, result: dict[str, Any]) -> None:
         self._conn().execute("UPDATE jobs SET result = ? WHERE id = ?", (json.dumps(result), job_id))
 

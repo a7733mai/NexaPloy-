@@ -213,8 +213,13 @@ BENCH=/home/frappe/frappe-bench
 SITES="$BENCH/sites"
 if [ -d "$SITES" ] && [ -w "$SITES" ]; then
   if [ "$(readlink "$SITES/assets" 2>/dev/null || true)" != "$BENCH/assets" ]; then
-    rm -rf "$SITES/assets"
-    ln -sfn "$BENCH/assets" "$SITES/assets" 2>/dev/null || true
+    # sites/assets may be a mount point (e.g. a VOLUME inherited from a base image):
+    # never let that stop the container, just warn.
+    if rm -rf "$SITES/assets" 2>/dev/null; then
+      ln -sfn "$BENCH/assets" "$SITES/assets" 2>/dev/null || true
+    else
+      echo "nexaploy-entrypoint: warning: cannot replace $SITES/assets (mount point?)" >&2
+    fi
   fi
   for f in apps.txt apps.json; do
     if [ -f "$BENCH/.nexaploy/$f" ] && ! cmp -s "$BENCH/.nexaploy/$f" "$SITES/$f"; then

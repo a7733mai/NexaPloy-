@@ -90,3 +90,30 @@ def create_billing_settings():
 	doc.flags.ignore_links = True
 	doc.flags.ignore_mandatory = True
 	doc.save(ignore_permissions=True)
+
+
+# --------------------------------------------------------------------------- support & publishers
+# (appended: wraps the hooks above so hooks.py does not change)
+
+_base_after_install = after_install
+_base_after_migrate = after_migrate
+
+
+def create_support_role():
+	"""Role "Nexaploy Support" (desk access): staff who answer Support Tickets."""
+	try:
+		from nexaploy.support import ensure_support_role
+
+		ensure_support_role()
+	except Exception:
+		frappe.log_error(title="Nexaploy: creating the support role failed")
+
+
+def after_install():  # noqa: F811
+	_base_after_install()
+	create_support_role()
+
+
+def after_migrate():  # noqa: F811
+	_base_after_migrate()
+	create_support_role()

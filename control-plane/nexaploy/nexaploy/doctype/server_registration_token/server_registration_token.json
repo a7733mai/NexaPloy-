@@ -61,13 +61,14 @@
    "fieldtype": "Link",
    "label": "Server",
    "options": "Server",
-   "read_only": 1
+   "read_only": 1,
+   "description": "Set when the token is used (BYOS: the new Server). Set at creation for a Hosted server provisioned by Nexaploy: registering then activates that Server instead of creating one."
   }
  ],
  "index_web_pages_for_search": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-03 12:00:00.000000",
+ "modified": "2026-11-28 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Nexaploy",
  "name": "Server Registration Token",

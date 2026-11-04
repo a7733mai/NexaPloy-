@@ -42,7 +42,10 @@ def cancel_document_subscriptions(doc, method=None):
 
 
 def sync_server(doc):
-	if doc.status == "Archived" or not doc.team:
+	# a provisioned Hosted server is billed once its VM exists (Bootstrapping) until Deleted
+	from nexaploy.provisioning.utils import is_billable
+
+	if doc.status == "Archived" or not doc.team or not is_billable(doc.get("provisioning_status")):
 		cancel_subscriptions("Server", doc.name)
 		return
 	settings = _settings()
@@ -56,13 +59,21 @@ def sync_site(doc):
 		cancel_site_app_subscriptions(doc.name)
 		return
 	settings = _settings()
+	start = _site_billing_start(doc)
 	ensure_plan_subscription(
-		doc.team, "Site", doc.name, pricing.site_plan(doc.plan, settings.default_site_plan)
+		doc.team, "Site", doc.name, pricing.site_plan(doc.plan, settings.default_site_plan), start_date=start
 	)
-	sync_site_apps(doc)
+	sync_site_apps(doc, start_date=start)
 
 
-def sync_site_apps(doc):
+def _site_billing_start(doc):
+	"""SaaS trials: a site is billed from its trial_end_date (signup_utils.billing_start_date)."""
+	from nexaploy.signup_utils import billing_start_date
+
+	return billing_start_date(today(), doc.get("trial_end_date"))
+
+
+def sync_site_apps(doc, start_date=None):
 	"""One Active subscription per paid Marketplace App installed (or installing) on the site."""
 	rows = [{"app": r.app, "status": r.status} for r in (doc.get("apps") or [])]
 	apps = [r["app"] for r in rows if r["app"]]
@@ -80,11 +91,13 @@ def sync_site_apps(doc):
 	for app in to_cancel:
 		_end(existing[app])
 	for app in to_create:
-		_create(doc.team, "Marketplace App", app, desired[app], site=doc.name)
+		_create(doc.team, "Marketplace App", app, desired[app], site=doc.name, start_date=start_date)
 
 
-def ensure_plan_subscription(team, document_type, document_name, plan):
-	"""Exactly one Active subscription on `plan` (none when `plan` is falsy)."""
+def ensure_plan_subscription(team, document_type, document_name, plan, start_date=None):
+	"""Exactly one Active subscription on `plan` (none when `plan` is falsy).
+	`start_date` (default today) may lie in the future (trial); a kept subscription that has
+	not started yet follows a changed start date."""
 	current = _active(document_type, document_name)
 	if not plan:
 		for sub in current:
@@ -97,9 +110,13 @@ def ensure_plan_subscription(team, document_type, document_name, plan):
 		else:
 			_end(sub)
 	if keep:
+		if start_date and getdate(keep.start_date) > getdate(today()) and getdate(keep.start_date) != getdate(start_date):
+			frappe.db.set_value(SUBSCRIPTION, keep.name, "start_date", start_date)
 		return keep.name
 	price, currency = frappe.db.get_value("Nexaploy Plan", plan, ["price_monthly", "currency"]) or (0, None)
-	return _create(team, document_type, document_name, price, plan=plan, currency=currency)
+	return _create(
+		team, document_type, document_name, price, plan=plan, currency=currency, start_date=start_date
+	)
 
 
 def cancel_subscriptions(document_type, document_name):
@@ -161,7 +178,7 @@ def _active(document_type, document_name=None, site=None):
 	)
 
 
-def _create(team, document_type, document_name, price, plan=None, site=None, currency=None):
+def _create(team, document_type, document_name, price, plan=None, site=None, currency=None, start_date=None):
 	doc = frappe.get_doc(
 		{
 			"doctype": SUBSCRIPTION,
@@ -173,7 +190,7 @@ def _create(team, document_type, document_name, price, plan=None, site=None, cur
 			"price_monthly": price or 0,
 			"currency": currency or frappe.db.get_single_value("Billing Settings", "currency") or "USD",
 			"status": "Active",
-			"start_date": today(),
+			"start_date": start_date or today(),
 		}
 	)
 	doc.insert(ignore_permissions=True)

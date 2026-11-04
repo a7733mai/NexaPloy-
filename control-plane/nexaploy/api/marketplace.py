@@ -14,6 +14,8 @@ LISTED_FIELDS = (
 	"pricing",
 	"price_monthly",
 	"approved",
+	"logo",
+	"documentation_url",
 )
 
 
@@ -22,7 +24,7 @@ def list_apps(frappe_major=None):
 	"""Approved Marketplace Apps; with `frappe_major`, only apps that have a release for it
 	(and only those releases). Returns
 	[{app_name, title, repo_url, publisher, category, description, pricing, price_monthly,
-	  releases: [{frappe_major, branch, commit}]}].
+	  logo, documentation_url, releases: [{frappe_major, branch, commit}]}].
 	"""
 	apps = frappe.get_all(
 		"Marketplace App", filters={"approved": 1}, fields=list(LISTED_FIELDS), order_by="title asc"
