@@ -359,3 +359,8 @@ def test_no_for_update_in_get_all():
 			if name.endswith(".py"):
 				text = open(os.path.join(root, name)).read()
 				assert not call.search(text), os.path.join(root, name)
+
+
+# notification channels: register the new DocTypes with the checks above
+EXPECTED.update({"Notification Channel", "Notification Channel Event"})
+CHILD_TABLES.update({"Notification Channel Event"})

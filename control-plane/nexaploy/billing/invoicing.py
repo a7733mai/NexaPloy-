@@ -122,6 +122,7 @@ def generate_invoices_for_team(team, period_start, period_end, issue_date=None):
 			invoice.db_set("status", "Paid")
 		else:
 			_apply_credits(invoice)
+			_notify_invoice(invoice)
 		created.append(invoice.name)
 	return created
 
@@ -136,6 +137,33 @@ def _apply_credits(invoice):
 	except Exception:
 		frappe.db.rollback(save_point="nexaploy_credits")
 		frappe.log_error(title=f"Nexaploy: applying credits to {invoice.name} failed")
+
+
+def _notify(team, event, title, message, context=None):
+	"""Team notification (nexaploy.notify, after commit); never breaks billing."""
+	try:
+		from nexaploy.notify import notify
+
+		notify(team, event, title, message, context, get_url("/dashboard/billing"))
+	except Exception:
+		frappe.log_error(title=f"Nexaploy: {event} notification for {team} failed")
+
+
+def _notify_invoice(invoice):
+	"""invoice_issued for an invoice that still has something to pay after credits."""
+	status = frappe.db.get_value(INVOICE, invoice.name, "status")
+	if status == "Paid":
+		return
+	due = frappe.db.get_value(INVOICE, invoice.name, "amount_due")
+	amount = due if due not in (None, "") else invoice.total
+	_notify(
+		invoice.team,
+		"invoice_issued",
+		f"Invoice {invoice.name}: {amount} {invoice.currency}",
+		f"Invoice {invoice.name} for {invoice.period_start} to {invoice.period_end} is due on {invoice.due_date}: "
+		f"{amount} {invoice.currency}.",
+		{"invoice": invoice.name, "amount": amount, "currency": invoice.currency, "due_date": invoice.due_date},
+	)
 
 
 def _teams_with_subscriptions(period_start, period_end):
@@ -195,9 +223,19 @@ def team_must_stay_suspended(team, date=None):
 def suspend_team(team):
 	"""Active sites of `team` -> Suspended + maintenance_mode=1 on the server, flagged
 	`suspended_for_billing` so only a payment lifts it (and plan-limit enforcement leaves it)."""
-	for site in frappe.get_all("Site", filters={"team": team, "status": "Active"}, fields=["name", "server"]):
+	sites = frappe.get_all("Site", filters={"team": team, "status": "Active"}, fields=["name", "server"])
+	for site in sites:
 		_set_maintenance(site, 1)
 		frappe.db.set_value("Site", site.name, {"status": "Suspended", "suspended_for_billing": 1})
+	if sites:
+		names = [s.name for s in sites]
+		_notify(
+			team,
+			"suspension",
+			f"{len(names)} site(s) suspended for an overdue invoice",
+			"These sites are in maintenance mode until the overdue invoice is paid: " + ", ".join(names),
+			{"sites": ", ".join(names)},
+		)
 
 
 def unsuspend_team(team):
@@ -275,6 +313,15 @@ def apply_payment(event):
 		}
 	)
 	payment.insert(ignore_permissions=True)
+	if status == "Failed":
+		_notify(
+			invoice.team,
+			"payment_failed",
+			f"Payment for invoice {invoice.name} failed",
+			f"A {event.gateway} payment of {payment.amount or ''} {event.currency or ''} for invoice {invoice.name} failed. "
+			"Please try again or use another payment method.",
+			{"invoice": invoice.name, "gateway": event.gateway, "payment": payment.name},
+		)
 
 	is_topup = invoice.invoice_type == credits_utils.TOPUP_INVOICE_TYPE
 	payable = invoice.status in ("Unpaid", "Overdue", "Draft") or (is_topup and invoice.status == "Void")

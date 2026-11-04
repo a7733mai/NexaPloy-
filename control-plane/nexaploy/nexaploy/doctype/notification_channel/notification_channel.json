@@ -1,0 +1,250 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-11-04 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "team",
+  "channel_type",
+  "enabled",
+  "column_break_status",
+  "last_sent_at",
+  "last_failure_at",
+  "failure_count",
+  "last_error",
+  "section_email",
+  "email_recipients",
+  "section_telegram",
+  "telegram_bot_token",
+  "telegram_chat_id",
+  "section_whatsapp",
+  "whatsapp_phone_number_id",
+  "whatsapp_access_token",
+  "whatsapp_to",
+  "column_break_whatsapp",
+  "whatsapp_template",
+  "whatsapp_language",
+  "section_webhook",
+  "webhook_url",
+  "webhook_host",
+  "webhook_secret",
+  "section_events",
+  "events"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "label": "Team",
+   "options": "Team",
+   "reqd": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "channel_type",
+   "fieldtype": "Select",
+   "label": "Channel Type",
+   "options": "Email\nTelegram\nWhatsApp\nSlack\nDiscord\nWebhook",
+   "default": "Email",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_status",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_sent_at",
+   "fieldtype": "Datetime",
+   "label": "Last Sent At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_failure_at",
+   "fieldtype": "Datetime",
+   "label": "Last Failure At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "failure_count",
+   "fieldtype": "Int",
+   "label": "Consecutive Failures",
+   "read_only": 1,
+   "default": "0"
+  },
+  {
+   "fieldname": "last_error",
+   "fieldtype": "Small Text",
+   "label": "Last Error",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_email",
+   "fieldtype": "Section Break",
+   "label": "Email",
+   "depends_on": "eval:doc.channel_type=='Email'"
+  },
+  {
+   "fieldname": "email_recipients",
+   "fieldtype": "Small Text",
+   "label": "Recipients",
+   "description": "Comma separated. Leave empty to email the team's Owners/Admins/Developers (billing events: the billing contacts)."
+  },
+  {
+   "fieldname": "section_telegram",
+   "fieldtype": "Section Break",
+   "label": "Telegram",
+   "depends_on": "eval:doc.channel_type=='Telegram'"
+  },
+  {
+   "fieldname": "telegram_bot_token",
+   "fieldtype": "Password",
+   "label": "Bot Token",
+   "length": 255,
+   "description": "From @BotFather."
+  },
+  {
+   "fieldname": "telegram_chat_id",
+   "fieldtype": "Data",
+   "label": "Chat ID",
+   "length": 64
+  },
+  {
+   "fieldname": "section_whatsapp",
+   "fieldtype": "Section Break",
+   "label": "WhatsApp (Meta Cloud API)",
+   "depends_on": "eval:doc.channel_type=='WhatsApp'"
+  },
+  {
+   "fieldname": "whatsapp_phone_number_id",
+   "fieldtype": "Data",
+   "label": "Phone Number ID",
+   "length": 32
+  },
+  {
+   "fieldname": "whatsapp_access_token",
+   "fieldtype": "Password",
+   "label": "Access Token",
+   "length": 1000
+  },
+  {
+   "fieldname": "whatsapp_to",
+   "fieldtype": "Data",
+   "label": "Recipient Number",
+   "length": 32,
+   "description": "International format, digits only."
+  },
+  {
+   "fieldname": "column_break_whatsapp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "whatsapp_template",
+   "fieldtype": "Data",
+   "label": "Template Name",
+   "description": "Optional approved template with one body variable; without it messages only arrive within 24 h of the recipient's last message."
+  },
+  {
+   "fieldname": "whatsapp_language",
+   "fieldtype": "Data",
+   "label": "Template Language",
+   "default": "en_US",
+   "length": 16
+  },
+  {
+   "fieldname": "section_webhook",
+   "fieldtype": "Section Break",
+   "label": "Webhook",
+   "depends_on": "eval:doc.channel_type=='Slack' || doc.channel_type=='Discord' || doc.channel_type=='Webhook'"
+  },
+  {
+   "fieldname": "webhook_url",
+   "fieldtype": "Password",
+   "label": "Webhook URL",
+   "length": 1000
+  },
+  {
+   "fieldname": "webhook_host",
+   "fieldtype": "Data",
+   "label": "Webhook Host",
+   "read_only": 1
+  },
+  {
+   "fieldname": "webhook_secret",
+   "fieldtype": "Password",
+   "label": "Signing Secret",
+   "length": 255,
+   "description": "Optional. Requests carry X-Nexaploy-Signature: sha256=<hex HMAC-SHA256 of the raw body>."
+  },
+  {
+   "fieldname": "section_events",
+   "fieldtype": "Section Break",
+   "label": "Events"
+  },
+  {
+   "fieldname": "events",
+   "fieldtype": "Table",
+   "label": "Events",
+   "options": "Notification Channel Event"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-11-04 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nexaploy",
+ "name": "Notification Channel",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 0,
+   "export": 0,
+   "print": 0,
+   "read": 1,
+   "report": 0,
+   "role": "Nexaploy Customer",
+   "share": 0,
+   "write": 1
+  }
+ ],
+ "show_title_field_in_link": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}

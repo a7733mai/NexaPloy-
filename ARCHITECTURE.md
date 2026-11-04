@@ -513,3 +513,25 @@ Pending/Accepted/Rejected/Cancelled, `token_hash`, `expires_on`). Staging sites 
 `nexaploy_staging_of` and must not be billed. A site changes teams only while it lives on a shared hosted
 bench. Activity actions: `site.staging_create`, `site.staging_refresh`, `site.move`, `site.transfer_request`,
 `site.transfer`, `site.transfer_cancel`, `site.transfer_reject`, `site.rename`.
+
+## 11. Notification channels
+
+**Notification Channel** (`team`, `title`, `channel_type` Email/Telegram/WhatsApp/Slack/Discord/Webhook,
+`enabled`, child **Notification Channel Event** `event`, secrets in Password fields `telegram_bot_token`,
+`whatsapp_access_token`, `webhook_url`, `webhook_secret`; status `last_sent_at`, `last_failure_at`,
+`last_error`, `failure_count`). Owners/Admins only (`admin` action, also for reads).
+
+```python
+from nexaploy.notify import notify
+notify(team, event, title, message, context=None, url=None, email_fallback=True)
+# never raises/blocks: enqueued on the `short` queue after commit
+```
+
+Events (`nexaploy/notify_utils.py`): `server_down`, `server_recovered`, `disk_high`, `container_unhealthy`,
+`site_down`, `site_recovered`, `backup_failed`, `job_failed` (user-facing job kinds only), `invoice_issued`,
+`payment_failed`, `suspension`, `ssl_expiring` (no emitter yet), `support_reply`. A team with **no** channel
+keeps the old emails (ops alerts → `send_alert`, billing → billing recipients); the first non-email channel
+also creates an Email channel for those events. `alert_email` always gets infrastructure alerts. Generic
+webhooks POST `{event,title,message,context,url,team,timestamp}`; with a secret, `X-Nexaploy-Signature:
+sha256=<hex HMAC-SHA256 of the raw body>`. Webhook URLs must be https and resolve to public addresses.
+Portal: `/dashboard/notifications`, API `nexaploy.api.notifications.*`.
