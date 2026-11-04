@@ -273,13 +273,14 @@ fetch_source() {
 
     if [[ -d "$src" ]]; then
         src="$(cd "$src" && pwd)"
-        [[ "$src" == "$SRC_DIR" ]] && return
+        if [[ "$src" != "$SRC_DIR" ]]; then
         log "copying agent source from $src"
         rm -rf "$SRC_DIR.new"
         mkdir -p "$SRC_DIR.new"
         tar -C "$src" --exclude=.venv --exclude=.git --exclude='__pycache__' --exclude='*.egg-info' -cf - . \
             | tar -C "$SRC_DIR.new" -xf -
         rm -rf "$SRC_DIR"; mv "$SRC_DIR.new" "$SRC_DIR"
+        fi  # else: already running from the installed source (PKG_DIR/REPO_DIR set below)
     else
         log "fetching agent source $src ($BRANCH)"
         if [[ -d "$SRC_DIR/.git" ]]; then
@@ -324,6 +325,7 @@ install_stacks() {
 
     install -m 0644 "$tpl/db/docker-compose.yml" "$ROOT/db/docker-compose.yml"
     [[ -f "$ROOT/db/.env" ]] || install -m 0644 "$tpl/db/env.example" "$ROOT/db/.env"
+    add_missing_env "$tpl/db/env.example" "$ROOT/db/.env"   # e.g. binlog settings (PITR) on upgrades
     set_env_var "$ROOT/db/.env" DB_ENV_FILE "$ROOT/config/db.env"
 
     install -m 0644 "$tpl/proxy/docker-compose.yml" "$ROOT/proxy/docker-compose.yml"
@@ -360,6 +362,15 @@ install_stacks() {
         git clone --quiet "$FRAPPE_DOCKER_URL" "$ROOT/images/frappe_docker"
         git -C "$ROOT/images/frappe_docker" checkout --quiet "$FRAPPE_DOCKER_REF"
     fi
+}
+
+add_missing_env() {  # example-file env-file: append keys the env file does not set yet
+    local example=$1 file=$2 line key
+    while IFS= read -r line; do
+        [[ "$line" =~ ^([A-Z_][A-Z0-9_]*)= ]] || continue
+        key="${BASH_REMATCH[1]}"
+        grep -q "^$key=" "$file" || { printf '%s\n' "$line" >> "$file"; log "db/.env: added $key"; }
+    done < "$example"
 }
 
 set_env_var() {  # file key value

@@ -156,8 +156,8 @@ def test_decode_and_apply_scripts():
     assert "--disable-log-bin" in args
     assert "--start-position=1234567" in args
     assert "--stop-datetime=2026-11-04 15:15:00" in args
-    # filter by the target name: MariaDB filters after --rewrite-db
-    assert "--rewrite-db=_abc->_new" in args and "--database=_new" in args
+    # filter by the SOURCE name: MariaDB 11.8 applies --database before --rewrite-db (verified)
+    assert "--rewrite-db=_abc->_new" in args and "--database=_abc" in args
     assert "/binlogs/mysql-bin.000042" in args and args.index("/binlogs/mysql-bin.000042") < args.index(
         "/binlogs/mysql-bin.000043")
     assert "/work/replay.sql" in line
@@ -402,7 +402,7 @@ def test_restore_pitr_into_new_site(ctx, worker, runner, settings):
     decode, apply = _replay_calls(runner)
     script = decode.args[-1]
     assert "--start-position=1234567" in script and "'--stop-datetime=2026-11-04 15:15:00'" in script
-    assert "'--rewrite-db=_abc->_new'" in script and "--database=_new" in script
+    assert "'--rewrite-db=_abc->_new'" in script and "--database=_abc" in script
     # 000041 predates the backup; 000044 is the active file
     assert "/binlogs/mysql-bin.000042 /binlogs/mysql-bin.000043 >" in script
     assert job["result"]["binlogs"] == ["mysql-bin.000042", "mysql-bin.000043"]

@@ -319,8 +319,9 @@ def decode_script(files: list[str], start_position: int, stop: datetime, src_db:
     * ``--stop-datetime`` (UTC, the container has ``TZ=UTC``) stops at the first event at or
       after the target, so an open transaction at the cut is never committed;
     * ``--database`` keeps the site's database only (ROW events: by table; statements: by
-      default database); with a different target database ``--rewrite-db`` renames it, and
-      MariaDB applies the filter *after* the rewrite, so the filter names the target;
+      default database); with a different target database ``--rewrite-db`` renames it.
+      MariaDB 11.8 applies the ``--database`` filter *before* the rewrite (verified: filtering
+      on the target name drops every event), so the filter names the SOURCE database;
     * ``--disable-log-bin`` (``SET sql_log_bin=0``): the replayed changes are not written to
       the binlog again (no duplicate GTIDs, no loop).
     """
@@ -334,7 +335,7 @@ def decode_script(files: list[str], start_position: int, stop: datetime, src_db:
             f"--stop-datetime={stop_datetime(stop)}"]
     if src_db != dst_db:
         args.append(f"--rewrite-db={src_db}->{dst_db}")
-    args.append(f"--database={dst_db}")
+    args.append(f"--database={src_db}")
     args += [f"{BINLOG_MOUNT}/{f}" for f in files]
     out = f"{WORK_MOUNT}/{REPLAY_SQL}"
     return "\n".join([
