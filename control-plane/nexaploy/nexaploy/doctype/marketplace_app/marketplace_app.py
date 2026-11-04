@@ -2,9 +2,11 @@
 # For license information, please see license.txt
 
 import frappe
+import frappe.utils
 from frappe import _
 from frappe.model.document import Document
 
+from nexaploy import marketplace_utils as mu
 from nexaploy import publisher_utils as pu
 from nexaploy.utils import SUPPORTED_MAJORS, is_valid_app_name
 
@@ -22,7 +24,43 @@ class MarketplaceApp(Document):
 			if rel.frappe_major in seen:
 				frappe.throw(_("Row {0}: duplicate release for Frappe {1}").format(rel.idx, rel.frappe_major))
 			seen.add(rel.frappe_major)
+			if not rel.status:
+				rel.status = mu.VERIFIED
+			if rel.status == mu.VERIFIED and not rel.verified_on:
+				rel.verified_on = frappe.utils.now_datetime()
+		self.validate_required_apps()
 		self.validate_listing()
+
+	def validate_required_apps(self):
+		try:
+			apps = mu.parse_required_apps(self.required_apps, self.app_name)
+		except mu.RequirementError as exc:
+			frappe.throw(_(str(exc)))
+		self.required_apps = mu.format_required_apps(apps) or None
+		unknown = [a for a in apps if not frappe.db.exists("Marketplace App", a)]
+		if unknown:
+			frappe.msgprint(
+				_("Required apps {0} are not in the marketplace yet; bench groups cannot add {1} until they are.").format(
+					", ".join(unknown), self.app_name
+				),
+				indicator="orange",
+				alert=True,
+			)
+		if apps:
+			from nexaploy.api.marketplace import load_catalog
+
+			catalog = load_catalog()
+			catalog[self.app_name] = {"app_name": self.app_name, "required_apps": apps}
+			try:
+				mu.dependency_order([self.app_name], catalog)
+			except mu.RequirementError as exc:
+				frappe.throw(_(str(exc)))
+
+	def required_app_list(self):
+		try:
+			return mu.parse_required_apps(self.required_apps, self.app_name)
+		except mu.RequirementError:
+			return []
 
 	def validate_listing(self):
 		"""Publisher listing fields (see nexaploy.publisher_utils): approved <=> Published,
@@ -49,14 +87,20 @@ class MarketplaceApp(Document):
 		if self.status == pu.REJECTED and not (self.review_notes or "").strip():
 			frappe.throw(_("Explain why the listing is rejected in the review notes"))
 
-	def as_compat_dict(self, branch=None):
-		"""Shape consumed by nexaploy.utils.check_compatibility / build_apps_json."""
+	def as_compat_dict(self, branch=None, include_unverified=False):
+		"""Shape consumed by nexaploy.utils.check_compatibility / build_apps_json.
+
+		Only Verified releases count, unless `include_unverified` (an app that is already in a
+		Release Group keeps working while a new release of it is being verified)."""
 		return {
 			"app_name": self.app_name,
 			"approved": bool(self.approved),
 			"repo_url": self.repo_url,
 			"branch": branch,
+			"required_apps": self.required_app_list(),
 			"releases": [
-				{"frappe_major": r.frappe_major, "branch": r.branch, "commit": r.commit} for r in self.releases
+				{"frappe_major": r.frappe_major, "branch": r.branch, "commit": r.commit, "status": r.status}
+				for r in self.releases
+				if include_unverified or mu.release_visible({"status": r.status})
 			],
 		}

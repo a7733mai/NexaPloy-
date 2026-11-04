@@ -6,6 +6,7 @@ from frappe import _
 from frappe.model.document import Document
 
 from nexaploy import lifecycle_utils as lu
+from nexaploy import marketplace_utils as mu
 from nexaploy.agent_job import create_agent_job
 from nexaploy.utils import is_valid_domain, is_valid_site_name, secret_ref
 
@@ -43,6 +44,7 @@ class Site(Document):
 			if "System Manager" not in frappe.get_roles() and bench_team and bench_team != self.team:
 				raise frappe.PermissionError(_("Bench {0} belongs to another team").format(self.bench))
 			self.validate_apps_in_release_group(self.bench, [row.app for row in self.apps])
+			self.order_new_site_apps()
 		if (self.backup_retention_days or 0) < 0:
 			frappe.throw(_("Backup retention must be 0 (keep forever) or more days"))
 		if self.plan and frappe.db.get_value("Nexaploy Plan", self.plan, "plan_type") != "Site":
@@ -85,19 +87,59 @@ class Site(Document):
 		}
 
 	@staticmethod
+	def bench_apps(bench):
+		"""(release_group, [python app names a site on `bench` can install]).
+
+		The bench runs one image (its Deploy Candidate): when the build recorded its apps, only
+		those count - an app added to the group later needs a deploy first. Older builds
+		without app_sources fall back to the group's apps."""
+		row = frappe.db.get_value("Bench", bench, ["release_group", "deploy_candidate"], as_dict=True) or frappe._dict()
+		group_apps = [
+			r.app_name or r.app
+			for r in frappe.get_all(
+				"Release Group App",
+				filters={"parent": row.release_group, "parenttype": "Release Group"},
+				fields=["app", "app_name"],
+				order_by="idx asc",
+			)
+		]
+		if row.deploy_candidate:
+			sources = frappe.parse_json(
+				frappe.db.get_value("Deploy Candidate", row.deploy_candidate, "app_sources") or "[]"
+			) or []
+			built = [s.get("app_name") for s in sources if isinstance(s, dict) and s.get("app_name")]
+			if built:
+				return row.release_group, [a for a in group_apps if a in built] + [
+					a for a in built if a not in group_apps
+				]
+		return row.release_group, group_apps
+
+	@staticmethod
 	def validate_apps_in_release_group(bench, apps):
-		group = frappe.db.get_value("Bench", bench, "release_group")
-		rows = frappe.get_all(
-			"Release Group App",
-			filters={"parent": group, "parenttype": "Release Group"},
-			fields=["app", "app_name"],
-		)
-		allowed = {r.app_name or r.app for r in rows}
+		group, allowed = Site.bench_apps(bench)
 		missing = [a for a in apps if a not in allowed]
 		if missing:
 			frappe.throw(
-				_("Apps {0} are not part of release group {1}").format(", ".join(missing), group)
+				_("Apps {0} are not available on bench {1} (release group {2}); add them to the group and deploy first").format(
+					", ".join(missing), bench, group
+				)
 			)
+
+	def order_new_site_apps(self):
+		"""site.create installs apps in list order: add missing required apps (when the bench has
+		them) and put them before the apps needing them, or refuse clearly."""
+		requested = [row.app for row in self.apps]
+		if not requested:
+			return
+		from nexaploy.api.marketplace import load_catalog
+
+		group, available = self.bench_apps(self.bench)
+		try:
+			plan = mu.install_plan(requested, [], available, load_catalog(), group)
+		except mu.RequirementError as exc:
+			frappe.throw(_(str(exc)), title=_("Missing required apps"))
+		if plan != requested:
+			self.set("apps", [{"app": a, "status": "Pending"} for a in plan])
 
 	def _job(self, kind, params=None, server=None):
 		return create_agent_job(
@@ -123,20 +165,65 @@ class Site(Document):
 
 	@frappe.whitelist()
 	def install_app(self, app):
+		"""Install `app` and, first, the apps it requires that the site does not have yet
+		(one site.install_app job per app, chained by nexaploy.agent_callbacks.on_site_app).
+		Refuses when a required app is not on the bench."""
 		self._ensure_active()
 		if any(row.app == app and row.status == "Installed" for row in self.apps):
 			frappe.throw(_("{0} is already installed").format(app))
 		self.validate_apps_in_release_group(self.bench, [app])
-		self.apps = [row for row in self.apps if row.app != app]
-		self.append("apps", {"app": app, "status": "Pending"})
+		from nexaploy.api.marketplace import load_catalog
+
+		group, available = self.bench_apps(self.bench)
+		installed = [row.app for row in self.apps if row.status == "Installed"]
+		try:
+			plan = mu.install_plan([app], installed, available, load_catalog(), group)
+		except mu.RequirementError as exc:
+			frappe.throw(_(str(exc)), title=_("Missing required apps"))
+		busy = [
+			a for a in plan
+			if frappe.db.exists(
+				"Agent Job",
+				{
+					"reference_doctype": self.doctype,
+					"reference_name": self.name,
+					"kind": "site.install_app",
+					"status": ["in", ["Pending", "Queued", "Running"]],
+					"params": ["like", f'%"app": "{a}"%'],
+				},
+			)
+		]
+		if busy:
+			frappe.throw(_("{0} is already being installed").format(", ".join(busy)))
+		self.apps = [row for row in self.apps if row.app not in plan]
+		for a in plan:
+			self.append("apps", {"app": a, "status": "Pending"})
 		self.save()
-		return self._job("site.install_app", {"app": app})
+		return self._job("site.install_app", {"app": plan[0], "then_install": plan[1:]})
+
+	def continue_app_install(self, job_params, ok):
+		"""Callback of a chained site.install_app: start the next app, or mark the rest Failed."""
+		rest = [a for a in (job_params.get("then_install") or []) if a]
+		if not rest:
+			return None
+		if ok:
+			return self._job("site.install_app", {"app": rest[0], "then_install": rest[1:]})
+		for row in self.apps:
+			if row.app in rest and row.status == "Pending":
+				row.status = "Failed"
+		return None
 
 	@frappe.whitelist()
 	def uninstall_app(self, app):
 		self._ensure_active()
 		if not any(row.app == app for row in self.apps):
 			frappe.throw(_("{0} is not installed").format(app))
+		from nexaploy.api.marketplace import load_catalog
+
+		others = [row.app for row in self.apps if row.status in ("Installed", "Pending")]
+		needed_by = mu.dependents(app, others, load_catalog())
+		if needed_by:
+			frappe.throw(_("{0} is required by {1}; uninstall those first").format(app, ", ".join(needed_by)))
 		return self._job("site.uninstall_app", {"app": app})
 
 	@frappe.whitelist()

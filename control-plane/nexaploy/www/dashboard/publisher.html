@@ -87,8 +87,16 @@
 							<td><span :class="statusClass(l.status)" x-text="__(l.status)"></span></td>
 							<td class="nowrap" x-text="l.pricing === 'Paid' ? nx.money(l.price_monthly) + ' ' + __('/ month') : __('Free')"></td>
 							<td x-text="l.installs"></td>
-							<td class="small ltr" x-text="l.releases.map(function (r) { return 'v' + r.frappe_major; }).join(', ') || '—'"></td>
+							<td class="small">
+								<template x-if="!l.releases.length"><span>—</span></template>
+								<div class="chips">
+									<template x-for="r in l.releases" :key="r.frappe_major">
+										<span :class="releaseClass(r.status)" :title="__(r.status)" x-text="'v' + r.frappe_major"></span>
+									</template>
+								</div>
+							</td>
 							<td class="actions nowrap">
+								<button class="btn sm" type="button" @click="openReleases(l)">{{ _("Releases") }}</button>
 								<template x-if="perms.manage && l.editable.length"><button class="btn sm" type="button" @click="openEdit(l)">{{ _("Edit") }}</button></template>
 								<template x-if="perms.manage && (l.status === 'Draft' || l.status === 'Rejected')"><button class="btn sm primary" type="button" @click="submit(l)" :disabled="busy">{{ _("Submit for review") }}</button></template>
 								<template x-if="perms.manage && l.status === 'In Review'"><button class="btn sm" type="button" @click="withdraw(l)" :disabled="busy">{{ _("Withdraw") }}</button></template>
@@ -148,6 +156,10 @@
 				<label class="field" x-show="canEdit('documentation_url')"><span>{{ _("Documentation URL") }}</span>
 					<input class="input ltr" type="url" x-model="listingForm.documentation_url" placeholder="https://">
 				</label>
+				<label class="field" x-show="canEdit('required_apps')"><span>{{ _("Required apps") }}</span>
+					<input class="input ltr" type="text" x-model="listingForm.required_apps" placeholder="erpnext, payments" autocomplete="off" spellcheck="false">
+					<span class="hint">{{ _("Python app names your app needs, separated by commas. Bench groups add them automatically and sites install them first.") }}</span>
+				</label>
 				<label class="field" x-show="canEdit('screenshots')"><span>{{ _("Screenshots") }}</span>
 					<textarea class="input ltr" rows="3" x-model="listingForm.screenshots" placeholder="https://…"></textarea>
 					<span class="hint">{{ _("Public image URLs, one per line (max 8).") }}</span>
@@ -156,6 +168,77 @@
 					<button class="btn primary" type="submit" :disabled="busy"><span class="spinner" x-show="busy"></span> {{ _("Save") }}</button>
 				</div>
 			</form>
+		</template>
+	</section>
+
+	<!-- Releases of a listing: one per Frappe version, verified by a test build -->
+	<section class="card" x-show="relApp">
+		<div class="card-head">
+			<h2 x-text="relApp ? __('Releases of {0}', [relApp.title]) : ''"></h2>
+			<button class="btn sm ghost" type="button" @click="relApp = null; relLog = null">{{ _("Close") }}</button>
+		</div>
+		<template x-if="relApp">
+			<div class="card-body stack">
+				<p class="small muted" style="margin: 0">{{ _("Each new or changed release is test-built (Frappe, the required apps and your app) before customers can install it. Only verified releases are shown in the marketplace.") }}</p>
+				<table class="nx-table">
+					<thead><tr><th>{{ _("Frappe version") }}</th><th>{{ _("Branch") }}</th><th>{{ _("Status") }}</th><th></th></tr></thead>
+					<tbody>
+						<template x-if="!relApp.releases.length"><tr><td colspan="4" class="muted">{{ _("No releases yet.") }}</td></tr></template>
+						<template x-for="r in relApp.releases" :key="r.frappe_major">
+							<tr>
+								<td class="ltr" x-text="'v' + r.frappe_major"></td>
+								<td class="mono small"><span x-text="r.branch"></span><template x-if="r.commit"><span class="muted" x-text="' @ ' + r.commit.slice(0, 10)"></span></template></td>
+								<td>
+									<span :class="releaseClass(r.status)" x-text="__(r.status)"></span>
+									<template x-if="r.verification_note"><div class="small muted" x-text="r.verification_note"></div></template>
+								</td>
+								<td class="actions nowrap">
+									<button class="btn sm ghost" type="button" x-show="r.verification_job" @click="showLog(r)">{{ _("Build log") }}</button>
+									<template x-if="perms.manage">
+										<button class="btn sm ghost" type="button" :disabled="busy" @click="editRelease(r)">{{ _("Change") }}</button>
+									</template>
+									<template x-if="perms.manage && r.status !== 'Verified'">
+										<button class="btn sm ghost" type="button" :disabled="busy" @click="reverify(r)">{{ _("Test again") }}</button>
+									</template>
+									<template x-if="perms.manage">
+										<button class="btn sm ghost" type="button" :disabled="busy" @click="removeRelease(r)">{{ _("Remove") }}</button>
+									</template>
+								</td>
+							</tr>
+						</template>
+					</tbody>
+				</table>
+				<template x-if="perms.manage">
+					<form class="grid cols-2" @submit.prevent="saveRelease()">
+						<label class="field"><span>{{ _("Frappe version") }}</span>
+							<select class="input" x-model="relForm.frappe_major">
+								<template x-for="m in ['14', '15', '16']" :key="m"><option :value="m" :selected="m === relForm.frappe_major" x-text="'v' + m"></option></template>
+							</select>
+						</label>
+						<label class="field"><span>{{ _("Branch") }}</span>
+							<input class="input ltr" type="text" x-model="relForm.branch" placeholder="version-16" required autocomplete="off" spellcheck="false">
+						</label>
+						<label class="field"><span>{{ _("Commit (optional)") }}</span>
+							<input class="input ltr" type="text" x-model="relForm.commit" placeholder="a1b2c3d" autocomplete="off" spellcheck="false">
+						</label>
+						<div class="row" style="align-items: end">
+							<button class="btn primary" type="submit" :disabled="busy || !relForm.branch">{{ _("Save and test") }}</button>
+						</div>
+					</form>
+				</template>
+				<template x-if="relLog">
+					<div class="stack">
+						<div class="row between">
+							<strong x-text="__('Build log') + ' · v' + relLog.frappe_major"></strong>
+							<span :class="releaseClass(relLog.status)" x-text="__(relLog.status)"></span>
+						</div>
+						<template x-if="!relLog.log"><p class="small muted">{{ _("The build has not started yet.") }}</p></template>
+						<template x-if="relLog.log">
+							<pre class="mono small" style="max-height: 360px; overflow: auto; white-space: pre-wrap" x-text="formatLog(relLog.log)"></pre>
+						</template>
+					</div>
+				</template>
+			</div>
 		</template>
 	</section>
 

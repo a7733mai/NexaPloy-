@@ -335,17 +335,36 @@ def get_site(name):
 	group_apps = _group_apps([bench.release_group]).get(bench.release_group, []) if bench else []
 	installed_names = [row.app for row in doc.apps]
 	meta = _app_meta(set(group_apps) | set(installed_names))
+	# what the bench's image actually contains (an app added to the group needs a deploy)
+	bench_apps = doc.bench_apps(bench.name)[1] if bench else []
+	from nexaploy import marketplace_utils as mu
+	from nexaploy.api.marketplace import load_catalog
+
+	catalog = load_catalog()
+	have = [row.app for row in doc.apps if row.status == "Installed"]
 
 	def app_info(app, status=None):
 		m = meta.get(app) or {}
-		return {
+		info = {
 			"app": app,
 			"title": m.get("title") or app,
 			"category": m.get("category"),
 			"pricing": m.get("pricing"),
 			"price_monthly": m.get("price_monthly"),
 			"status": status,
+			"required_apps": mu.requirements_of(app, catalog),
 		}
+		if status is None:
+			# install button: what else gets installed first, or why it cannot be installed
+			info["deployed"] = app in bench_apps
+			try:
+				plan = mu.install_plan([app], have, bench_apps, catalog, bench.release_group)
+				info["also_installs"] = [a for a in plan if a != app]
+				info["blocked"] = None
+			except mu.RequirementError as exc:
+				info["also_installs"] = []
+				info["blocked"] = str(exc)
+		return info
 
 	server = frappe.db.get_value(
 		"Server", doc.server, ["name", "hostname", "ownership", "status", "team"], as_dict=True
@@ -779,7 +798,9 @@ def marketplace(frappe_major=None):
 		frappe.throw(_("Unsupported Frappe version {0}").format(major))
 	apps = list_apps(major)
 	categories = sorted({a.get("category") for a in apps if a.get("category")})
-	return {"apps": apps, "categories": categories, "majors": list(SUPPORTED_MAJORS)}
+	from nexaploy.marketplace_utils import DEFAULT_MAJOR
+
+	return {"apps": apps, "categories": categories, "majors": list(SUPPORTED_MAJORS), "default_major": DEFAULT_MAJOR}
 
 
 # --------------------------------------------------------------------------- www page context

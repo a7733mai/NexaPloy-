@@ -10,8 +10,8 @@
 		<label class="field" style="flex: 0 1 180px">
 			<span class="small muted">{{ _("Frappe version") }}</span>
 			<select class="input" x-model="major">
-				<option value="">{{ _("All versions") }}</option>
-				<template x-for="m in majors" :key="m"><option :value="m" x-text="'v' + m"></option></template>
+				<template x-for="m in majors" :key="m"><option :value="m" :selected="m === major" x-text="'v' + m"></option></template>
+				<option value="all">{{ _("All versions") }}</option>
 			</select>
 		</label>
 		<label class="field" style="flex: 0 1 200px">
@@ -35,19 +35,103 @@
 					<span class="price" x-text="a.pricing === 'Paid' ? nx.money(a.price_monthly) + ' ' + __('/ month') : __('Free')"></span>
 				</div>
 				<div class="small muted"><span class="ltr" x-text="a.app_name"></span><template x-if="a.publisher"><span x-text="' · ' + a.publisher"></span></template></div>
+				<div class="small" x-show="a.rating && a.rating.count">
+					<span class="stars" :title="__('{0} out of 5', [a.rating ? a.rating.average : 0])" x-text="stars(a.rating ? a.rating.average : 0)"></span>
+					<span class="muted" x-text="(a.rating ? a.rating.average : '') + ' (' + __('{0} reviews', [a.rating ? a.rating.count : 0]) + ')'"></span>
+				</div>
 				<div class="desc" x-text="plain(a.description || '')"></div>
 				<div class="chips">
 					<template x-if="a.category"><span class="chip" x-text="__(a.category)"></span></template>
-					<template x-for="m in majorsOf(a)" :key="m"><span class="chip ltr" x-text="m"></span></template>
+					<template x-for="m in majorsOf(a)" :key="m"><span class="badge plain ltr" :class="m === 'v' + major ? 'success' : 'info'" :title="__('Supports Frappe {0}', [m])" x-text="m"></span></template>
 				</div>
+				<template x-if="a.required_apps && a.required_apps.length">
+					<div class="small muted">{{ _("Requires:") }} <span class="ltr" x-text="a.required_apps.join(', ')"></span></div>
+				</template>
 				<div class="row" style="margin-block-start: auto">
+					<button class="btn sm primary" type="button" @click="openApp(a.app_name)">{{ _("Details") }}</button>
 					<a class="btn sm" :href="a.repo_url" target="_blank" rel="noopener" x-show="a.repo_url">{{ _("Source code") }}</a>
 					<a class="btn sm" :href="a.documentation_url" target="_blank" rel="noopener" x-show="a.documentation_url">{{ _("Documentation") }}</a>
 				</div>
 			</article>
 		</template>
 	</div>
-	<p class="small muted">{{ _("Apps are installed per site from the site's Apps tab. A site can only use apps that are part of its bench.") }}</p>
+	<p class="small muted">{{ _("Add apps to a bench group (Bench groups page), deploy it, then install them on a site from the site's Apps tab. Required apps are added and installed first automatically.") }}</p>
 	<p class="small muted"><a href="/dashboard/publisher">{{ _("Publish your own app on the marketplace") }}</a></p>
+
+	<!-- app detail: versions, requirements, ratings & reviews -->
+	<template x-if="detailOpen">
+		<div class="modal-backdrop" @click.self="closeApp()" @keydown.escape.window="closeApp()">
+			<section class="card modal" role="dialog" aria-modal="true" style="width: min(720px, 100%)">
+				<div class="card-head row between">
+					<h2 x-text="detail ? detail.app.title : '…'"></h2>
+					<button class="btn sm ghost" type="button" @click="closeApp()">{{ _("Close") }}</button>
+				</div>
+				<template x-if="!detail"><div class="loading"><span class="spinner"></span></div></template>
+				<template x-if="detail">
+					<div class="card-body stack">
+						<div class="small muted"><span class="ltr" x-text="detail.app.app_name"></span><template x-if="detail.app.publisher"><span x-text="' · ' + detail.app.publisher"></span></template></div>
+						<div class="desc" x-text="plain(detail.app.description || '')"></div>
+						<table class="nx-table">
+							<thead><tr><th>{{ _("Frappe version") }}</th><th>{{ _("Branch") }}</th></tr></thead>
+							<tbody>
+								<template x-for="r in detail.app.releases" :key="r.frappe_major">
+									<tr><td class="ltr" x-text="'v' + r.frappe_major"></td><td class="mono small" x-text="r.branch"></td></tr>
+								</template>
+							</tbody>
+						</table>
+						<template x-if="detail.app.required_apps.length">
+							<div class="alert info">{{ _("Requires:") }} <span class="ltr" x-text="detail.app.required_apps.join(', ')"></span>. {{ _("They are added to the bench group and installed on the site first.") }}</div>
+						</template>
+
+						<div class="row between">
+							<h3 style="margin: 0">{{ _("Ratings & reviews") }}</h3>
+							<span class="small" x-show="detail.app.rating.count">
+								<span class="stars" x-text="stars(detail.app.rating.average)"></span>
+								<span class="muted" x-text="detail.app.rating.average + ' (' + __('{0} reviews', [detail.app.rating.count]) + ')'"></span>
+							</span>
+						</div>
+
+						<template x-if="detail.can_review">
+							<form class="card card-body stack" @submit.prevent="saveReview()">
+								<div class="row">
+									<span class="small muted" x-text="detail.my_review ? __('Your review') : __('Rate this app')"></span>
+									<template x-for="n in [1, 2, 3, 4, 5]" :key="n">
+										<button class="btn sm ghost" type="button" :aria-pressed="form.rating >= n" :title="__('{0} out of 5', [n])" @click="form.rating = n" x-text="form.rating >= n ? '★' : '☆'"></button>
+									</template>
+								</div>
+								<textarea class="input" rows="3" maxlength="4000" x-model="form.review" placeholder="{{ _('What do you like or miss? (optional)') }}"></textarea>
+								<div class="row">
+									<button class="btn sm primary" type="submit" :disabled="busy || !form.rating">{{ _("Save review") }}</button>
+									<button class="btn sm ghost" type="button" x-show="detail.my_review" :disabled="busy" @click="deleteReview()">{{ _("Delete") }}</button>
+								</div>
+							</form>
+						</template>
+						<template x-if="!detail.can_review && !detail.my_review">
+							<p class="small muted">{{ _("Install this app on one of your sites to rate and review it.") }}</p>
+						</template>
+
+						<template x-if="!detail.reviews.length"><p class="small muted">{{ _("No reviews yet.") }}</p></template>
+						<template x-for="r in detail.reviews" :key="r.name">
+							<article class="card card-body stack" :style="r.hidden ? 'opacity: .6' : ''">
+								<div class="row between">
+									<div><span class="stars" x-text="stars(r.rating)"></span> <strong x-text="r.team_title"></strong></div>
+									<span class="small muted" x-text="nx.fmtDate(r.modified)"></span>
+								</div>
+								<template x-if="r.hidden"><span class="badge danger" x-text="__('Hidden') + (r.hidden_reason ? ': ' + r.hidden_reason : '')"></span></template>
+								<div style="white-space: pre-line" x-text="r.review || ''"></div>
+								<template x-if="r.publisher_reply">
+									<div class="alert info small"><strong>{{ _("Publisher reply") }}:</strong> <span style="white-space: pre-line" x-text="r.publisher_reply"></span></div>
+								</template>
+								<div class="row" x-show="detail.can_reply || detail.is_admin">
+									<button class="btn sm ghost" type="button" x-show="detail.can_reply" @click="reply(r)" x-text="r.publisher_reply ? __('Edit reply') : __('Reply')"></button>
+									<button class="btn sm ghost" type="button" x-show="detail.is_admin" @click="toggleHidden(r)" x-text="r.hidden ? __('Show') : __('Hide')"></button>
+								</div>
+							</article>
+						</template>
+					</div>
+				</template>
+			</section>
+		</div>
+	</template>
 </div>
 {% endblock %}

@@ -118,6 +118,11 @@ def _sync_billing(doc):
 
 @handles("image.build")
 def on_image_build(job):
+	if job.reference_doctype == "Marketplace App":
+		# test build of a publisher's release (nexaploy.marketplace_verify)
+		from nexaploy.marketplace_verify import on_verification_job
+
+		return on_verification_job(job)
 	dc = _ref(job)
 	if job.status in ("Queued", "Running"):
 		dc.status = "Building"
@@ -244,12 +249,16 @@ def on_site_app(job):
 	if job.status not in TERMINAL_JOB_STATUSES:
 		return
 	site = _ref(job)
-	app = (_json(job.params, {}) or {}).get("app")
+	params = _json(job.params, {}) or {}
+	app = params.get("app")
 	ok = job.status == "Success"
 	if job.kind == "site.install_app":
 		for row in site.apps:
 			if row.app == app:
 				row.status = "Installed" if ok else "Failed"
+		# required apps are installed one job at a time (Site.install_app): next one, or the
+		# rest of the chain fails with this one
+		site.continue_app_install(params, ok)
 	elif ok:
 		site.apps = [row for row in site.apps if row.app != app]
 	_save(site)

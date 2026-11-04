@@ -12,6 +12,7 @@ import secrets
 import frappe
 from frappe import _
 
+from nexaploy import marketplace_utils as mu
 from nexaploy.utils import (
 	CUSTOM_SOURCE,
 	MARKETPLACE_SOURCE,
@@ -89,6 +90,35 @@ def _app_row(source_type, app, branch=None):
 	row = {"source_type": source_type, "branch": (branch or "").strip() or None}
 	row["custom_app" if source_type == CUSTOM_SOURCE else "app"] = str(app).strip()
 	return row
+
+
+def _with_requirements(rows, major, present=()):
+	"""rows + the marketplace apps they require that are not in the group yet, required apps
+	first (hrms -> erpnext, hrms). Returns (rows, auto_added app names). Refuses with a clear
+	message when a requirement cannot be added for `major`."""
+	market = [r["app"] for r in rows if r["source_type"] == MARKETPLACE_SOURCE]
+	custom = [r for r in rows if r["source_type"] == CUSTOM_SOURCE]
+	if not market:
+		return rows, []
+	from nexaploy.api.marketplace import load_catalog
+
+	present = set(present)
+	for r in custom:
+		name = frappe.db.get_value("Custom App", r["custom_app"], "app_name")
+		if name:
+			present.add(name)
+	dup = [a for a in market if a in present]
+	if dup:
+		frappe.throw(_("{0} is already in this bench group").format(", ".join(dup)))
+	catalog = load_catalog()
+	try:
+		order = mu.apps_to_add(market, present, catalog, major)
+	except mu.RequirementError as exc:
+		frappe.throw(_(str(exc)), title=_("Missing required apps"))
+	picked = {r["app"]: r for r in rows if r["source_type"] == MARKETPLACE_SOURCE}
+	added = [a for a in order if a not in picked]
+	out = [picked.get(a) or {"source_type": MARKETPLACE_SOURCE, "app": a, "branch": None} for a in order]
+	return out + custom, added
 
 
 # --------------------------------------------------------------------------- serialisation
@@ -285,6 +315,7 @@ def create_release_group(title, frappe_major, apps=None, build_server=None, auto
 		frappe.throw(_("The name {0} is already taken").format(title))
 	if str(frappe_major) not in SUPPORTED_MAJORS:
 		frappe.throw(_("Unsupported Frappe version {0}").format(frappe_major))
+	app_rows, auto_added = _with_requirements(_parse_apps(apps), str(frappe_major))
 	if build_server:
 		_team_server(build_server, team, _("build server"))
 	elif not frappe.db.get_single_value("Nexaploy Settings", "default_build_server"):
@@ -298,11 +329,13 @@ def create_release_group(title, frappe_major, apps=None, build_server=None, auto
 			"build_server": build_server or None,
 			"auto_update": 1 if str(auto_update) in ("1", "true", "True") else 0,
 			"update_window": update_window or None,
-			"apps": _parse_apps(apps),
+			"apps": app_rows,
 		}
 	)
 	doc.insert(ignore_permissions=True)
-	return _group_dict(doc, full=True)
+	data = _group_dict(doc, full=True)
+	data["auto_added"] = auto_added
+	return data
 
 
 @frappe.whitelist(methods=["POST"])
@@ -324,9 +357,13 @@ def update_release_group(name, build_server=None, auto_update=None, update_windo
 def add_app(release_group, source_type, app, branch=None):
 	doc = _group(release_group, "write")
 	row = _app_row(source_type, app, branch)
-	doc.append("apps", row)
+	rows, auto_added = _with_requirements([row], doc.frappe_major, [r.app_name or r.app for r in doc.apps])
+	for r in rows:
+		doc.append("apps", r)
 	doc.save(ignore_permissions=True)
-	return _group_dict(doc, full=True)
+	data = _group_dict(doc, full=True)
+	data["auto_added"] = auto_added
+	return data
 
 
 @frappe.whitelist(methods=["POST"])
@@ -339,6 +376,15 @@ def remove_app(release_group, app):
 		frappe.throw(_("App {0} is not in release group {1}").format(app, doc.name))
 	removed = [r for r in doc.apps if r not in keep]
 	app_names = {r.app_name or r.app for r in removed}
+	from nexaploy.api.marketplace import load_catalog
+
+	catalog = load_catalog()
+	kept_names = [r.app_name or r.app for r in keep]
+	needed = sorted({d for a in app_names for d in mu.dependents(a, kept_names, catalog)})
+	if needed:
+		frappe.throw(
+			_("{0} is required by {1}; remove those first").format(", ".join(sorted(app_names)), ", ".join(needed))
+		)
 	benches = frappe.get_all("Bench", filters={"release_group": doc.name, "status": ["!=", "Archived"]}, pluck="name")
 	if benches:
 		sites = frappe.get_all(

@@ -5,3 +5,5 @@
 # Patches added in this section will be executed after doctypes are migrated
 nexaploy.patches.v0_2.user_team_to_team
 nexaploy.patches.v0_3.marketplace_listing_status
+nexaploy.patches.v0_4.marketplace_release_status
+nexaploy.patches.v0_4.seed_official_marketplace_apps
